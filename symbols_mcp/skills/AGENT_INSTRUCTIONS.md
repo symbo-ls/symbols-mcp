@@ -151,7 +151,60 @@ Root-level state (global): `s.root.update({ key: val })`
 | `extends: 'X'` | `extend: 'X'` |
 | `childExtends: 'X'` | `childExtend: 'X'` |
 | `onClick: fn` | `on: { click: fn }` |
+| `onCreate: fn` | `on: { create: fn }` |
+| `onRender: fn` | `on: { render: fn }` |
+| `onUpdate: fn` | `on: { update: fn }` |
 | props flattened at root | `props: { ... }` wrapper |
+
+The `on: { ... }` wrapper is **v2 and completely broken in v3** — events will never fire.
+
+```js
+// CORRECT — v3 flat event props
+export const MyComponent = {
+  extends: 'Flex',
+  onCreate: (el) => { /* fires on create */ },
+  onRender: (el) => { /* fires on render */ },
+  onClick: (e, el) => { /* fires on click */ },
+}
+
+// WRONG — v2 on:{} wrapper, events will NOT fire
+export const MyComponent = {
+  extends: 'Flex',
+  on: {
+    create: (el) => { },
+    render: (el) => { },
+    click: (e, el) => { },
+  }
+}
+```
+
+---
+
+## 11b. Child keys MUST be PascalCase
+
+All child element keys must start with an uppercase letter. Lowercase keys are treated as HTML attribute passthrough or reserved DOMQL props — they will NOT create child elements.
+
+```js
+// CORRECT — PascalCase keys create child elements
+export const SphereGallery = {
+  extends: 'Flex',
+  Stars: { tag: 'canvas' },
+  Scene: {
+    tag: 'div',
+    Sphere: { tag: 'div' }
+  }
+}
+
+// WRONG — lowercase keys do NOT create child elements
+export const SphereGallery = {
+  extends: 'Flex',
+  stars: { tag: 'canvas' },   // ❌ treated as prop, not child
+  scene: {
+    tag: 'div',
+    sphere: { tag: 'div' }    // ❌ treated as prop, not child
+  }
+}
+```
 
 ---
 
