@@ -2,4 +2,4 @@
 .mcpregistry_registry_token
 .pypirc
 __pycache__
-.pypirc
+*.mcpb

@@ -1,0 +1,16 @@
+.pypirc
+.pypi_token
+.mcpregistry_github_token
+.mcpregistry_registry_token
+.gitignore
+.mcpbignore
+publish.sh
+generate-mcpb.sh
+server.json
+pyproject.toml
+uv.lock
+dist/
+*.mcpb
+__pycache__/
+*.py[cod]
+.git/
