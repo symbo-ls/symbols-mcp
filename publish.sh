@@ -46,6 +46,7 @@ npm publish --access public
 
 # Publish to MCP registry
 echo "Publishing to MCP registry..."
+mcp-publisher login github
 mcp-publisher publish
 
 echo "Done! Published symbols-mcp $NEW"
