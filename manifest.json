@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "symbols-mcp",
   "display_name": "Symbols MCP",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "MCP server for Symbols/DOMQL v3 — documentation search and framework reference",
   "author": {
     "name": "Symbols",
