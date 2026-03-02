@@ -23,8 +23,9 @@ echo "Bumping $CURRENT → $NEW"
 # Update versions
 sed -i '' "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml
 sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/g" server.json
+sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" package.json
 
-# Build
+# Build Python package
 rm -f dist/symbols_mcp-${CURRENT}*
 uv build
 
@@ -35,6 +36,10 @@ else
   read -rsp "PyPI token: " TOKEN; echo
 fi
 uv publish --token "$TOKEN"
+
+# Publish to npm
+chmod +x bin/symbols-mcp.js
+npm publish --access public
 
 # Publish to MCP registry
 echo "Publishing to MCP registry..."
