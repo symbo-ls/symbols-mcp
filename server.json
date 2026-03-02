@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.symbo-ls/symbols-mcp",
+  "version": "1.0.3",
+  "title": "Symbols MCP",
+  "description": "MCP server for Symbols/DOMQL v3 — documentation search and framework reference",
+  "repository": {
+    "url": "https://github.com/symbo-ls/symbols-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "symbols-mcp",
+      "version": "1.0.3",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

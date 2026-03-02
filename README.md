@@ -1,5 +1,7 @@
 # symbols-mcp
 
+mcp-name: io.github.symbo-ls/symbols-mcp
+
 MCP server for [Symbols/DOMQL v3](https://symbols.so) — provides documentation search and framework reference tools for AI coding assistants (Cursor, Claude Code, Windsurf, etc.).
 
 No API keys required. All tools work fully offline using bundled documentation.
