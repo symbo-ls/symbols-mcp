@@ -1,6 +1,6 @@
 [project]
 name = "symbols-mcp"
-version = "1.0.3"
+version = "1.0.4"
 description = "MCP server for Symbols/DOMQL v3 — documentation search and framework reference"
 readme = "README.md"
 requires-python = ">=3.10"

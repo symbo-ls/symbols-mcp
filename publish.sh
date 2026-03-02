@@ -41,6 +41,9 @@ uv publish --token "$TOKEN"
 chmod +x bin/symbols-mcp.js
 npm publish --access public
 
+# Generate .mcpb bundle
+./generate-mcpb.sh
+
 # Publish to MCP registry
 echo "Publishing to MCP registry..."
 mcp-publisher publish

@@ -1,0 +1,67 @@
+{
+  "manifest_version": "0.3",
+  "name": "symbols-mcp",
+  "display_name": "Symbols MCP",
+  "version": "1.0.4",
+  "description": "MCP server for Symbols/DOMQL v3 — documentation search and framework reference",
+  "author": {
+    "name": "Symbols",
+    "url": "https://symbols.so"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/symbo-ls/symbols-mcp.git"
+  },
+  "homepage": "https://symbols.so",
+  "documentation": "https://github.com/symbo-ls/symbols-mcp",
+  "support": "https://github.com/symbo-ls/symbols-mcp/issues",
+  "keywords": ["symbols", "domql", "mcp", "design-system", "ai"],
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "bin/symbols-mcp.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/bin/symbols-mcp.js"]
+    }
+  },
+  "tools": [
+    {
+      "name": "get_project_rules",
+      "description": "Returns mandatory Symbols/DOMQL v3 rules. Call this first before any code generation."
+    },
+    {
+      "name": "search_symbols_docs",
+      "description": "Search the Symbols documentation knowledge base for relevant information."
+    }
+  ],
+  "prompts": [
+    {
+      "name": "symbols_component_prompt",
+      "description": "Generate a Symbols/DOMQL v3 component",
+      "arguments": ["description", "component_name"],
+      "text": "Generate a Symbols/DOMQL v3 component with these requirements:\n\nComponent Name: ${arguments.component_name}\nDescription: ${arguments.description}\n\nFollow these strict rules:\n- Use DOMQL v3 syntax ONLY (extends, childExtends, flattened props, onX events)\n- Components are plain objects with named exports: export const ${arguments.component_name} = { ... }\n- Use design-system tokens for spacing (A, B, C), colors, typography\n- NO imports between files — reference components by PascalCase key name\n- All folders flat — no subfolders\n- Include responsive breakpoints (@mobile, @tablet) where appropriate\n- Follow modern UI/UX: visual hierarchy, minimal cognitive load, confident typography\n\nOutput ONLY the JavaScript code."
+    },
+    {
+      "name": "symbols_migration_prompt",
+      "description": "Migrate React/Angular/Vue code to Symbols/DOMQL v3",
+      "arguments": ["source_framework"],
+      "text": "You are migrating ${arguments.source_framework} code to Symbols/DOMQL v3.\n\nKey conversion rules for ${arguments.source_framework}:\n- Components become plain objects (never functions)\n- NO imports between project files\n- All folders are flat — no subfolders\n- Use extends/childExtends (v3 plural, never v2 singular)\n- Flatten all props directly (no props: {} wrapper)\n- Events use onX prefix (no on: {} wrapper)\n- Use design-system tokens for spacing/colors\n- State: state: { key: val } + s.update({ key: newVal })\n- Effects: onRender for mount, onStateUpdate for dependency changes\n- Lists: children: (el, s) => s.items, childrenAs: 'state', childExtends: 'Item'\n\nProvide the ${arguments.source_framework} code to convert and I will output clean DOMQL v3."
+    },
+    {
+      "name": "symbols_project_prompt",
+      "description": "Scaffold a complete Symbols project",
+      "arguments": ["description"],
+      "text": "Create a complete Symbols/DOMQL v3 project:\n\nProject Description: ${arguments.description}\n\nRequired structure (smbls/ folder):\n- index.js (root export)\n- config.js (platform config)\n- vars.js (global constants)\n- dependencies.js (external packages)\n- components/ (PascalCase files, named exports)\n- pages/ (dash-case files, camelCase exports, route mapping in index.js)\n- functions/ (camelCase, called via el.call())\n- designSystem/ (color, spacing, typography, theme, icons)\n- state/ (default exports)\n\nRules:\n- v3 syntax only — extends, childExtends, flattened props, onX events\n- Design tokens for all spacing/colors (padding: 'A', not padding: '16px')\n- Components are plain objects, never functions\n- No imports between project files\n- All folders completely flat\n\nGenerate all files with complete, production-ready code."
+    },
+    {
+      "name": "symbols_review_prompt",
+      "description": "Review Symbols/DOMQL code for v3 compliance",
+      "arguments": [],
+      "text": "Review this Symbols/DOMQL code for v3 compliance and best practices.\n\nCheck for these violations:\n1. v2 syntax: extend→extends, childExtend→childExtends, props:{}, on:{}\n2. Imports between project files (FORBIDDEN)\n3. Function-based components (must be plain objects)\n4. Subfolders (must be flat)\n5. Hardcoded pixels instead of design tokens\n6. Wrong event handler signatures\n7. Default exports for components (should be named)\n\nProvide:\n- Issues found with line references\n- Corrected code for each issue\n- Overall v3 compliance score (1-10)\n- Improvement suggestions\n\nPaste your code below:"
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"]
+  }
+}
