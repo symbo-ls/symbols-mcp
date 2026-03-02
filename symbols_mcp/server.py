@@ -1,5 +1,5 @@
 """
-Symbols MCP — Documentation search and reference tools for Symbols/DOMQL v3.
+Symbols MCP — Documentation search and reference tools for Symbols.app.
 """
 
 import os
@@ -24,7 +24,7 @@ logger = logging.getLogger("symbols-mcp")
 mcp = FastMCP(
     "Symbols",
     instructions=(
-        "Reference assistant for the Symbols/DOMQL v3 design-system framework. "
+        "Reference assistant for the Symbols.app design-system framework. "
         "Searches Symbols documentation, exposes framework rules, and provides "
         "comprehensive syntax and API reference."
     ),
@@ -61,7 +61,7 @@ def _load_agent_instructions() -> str:
 def get_project_rules() -> str:
     """ALWAYS call this first before any generate_* tool.
 
-    Returns the mandatory Symbols/DOMQL v3 rules that MUST be followed.
+    Returns the mandatory Symbols.app rules that MUST be followed.
     Violations cause silent failures — black page, nothing renders.
 
     Call this before: generate_project, generate_component, generate_page,
@@ -133,7 +133,7 @@ def get_design_direction() -> str:
 
 @mcp.resource("symbols://skills/migration-guide")
 def get_migration_guide() -> str:
-    """Guide for migrating React/Angular/Vue apps to Symbols/DOMQL v3."""
+    """Guide for migrating React/Angular/Vue apps to Symbols.app."""
     return _read_skill("MIGRATE_TO_SYMBOLS.md")
 
 
@@ -211,7 +211,7 @@ Usage examples:
 
 @mcp.resource("symbols://reference/event-handlers")
 def get_event_handlers() -> str:
-    """Event handler reference for Symbols/DOMQL v3."""
+    """Event handler reference for Symbols.app."""
     return """# Symbols Event Handlers (v3)
 
 ## Lifecycle Events
@@ -258,8 +258,8 @@ def get_event_handlers() -> str:
 
 @mcp.prompt()
 def symbols_component_prompt(description: str, component_name: str = "MyComponent") -> str:
-    """Prompt template for generating a Symbols/DOMQL v3 component."""
-    return f"""Generate a Symbols/DOMQL v3 component with these requirements:
+    """Prompt template for generating a Symbols.app component."""
+    return f"""Generate a Symbols.app component with these requirements:
 
 Component Name: {component_name}
 Description: {description}
@@ -278,8 +278,8 @@ Output ONLY the JavaScript code."""
 
 @mcp.prompt()
 def symbols_migration_prompt(source_framework: str = "React") -> str:
-    """Prompt template for migrating code to Symbols/DOMQL v3."""
-    return f"""You are migrating {source_framework} code to Symbols/DOMQL v3.
+    """Prompt template for migrating code to Symbols.app."""
+    return f"""You are migrating {source_framework} code to Symbols.app.
 
 Key conversion rules for {source_framework}:
 - Components become plain objects (never functions)
@@ -299,7 +299,7 @@ Provide the {source_framework} code to convert and I will output clean DOMQL v3.
 @mcp.prompt()
 def symbols_project_prompt(description: str) -> str:
     """Prompt template for scaffolding a complete Symbols project."""
-    return f"""Create a complete Symbols/DOMQL v3 project:
+    return f"""Create a complete Symbols.app project:
 
 Project Description: {description}
 

@@ -1,6 +1,6 @@
 # Symbols / DOMQL v3 — AI Agent Instructions
 
-You are working inside a **Symbols/DOMQL v3** project. These rules are absolute and override any general coding instincts. Violations cause silent failures (black page, nothing renders).
+You are working inside a **Symbols.app** project. These rules are absolute and override any general coding instincts. Violations cause silent failures (black page, nothing renders).
 
 ---
 
@@ -8,10 +8,10 @@ You are working inside a **Symbols/DOMQL v3** project. These rules are absolute 
 
 ```js
 // CORRECT
-export const Header = { extends: 'Flex', padding: 'A' }
+export const Header = { extends: "Flex", padding: "A" };
 
 // WRONG — never
-export const Header = (el, state) => ({ padding: 'A' })
+export const Header = (el, state) => ({ padding: "A" });
 ```
 
 ---
@@ -36,11 +36,11 @@ Nav: { extends: 'Navbar' }
 
 ```js
 // CORRECT
-export * from './Navbar.js'
-export * from './PostCard.js'
+export * from "./Navbar.js";
+export * from "./PostCard.js";
 
 // WRONG — this breaks everything
-export * as Navbar from './Navbar.js'
+export * as Navbar from "./Navbar.js";
 ```
 
 ---
@@ -60,8 +60,8 @@ export const main = { extends: 'Flex', ... }
 ## 5. `pages/index.js` — imports ARE allowed here (it's the registry)
 
 ```js
-import { main } from './main.js'
-export default { '/': main }
+import { main } from "./main.js";
+export default { "/": main };
 ```
 
 This is the **only** file where cross-file imports are permitted.
@@ -96,12 +96,12 @@ export const switchView = function switchView(view) {
 ```js
 // functions/myFn.js
 export const myFn = function myFn(arg1) {
-  const node = this.node  // 'this' is the DOMQL element
-}
+  const node = this.node; // 'this' is the DOMQL element
+};
 
 // In component
-onClick: (e, el) => el.call('myFn', someArg)  // CORRECT
-onClick: (e, el) => el.call('myFn', el, someArg)  // WRONG — el passed twice
+onClick: (e, el) => el.call("myFn", someArg); // CORRECT
+onClick: (e, el) => el.call("myFn", el, someArg); // WRONG — el passed twice
 ```
 
 ---
@@ -136,8 +136,10 @@ MyBtn: { extends: 'Button', Icon: { name: 'heart' } }
 ## 10. State — use `s.update()`, never mutate directly
 
 ```js
-onClick: (e, el, s) => s.update({ count: s.count + 1 })  // CORRECT
-onClick: (e, el, s) => { s.count = s.count + 1 }          // WRONG — no re-render
+onClick: (e, el, s) => s.update({ count: s.count + 1 }); // CORRECT
+onClick: (e, el, s) => {
+  s.count = s.count + 1;
+}; // WRONG — no re-render
 ```
 
 Root-level state (global): `s.root.update({ key: val })`
@@ -146,11 +148,11 @@ Root-level state (global): `s.root.update({ key: val })`
 
 ## 11. v3 syntax — never use v2
 
-| v3 ✅ | v2 ❌ |
-|---|---|
-| `extends: 'X'` | `extend: 'X'` |
-| `childExtends: 'X'` | `childExtend: 'X'` |
-| `onClick: fn` | `on: { click: fn }` |
+| v3 ✅                   | v2 ❌                    |
+| ----------------------- | ------------------------ |
+| `extends: 'X'`          | `extend: 'X'`            |
+| `childExtends: 'X'`     | `childExtend: 'X'`       |
+| `onClick: fn`           | `on: { click: fn }`      |
 | props flattened at root | `props: { ... }` wrapper |
 
 ---
@@ -168,10 +170,10 @@ components/nav/Navbar.js   ❌
 
 ```js
 onRender: (el) => {
-  if (el.__initialized) return
-  el.__initialized = true
+  if (el.__initialized) return;
+  el.__initialized = true;
   // imperative logic here
-}
+};
 ```
 
 ---
@@ -205,17 +207,23 @@ Define named tokens in `designSystem/COLOR.js` instead:
 ```js
 // designSystem/COLOR.js
 export default {
-  whiteMuted: 'rgba(255,255,255,0.7)',
-  whiteSubtle: 'rgba(255,255,255,0.6)',
-  whiteFaint:  'rgba(255,255,255,0.5)',
-}
+  whiteMuted: "rgba(255,255,255,0.7)",
+  whiteSubtle: "rgba(255,255,255,0.6)",
+  whiteFaint: "rgba(255,255,255,0.5)",
+};
 
 // In component — CORRECT
-{ color: 'whiteMuted' }
+{
+  color: "whiteMuted";
+}
 
 // WRONG — renders as literal text, not a style
-{ color: 'white .7' }
-{ color: 'black .5' }
+{
+  color: "white .7";
+}
+{
+  color: "black .5";
+}
 ```
 
 ---

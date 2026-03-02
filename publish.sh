@@ -2,7 +2,7 @@
 set -e
 
 # Usage: ./publish.sh [patch|minor|major|x.y.z]
-# Stores PyPI token in .pypi_token (gitignored)
+# Stores PyPI token in .pypirc (gitignored)
 
 BUMP=${1:-patch}
 
@@ -30,8 +30,8 @@ rm -f dist/symbols_mcp-${CURRENT}*
 uv build
 
 # Publish to PyPI
-if [ -f .pypi_token ]; then
-  TOKEN=$(cat .pypi_token)
+if [ -f .pypirc ]; then
+  TOKEN=$(awk '/\[symbols-mcp\]/{f=1} f && /password/{print $3; exit}' .pypirc)
 else
   read -rsp "PyPI token: " TOKEN; echo
 fi
@@ -48,5 +48,11 @@ npm publish --access public
 echo "Publishing to MCP registry..."
 mcp-publisher login github
 mcp-publisher publish
+
+# Commit, tag and push
+git add .
+git commit -m "chore: release v$NEW"
+git tag "v$NEW"
+git push && git push --tags
 
 echo "Done! Published symbols-mcp $NEW"

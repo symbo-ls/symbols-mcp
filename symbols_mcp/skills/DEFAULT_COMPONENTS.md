@@ -1,6 +1,6 @@
 # Default components and property usage
 
-This document lists the default components in `smbls/components` and how their properties are commonly used in Symbols/DOMQL v3.
+This document lists the default components in `smbls/components` and how their properties are commonly used in Symbols.app.
 
 ## Component groups
 
@@ -51,7 +51,9 @@ Common props:
 Example:
 
 ```js
-H2: { text: 'Section title' }
+H2: {
+  text: "Section title";
+}
 ```
 
 ### P
@@ -66,7 +68,9 @@ Common props:
 Example:
 
 ```js
-P: { text: 'A short description goes here.' }
+P: {
+  text: "A short description goes here.";
+}
 ```
 
 ### Caption
@@ -81,7 +85,9 @@ Common props:
 Example:
 
 ```js
-Caption: { text: 'Updated 3 days ago' }
+Caption: {
+  text: "Updated 3 days ago";
+}
 ```
 
 ### Headline / Subhead / Footnote
@@ -96,9 +102,15 @@ Common props:
 Example:
 
 ```js
-Headline: { text: 'Welcome back' }
-Subhead: { text: 'Manage your workspace' }
-Footnote: { text: '* Prices are subject to change' }
+Headline: {
+  text: "Welcome back";
+}
+Subhead: {
+  text: "Manage your workspace";
+}
+Footnote: {
+  text: "* Prices are subject to change";
+}
 ```
 
 ### Strong / Italic / U
@@ -112,9 +124,15 @@ Common props:
 Example:
 
 ```js
-Strong: { text: 'Important' }
-Italic: { text: 'Note:' }
-U: { text: 'Terms of service' }
+Strong: {
+  text: "Important";
+}
+Italic: {
+  text: "Note:";
+}
+U: {
+  text: "Terms of service";
+}
 ```
 
 ---
@@ -136,7 +154,9 @@ Common props:
 Example:
 
 ```js
-Hr: { minWidth: 'F' }
+Hr: {
+  minWidth: "F";
+}
 ```
 
 ### HrLegend
@@ -150,7 +170,9 @@ Common props:
 Example:
 
 ```js
-HrLegend: { text: 'Or' }
+HrLegend: {
+  text: "Or";
+}
 ```
 
 ---
@@ -278,8 +300,14 @@ Common props:
 Example:
 
 ```js
-UploadButton: { text: 'Choose file' }
-UploadIconButton: { Icon: { name: 'upload' } }
+UploadButton: {
+  text: "Choose file";
+}
+UploadIconButton: {
+  Icon: {
+    name: "upload";
+  }
+}
 ```
 
 ### SubmitButton
@@ -295,7 +323,9 @@ Common props:
 Example:
 
 ```js
-SubmitButton: { value: 'Create account' }
+SubmitButton: {
+  value: "Create account";
+}
 ```
 
 ### ButtonSet
@@ -312,10 +342,7 @@ Example:
 
 ```js
 ButtonSet: {
-  children: [
-    { text: 'Cancel' },
-    { text: 'Save', theme: 'primary' }
-  ]
+  children: [{ text: "Cancel" }, { text: "Save", theme: "primary" }];
 }
 ```
 
@@ -332,10 +359,7 @@ Example:
 
 ```js
 ConfirmationButtons: {
-  children: [
-    { text: 'Cancel' },
-    { text: 'Delete', theme: 'danger' }
-  ]
+  children: [{ text: "Cancel" }, { text: "Delete", theme: "danger" }];
 }
 ```
 
@@ -388,7 +412,9 @@ Common props:
 Example:
 
 ```js
-Avatar: { boxSize: 'C2' }
+Avatar: {
+  boxSize: "C2";
+}
 ```
 
 ### AvatarSet
@@ -403,7 +429,9 @@ Common props:
 Example:
 
 ```js
-AvatarSet: { children: [{}, {}, {}] }
+AvatarSet: {
+  children: [{}, {}, {}];
+}
 ```
 
 ### AvatarStatus
@@ -739,7 +767,11 @@ Common props:
 Example:
 
 ```js
-FixedNumberField: { Input: { placeholder: '0000' } }
+FixedNumberField: {
+  Input: {
+    placeholder: "0000";
+  }
+}
 ```
 
 ### CardNumberField
@@ -753,7 +785,9 @@ Common props:
 Example:
 
 ```js
-CardNumberField: { children: [{}, {}, {}, {}] }
+CardNumberField: {
+  children: [{}, {}, {}, {}];
+}
 ```
 
 ### Group / GroupField
@@ -792,9 +826,9 @@ Example:
 SelectPicker: {
   Select: {
     children: [
-      { text: 'Option A', value: 'a' },
-      { text: 'Option B', value: 'b' }
-    ]
+      { text: "Option A", value: "a" },
+      { text: "Option B", value: "b" },
+    ];
   }
 }
 ```
@@ -832,7 +866,9 @@ Example:
 
 ```js
 NumberPicker: {
-  Value: { text: '{{ currentValue }}' }
+  Value: {
+    text: "{{ currentValue }}";
+  }
 }
 ```
 
@@ -849,7 +885,11 @@ Common props:
 Example:
 
 ```js
-Search: { Input: { placeholder: 'Search…' } }
+Search: {
+  Input: {
+    placeholder: "Search…";
+  }
+}
 ```
 
 ### SearchDropdown
@@ -865,7 +905,9 @@ Example:
 
 ```js
 SearchDropdown: {
-  state: { data: ['New York', 'Los Angeles', 'Chicago'] }
+  state: {
+    data: ["New York", "Los Angeles", "Chicago"];
+  }
 }
 ```
 
@@ -1124,9 +1166,9 @@ Example:
 ```js
 IconTextSet: {
   children: [
-    { Icon: { name: 'phone' }, text: '+1 (555) 123-4567' },
-    { Icon: { name: 'mail' }, text: 'hello@example.com' }
-  ]
+    { Icon: { name: "phone" }, text: "+1 (555) 123-4567" },
+    { Icon: { name: "mail" }, text: "hello@example.com" },
+  ];
 }
 ```
 
@@ -1185,9 +1227,21 @@ Common props:
 Example:
 
 ```js
-CheckCaption: { Caption: { text: 'Accept terms' } }
-RadioCaption: { Caption: { text: 'Option A' } }
-ToggleCaption: { Caption: { text: 'Enable notifications' } }
+CheckCaption: {
+  Caption: {
+    text: "Accept terms";
+  }
+}
+RadioCaption: {
+  Caption: {
+    text: "Option A";
+  }
+}
+ToggleCaption: {
+  Caption: {
+    text: "Enable notifications";
+  }
+}
 ```
 
 ### CheckCaptionList / RadioCaptionList / ToggleCaptionList
@@ -1203,9 +1257,9 @@ Example:
 ```js
 CheckCaptionList: {
   children: [
-    { Caption: { text: 'Option 1' } },
-    { Caption: { text: 'Option 2' } }
-  ]
+    { Caption: { text: "Option 1" } },
+    { Caption: { text: "Option 2" } },
+  ];
 }
 ```
 
@@ -1240,9 +1294,9 @@ Example:
 ```js
 ToggleHgroupList: {
   children: [
-    { H: { text: 'Email alerts' }, P: { text: 'Sent daily' } },
-    { H: { text: 'Push notifications' }, P: { text: 'Instant' } }
-  ]
+    { H: { text: "Email alerts" }, P: { text: "Sent daily" } },
+    { H: { text: "Push notifications" }, P: { text: "Instant" } },
+  ];
 }
 ```
 
@@ -1279,10 +1333,10 @@ Example:
 ```js
 RadioSteps: {
   children: [
-    { H6: { text: 'Account info' }, RadioMark: { isActive: true } },
-    { H6: { text: 'Payment' } },
-    { H6: { text: 'Confirm' } }
-  ]
+    { H6: { text: "Account info" }, RadioMark: { isActive: true } },
+    { H6: { text: "Payment" } },
+    { H6: { text: "Confirm" } },
+  ];
 }
 ```
 
@@ -1298,7 +1352,9 @@ Common props:
 Example:
 
 ```js
-RadioMark: { theme: 'primary' }
+RadioMark: {
+  theme: "primary";
+}
 ```
 
 ---
@@ -1394,7 +1450,7 @@ Example:
 
 ```js
 ProgressStepSet: {
-  children: [{ value: 1 }, { value: 0.4 }, { value: 0 }]
+  children: [{ value: 1 }, { value: 0.4 }, { value: 0 }];
 }
 ```
 
@@ -1431,7 +1487,9 @@ Common props:
 Example:
 
 ```js
-StatusDot: { theme: 'success' }
+StatusDot: {
+  theme: "success";
+}
 ```
 
 ### Stars
@@ -1447,12 +1505,12 @@ Example:
 ```js
 Stars: {
   children: [
-    { name: 'star' },
-    { name: 'star' },
-    { name: 'star' },
-    { name: 'star' },
-    { name: 'star' }
-  ]
+    { name: "star" },
+    { name: "star" },
+    { name: "star" },
+    { name: "star" },
+    { name: "star" },
+  ];
 }
 ```
 
@@ -1560,7 +1618,9 @@ Common props:
 Example:
 
 ```js
-Breadcrumb: { tag: 'nav' }
+Breadcrumb: {
+  tag: "nav";
+}
 ```
 
 ### NavigationDots
@@ -1575,7 +1635,7 @@ Example:
 
 ```js
 NavigationDots: {
-  children: [{}, { isActive: true }, {}]
+  children: [{}, { isActive: true }, {}];
 }
 ```
 
@@ -1593,9 +1653,9 @@ Example:
 ```js
 NavigationArrows: {
   children: [
-    { Icon: { name: 'chevronLeft' } },
-    { Icon: { name: 'chevronRight' } }
-  ]
+    { Icon: { name: "chevronLeft" } },
+    { Icon: { name: "chevronRight" } },
+  ];
 }
 ```
 
@@ -1613,7 +1673,7 @@ Example:
 ```js
 Pagination: {
   Flex: {
-    children: [{ text: '1', isActive: true }, { text: '2' }, { text: '3' }]
+    children: [{ text: "1", isActive: true }, { text: "2" }, { text: "3" }];
   }
 }
 ```
@@ -1632,10 +1692,10 @@ Example:
 ```js
 TabSet: {
   children: [
-    { text: 'Overview', isActive: true },
-    { text: 'Details' },
-    { text: 'Reviews' }
-  ]
+    { text: "Overview", isActive: true },
+    { text: "Details" },
+    { text: "Reviews" },
+  ];
 }
 ```
 
@@ -1915,7 +1975,10 @@ Common props:
 Example:
 
 ```js
-Scrollbar: { NavigationArrows: {} }
+Scrollbar: {
+  NavigationArrows: {
+  }
+}
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Built-in atoms and property usage
 
-This document lists the built-in components (atoms and UI kit components) and how their properties are commonly used in Symbols/DOMQL v3.
+This document lists the built-in components (atoms and UI kit components) and how their properties are commonly used in Symbols.app.
 
 ## Built-in atoms
 
