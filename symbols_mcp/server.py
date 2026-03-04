@@ -45,11 +45,8 @@ def _read_skill(filename: str) -> str:
 
 
 def _load_agent_instructions() -> str:
-    """Load the upfront AI agent instructions from AGENT_INSTRUCTIONS.md."""
-    path = SKILLS_PATH / "AGENT_INSTRUCTIONS.md"
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return _read_skill("CLAUDE.md")
+    """Load the upfront AI agent instructions from RULES.md."""
+    return _read_skill("RULES.md")
 
 
 # ---------------------------------------------------------------------------
@@ -113,16 +110,34 @@ async def search_symbols_docs(
 # ---------------------------------------------------------------------------
 
 
-@mcp.resource("symbols://skills/domql-v3-reference")
-def get_domql_v3_reference() -> str:
-    """Complete DOMQL v3 syntax reference and rules."""
-    return _read_skill("CLAUDE.md")
+@mcp.resource("symbols://skills/rules")
+def get_rules() -> str:
+    """Strict rules for AI agents working in Symbols/DOMQL v3 projects."""
+    return _read_skill("RULES.md")
+
+
+@mcp.resource("symbols://skills/syntax")
+def get_syntax() -> str:
+    """Complete DOMQL v3 syntax language reference."""
+    return _read_skill("SYNTAX.md")
+
+
+@mcp.resource("symbols://skills/components")
+def get_components() -> str:
+    """DOMQL v3 component reference with flattened props and onX events."""
+    return _read_skill("COMPONENTS.md")
 
 
 @mcp.resource("symbols://skills/project-structure")
 def get_project_structure() -> str:
     """Symbols project folder structure and file conventions."""
-    return _read_skill("SYMBOLS_LOCAL_INSTRUCTIONS.md")
+    return _read_skill("PROJECT_STRUCTURE.md")
+
+
+@mcp.resource("symbols://skills/design-system")
+def get_design_system() -> str:
+    """Design system tokens, themes and configuration."""
+    return _read_skill("DESIGN_SYSTEM.md")
 
 
 @mcp.resource("symbols://skills/design-direction")
@@ -131,22 +146,34 @@ def get_design_direction() -> str:
     return _read_skill("DESIGN_DIRECTION.md")
 
 
-@mcp.resource("symbols://skills/migration-guide")
-def get_migration_guide() -> str:
-    """Guide for migrating React/Angular/Vue apps to Symbols.app."""
-    return _read_skill("MIGRATE_TO_SYMBOLS.md")
+@mcp.resource("symbols://skills/patterns")
+def get_patterns() -> str:
+    """UI patterns, accessibility and AI optimization."""
+    return _read_skill("PATTERNS.md")
 
 
-@mcp.resource("symbols://skills/v2-to-v3-migration")
-def get_v2_v3_migration() -> str:
-    """DOMQL v2 to v3 migration changes and examples."""
-    return _read_skill("DOMQL_v2-v3_MIGRATION.md")
+@mcp.resource("symbols://skills/migration")
+def get_migration() -> str:
+    """Migration guide for v2→v3 and React/Angular/Vue→Symbols."""
+    return _read_skill("MIGRATION.md")
 
 
-@mcp.resource("symbols://skills/quickstart")
-def get_quickstart() -> str:
-    """Symbols CLI setup and usage quickstart guide."""
-    return _read_skill("QUICKSTART.md")
+@mcp.resource("symbols://skills/audit")
+def get_audit() -> str:
+    """Full audit, enforcement and feedback framework."""
+    return _read_skill("AUDIT.md")
+
+
+@mcp.resource("symbols://skills/design-to-code")
+def get_design_to_code() -> str:
+    """Design-to-code translation guide."""
+    return _read_skill("DESIGN_TO_CODE.md")
+
+
+@mcp.resource("symbols://skills/seo-metadata")
+def get_seo_metadata() -> str:
+    """SEO metadata configuration reference."""
+    return _read_skill("SEO-METADATA.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")
