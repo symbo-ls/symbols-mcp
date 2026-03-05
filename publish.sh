@@ -2,7 +2,7 @@
 set -e
 
 # Usage: ./publish.sh [patch|minor|major|x.y.z]
-# Stores PyPI token in .pypi_token (gitignored)
+# Stores PyPI token in .pypirc (gitignored)
 
 BUMP=${1:-patch}
 
@@ -23,21 +23,36 @@ echo "Bumping $CURRENT → $NEW"
 # Update versions
 sed -i '' "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml
 sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/g" server.json
+sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" package.json
 
-# Build
+# Build Python package
 rm -f dist/symbols_mcp-${CURRENT}*
 uv build
 
 # Publish to PyPI
-if [ -f .pypi_token ]; then
-  TOKEN=$(cat .pypi_token)
+if [ -f .pypirc ]; then
+  TOKEN=$(awk '/\[symbols-mcp\]/{f=1} f && /password/{print $3; exit}' .pypirc)
 else
   read -rsp "PyPI token: " TOKEN; echo
 fi
 uv publish --token "$TOKEN"
 
+# Publish to npm
+chmod +x bin/symbols-mcp.js
+npm publish --access public
+
+# Generate .mcpb bundle
+./generate-mcpb.sh
+
 # Publish to MCP registry
 echo "Publishing to MCP registry..."
+mcp-publisher login github
 mcp-publisher publish
+
+# Commit, tag and push
+git add .
+git commit -m "chore: release v$NEW"
+git tag "v$NEW"
+git push && git push --tags
 
 echo "Done! Published symbols-mcp $NEW"

@@ -1,0 +1,25 @@
+{
+  "name": "@symbo.ls/mcp",
+  "version": "1.0.10",
+  "description": "MCP server for Symbols.app — documentation search and framework reference",
+  "mcpName": "io.github.symbo-ls/symbols-mcp",
+  "files": [
+    "bin/",
+    "symbols_mcp/skills/"
+  ],
+  "bin": {
+    "symbols-mcp": "./bin/symbols-mcp.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/symbo-ls/symbols-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "symbols",
+    "domql",
+    "ai",
+    "claude"
+  ],
+  "license": "MIT"
+}

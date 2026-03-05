@@ -1,4 +1,5 @@
 .mcpregistry_github_token
 .mcpregistry_registry_token
-.pypi_token
+.pypirc
 __pycache__
+*.mcpb

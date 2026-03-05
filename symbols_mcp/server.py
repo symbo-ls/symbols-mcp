@@ -1,5 +1,5 @@
 """
-Symbols MCP — Documentation search and reference tools for Symbols/DOMQL v3.
+Symbols MCP — Documentation search and reference tools for Symbols.app.
 """
 
 import os
@@ -24,7 +24,7 @@ logger = logging.getLogger("symbols-mcp")
 mcp = FastMCP(
     "Symbols",
     instructions=(
-        "Reference assistant for the Symbols/DOMQL v3 design-system framework. "
+        "Reference assistant for the Symbols.app design-system framework. "
         "Searches Symbols documentation, exposes framework rules, and provides "
         "comprehensive syntax and API reference."
     ),
@@ -45,11 +45,8 @@ def _read_skill(filename: str) -> str:
 
 
 def _load_agent_instructions() -> str:
-    """Load the upfront AI agent instructions from AGENT_INSTRUCTIONS.md."""
-    path = SKILLS_PATH / "AGENT_INSTRUCTIONS.md"
-    if path.exists():
-        return path.read_text(encoding="utf-8")
-    return _read_skill("CLAUDE.md")
+    """Load the upfront AI agent instructions from RULES.md."""
+    return _read_skill("RULES.md")
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +58,7 @@ def _load_agent_instructions() -> str:
 def get_project_rules() -> str:
     """ALWAYS call this first before any generate_* tool.
 
-    Returns the mandatory Symbols/DOMQL v3 rules that MUST be followed.
+    Returns the mandatory Symbols.app rules that MUST be followed.
     Violations cause silent failures — black page, nothing renders.
 
     Call this before: generate_project, generate_component, generate_page,
@@ -113,16 +110,34 @@ async def search_symbols_docs(
 # ---------------------------------------------------------------------------
 
 
-@mcp.resource("symbols://skills/domql-v3-reference")
-def get_domql_v3_reference() -> str:
-    """Complete DOMQL v3 syntax reference and rules."""
-    return _read_skill("CLAUDE.md")
+@mcp.resource("symbols://skills/rules")
+def get_rules() -> str:
+    """Strict rules for AI agents working in Symbols/DOMQL v3 projects."""
+    return _read_skill("RULES.md")
+
+
+@mcp.resource("symbols://skills/syntax")
+def get_syntax() -> str:
+    """Complete DOMQL v3 syntax language reference."""
+    return _read_skill("SYNTAX.md")
+
+
+@mcp.resource("symbols://skills/components")
+def get_components() -> str:
+    """DOMQL v3 component reference with flattened props and onX events."""
+    return _read_skill("COMPONENTS.md")
 
 
 @mcp.resource("symbols://skills/project-structure")
 def get_project_structure() -> str:
     """Symbols project folder structure and file conventions."""
-    return _read_skill("SYMBOLS_LOCAL_INSTRUCTIONS.md")
+    return _read_skill("PROJECT_STRUCTURE.md")
+
+
+@mcp.resource("symbols://skills/design-system")
+def get_design_system() -> str:
+    """Design system tokens, themes and configuration."""
+    return _read_skill("DESIGN_SYSTEM.md")
 
 
 @mcp.resource("symbols://skills/design-direction")
@@ -131,22 +146,34 @@ def get_design_direction() -> str:
     return _read_skill("DESIGN_DIRECTION.md")
 
 
-@mcp.resource("symbols://skills/migration-guide")
-def get_migration_guide() -> str:
-    """Guide for migrating React/Angular/Vue apps to Symbols/DOMQL v3."""
-    return _read_skill("MIGRATE_TO_SYMBOLS.md")
+@mcp.resource("symbols://skills/patterns")
+def get_patterns() -> str:
+    """UI patterns, accessibility and AI optimization."""
+    return _read_skill("PATTERNS.md")
 
 
-@mcp.resource("symbols://skills/v2-to-v3-migration")
-def get_v2_v3_migration() -> str:
-    """DOMQL v2 to v3 migration changes and examples."""
-    return _read_skill("DOMQL_v2-v3_MIGRATION.md")
+@mcp.resource("symbols://skills/migration")
+def get_migration() -> str:
+    """Migration guide for v2→v3 and React/Angular/Vue→Symbols."""
+    return _read_skill("MIGRATION.md")
 
 
-@mcp.resource("symbols://skills/quickstart")
-def get_quickstart() -> str:
-    """Symbols CLI setup and usage quickstart guide."""
-    return _read_skill("QUICKSTART.md")
+@mcp.resource("symbols://skills/audit")
+def get_audit() -> str:
+    """Full audit, enforcement and feedback framework."""
+    return _read_skill("AUDIT.md")
+
+
+@mcp.resource("symbols://skills/design-to-code")
+def get_design_to_code() -> str:
+    """Design-to-code translation guide."""
+    return _read_skill("DESIGN_TO_CODE.md")
+
+
+@mcp.resource("symbols://skills/seo-metadata")
+def get_seo_metadata() -> str:
+    """SEO metadata configuration reference."""
+    return _read_skill("SEO-METADATA.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")
@@ -211,7 +238,7 @@ Usage examples:
 
 @mcp.resource("symbols://reference/event-handlers")
 def get_event_handlers() -> str:
-    """Event handler reference for Symbols/DOMQL v3."""
+    """Event handler reference for Symbols.app."""
     return """# Symbols Event Handlers (v3)
 
 ## Lifecycle Events
@@ -258,8 +285,8 @@ def get_event_handlers() -> str:
 
 @mcp.prompt()
 def symbols_component_prompt(description: str, component_name: str = "MyComponent") -> str:
-    """Prompt template for generating a Symbols/DOMQL v3 component."""
-    return f"""Generate a Symbols/DOMQL v3 component with these requirements:
+    """Prompt template for generating a Symbols.app component."""
+    return f"""Generate a Symbols.app component with these requirements:
 
 Component Name: {component_name}
 Description: {description}
@@ -278,8 +305,8 @@ Output ONLY the JavaScript code."""
 
 @mcp.prompt()
 def symbols_migration_prompt(source_framework: str = "React") -> str:
-    """Prompt template for migrating code to Symbols/DOMQL v3."""
-    return f"""You are migrating {source_framework} code to Symbols/DOMQL v3.
+    """Prompt template for migrating code to Symbols.app."""
+    return f"""You are migrating {source_framework} code to Symbols.app.
 
 Key conversion rules for {source_framework}:
 - Components become plain objects (never functions)
@@ -299,7 +326,7 @@ Provide the {source_framework} code to convert and I will output clean DOMQL v3.
 @mcp.prompt()
 def symbols_project_prompt(description: str) -> str:
     """Prompt template for scaffolding a complete Symbols project."""
-    return f"""Create a complete Symbols/DOMQL v3 project:
+    return f"""Create a complete Symbols.app project:
 
 Project Description: {description}
 
