@@ -383,6 +383,24 @@ export const DropdownList = {
 }
 ```
 
+### `childrenAs` — control how children data maps to elements
+
+By default, each item in `children` becomes `props` on the child element. Use `childrenAs` to change this:
+
+```js
+// Default (childrenAs: 'props') — each item becomes element props
+{ children: [{ text: 'Hello' }] }
+// → child gets: { props: { text: 'Hello' } }
+
+// childrenAs: 'state' — each item becomes element state
+{ children: [{ count: 5 }], childrenAs: 'state' }
+// → child gets: { state: { count: 5 } }
+
+// childrenAs: 'element' — each item is used directly as element definition
+{ children: [{ tag: 'span', text: 'Hi' }], childrenAs: 'element' }
+// → child IS: { tag: 'span', text: 'Hi' }
+```
+
 ### `content` — single dynamic child
 
 ```js
@@ -452,13 +470,28 @@ define: {
   isActive: (param, el, state, context) => {
     if (param) el.classList.add('active')
     else el.classList.remove('active')
-  },
-  $collection: async (param, el, state) => {
-    const items = await exec(param, el)
-    // render dynamic list
   }
 }
 ```
+
+### Built-in defines
+
+These are registered globally and work on any element:
+
+- `metadata` — SEO metadata (see SEO-METADATA.md). Values can be static or functions:
+
+```js
+export const aboutPage = {
+  metadata: {
+    title: 'About Us',
+    description: (el, s) => s.aboutText,
+    'og:image': '/about.png'
+  }
+}
+```
+
+- `routes` — route definitions for the router
+- `$router` — renders route content into the element
 
 ---
 
@@ -615,7 +648,7 @@ export const DataList = {
   Error:  { if: ({ state }) => Boolean(state.error), text: ({ state }) => state.error },
   Items:  {
     if: ({ state }) => !state.loading && !state.error,
-    $collection: ({ state }) => state.items,
+    children: ({ state }) => state.items,
     childExtends: 'ListItem'
   },
 

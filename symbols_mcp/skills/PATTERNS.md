@@ -18,7 +18,7 @@ export const DataList = {
   },
   Items: {
     if: ({ state }) => !state.loading && !state.error,
-    $collection: ({ state }) => state.items,
+    children: ({ state }) => state.items,
     childExtends: 'ListItem'
   },
 

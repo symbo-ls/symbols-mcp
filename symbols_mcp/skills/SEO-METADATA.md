@@ -1,6 +1,6 @@
 # SEO Metadata
 
-DOMQL provides comprehensive SEO metadata support through a declarative `metadata` object. All SEO, social, structured data, and platform-specific properties are configured in a single, unified, type-safe structure.
+Symbols provides comprehensive SEO metadata support through the `@symbo.ls/helmet` plugin. Define a declarative `metadata` object on your app, pages, or any component. The same code works at runtime (updates DOM `<head>` tags) and during SSR (generates HTML via brender).
 
 The system automatically:
 
@@ -8,6 +8,8 @@ The system automatically:
 - Expands array values into multiple tags
 - Handles namespace prefixes (`og:`, `twitter:`, `article:`, `product:`, `DC:`, `itemprop:`, `http-equiv:`)
 - Outputs valid HTML head markup
+- Supports function values receiving `(element, state)` for dynamic metadata
+- Merges metadata from global SEO settings, app-level, and page-level (page wins)
 
 ---
 
@@ -108,3 +110,41 @@ export default {
   },
 };
 ```
+
+---
+
+# Dynamic Metadata
+
+Metadata values can be functions receiving `(element, state)`. Both the whole object and individual properties support this:
+
+```js
+// Whole metadata as function
+export const productPage = {
+  metadata: (el, s) => ({
+    title: s.product.name + ' — My Store',
+    description: s.product.description,
+    'og:image': s.product.image
+  })
+}
+
+// Individual properties as functions
+export const profilePage = {
+  metadata: {
+    title: (el, s) => `${s.user.name} — My App`,
+    description: (el, s) => s.user.bio,
+    'og:image': '/default-avatar.png'  // static fallback
+  }
+}
+```
+
+---
+
+# Merge Priority
+
+When metadata is defined at multiple levels, higher priority wins:
+
+1. `data.integrations.seo` — global SEO settings (lowest)
+2. `data.app.metadata` — app-level defaults
+3. `page.metadata` — page-level overrides (highest)
+
+If no `title` is found after merging, it falls back to `page.state.title`, then `data.name`.
