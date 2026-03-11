@@ -52,6 +52,41 @@ Rules:
 { extends: SomeComponent, childExtends: AnotherComponent }
 ```
 
+### Replace `$stateCollection` with `children` + `childrenAs: 'state'`
+
+```js
+// v2
+{
+  childExtend: 'TeamItem',
+  $stateCollection: (el, s) => s.data
+}
+
+// v3
+{
+  childExtends: 'TeamItem',
+  childrenAs: 'state',
+  children: (el, s) => s.data
+}
+```
+
+### Replace `props: (fn)` function with individual prop functions
+
+```js
+// v2 — dynamic props function (REMOVED in v3)
+{
+  props: ({ state }) => ({
+    color: state.active ? 'red' : 'blue',
+    opacity: state.loading ? 0.5 : 1
+  })
+}
+
+// v3 — each property is its own function
+{
+  color: ({ state }) => state.active ? 'red' : 'blue',
+  opacity: ({ state }) => state.loading ? 0.5 : 1
+}
+```
+
 ### Child element detection
 
 ```js

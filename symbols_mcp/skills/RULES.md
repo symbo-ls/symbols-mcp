@@ -13,9 +13,10 @@ You are working in a **Symbols.app** / DOMQL v3 project. These rules are absolut
 | `onClick: fn`              | ~~`on: { click: fn }`~~          |
 | `onRender: fn`             | ~~`on: { render: fn }`~~         |
 | props flattened at root    | ~~`props: { ... }` wrapper~~     |
+| individual prop functions  | ~~`props: ({ state }) => ({})` function~~ |
 | `flexAlign: 'center center'`| ~~`align: 'center center'`~~   |
 | `children` + `childExtends`| ~~`$collection`, `$propsCollection`~~ |
-| `children: ({state}) => ..`| ~~`$stateCollection`~~           |
+| `children` + `childrenAs: 'state'`| ~~`$stateCollection`~~     |
 
 ---
 
@@ -259,7 +260,49 @@ onRender: (el) => {
 
 ---
 
-## Rule 16 — Tab/view switching — use DOM IDs + function, NOT reactive `display`
+## Rule 16 — SVGs belong in `designSystem/svg_data.js`, not inline in components
+
+Store SVG markup in the design system and reference via context:
+
+```js
+// designSystem/svg_data.js
+export default {
+  folderTopRight: '<svg ...>...</svg>',
+  folderBottomLeft: '<svg ...>...</svg>',
+}
+
+// In component — reference from designSystem
+Svg: {
+  src: ({ context }) => context.designSystem.SVG_DATA && context.designSystem.SVG_DATA.folderTopRight,
+  aspectRatio: '466 / 48',
+}
+
+// ❌ WRONG — inline SVG string in component
+Svg: {
+  src: '<svg fill="none" viewBox="0 0 466 48">...</svg>',
+}
+```
+
+---
+
+## Rule 17 — `customRouterElement` for persistent layouts
+
+Use `customRouterElement` in config to render pages inside a specific element instead of the root:
+
+```js
+// config.js
+export default {
+  router: {
+    customRouterElement: 'Folder.Content'  // dot-separated path from root
+  }
+}
+```
+
+The `/` (main) page defines the persistent layout. Sub-pages are rendered inside the target element without re-creating the layout.
+
+---
+
+## Rule 18a — Tab/view switching — use DOM IDs + function, NOT reactive `display`
 
 Reactive `display: (el, s) => ...` on multiple full-page trees causes rendering failures.
 

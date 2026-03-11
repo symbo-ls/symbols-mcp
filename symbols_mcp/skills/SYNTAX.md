@@ -655,6 +655,21 @@ onClick: (event, el) => {
 }
 ```
 
+### Custom router element (persistent layouts)
+
+Configure in `config.js` to render pages inside a specific element in the tree:
+
+```js
+// config.js
+export default {
+  router: {
+    customRouterElement: 'Folder.Content'  // dot-separated path from root
+  }
+}
+```
+
+The `/` page defines the persistent layout shell. Sub-pages render inside the target element without destroying the layout. The path is resolved by traversing `root.Folder.Content`.
+
 ---
 
 ## 19. Common Patterns
