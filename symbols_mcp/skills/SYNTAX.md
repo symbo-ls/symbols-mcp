@@ -66,18 +66,39 @@ create(props, parent, key, options)
 
 **Critical ordering**: `propertizeElement` runs BEFORE `addMethods`. Do not rely on prototype methods in `propertizeElement`.
 
+### Propertization and the Define System
+
+`propertizeElement()` classifies keys between the element root and `props`. Keys starting with `$` overlap between css-in-props conditionals (`$isActive`) and define handlers (built-in `$router`, plus deprecated v2 handlers like `$propsCollection`, `$collection` in older projects).
+
+**Rule:** Keys with a matching define handler (`element.define[key]` or `context.define[key]`) must stay at the element root so `throughInitialDefine` can process them. This is critical for `$router` and for backwards compatibility with older projects. The propertization checks for define handlers BEFORE applying `CSS_SELECTOR_PREFIXES`:
+
+```js
+// Check define handlers first — these stay at root
+const defineValue = this.define?.[key]
+const globalDefineValue = this.context?.define?.[key]
+if (isFunction(defineValue) || isFunction(globalDefineValue)) continue
+
+// Only then apply prefix-based classification
+if (CSS_SELECTOR_PREFIXES.has(firstChar)) {
+  obj.props[key] = value  // move to props for css-in-props
+}
+```
+
 ---
 
 ## 3. REGISTRY Keys (handled by DOMQL, NOT promoted to CSS props)
 
 ```
 attr, style, text, html, data, classlist, state, scope, deps,
-extends, children, content, childExtends, childExtendsRecursive,
+extends, children, content,
+childExtend (deprecated), childExtends, childExtendRecursive (deprecated), childExtendsRecursive,
 props, if, define, __name, __ref, __hash, __text,
 key, tag, query, parent, node, variables, on, component, context
 ```
 
 Any key NOT in this list and not a component name (uppercase first) → promoted to `element.props` as a CSS prop.
+
+> **v3 note:** Use `childExtends` (plural) — `childExtend` (singular) is deprecated v2 syntax. The singular forms still exist in REGISTRY for backwards compatibility with older projects, but new code should always use the plural form.
 
 ---
 

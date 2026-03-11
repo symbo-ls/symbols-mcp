@@ -156,9 +156,9 @@ Scale is generated using a ratio (Major Third = 1.25 by default). Tokens map to 
 
 | Token range   | Approx size | Common use                  |
 | ------------- | ----------- | --------------------------- |
-| `W4`–`W1`     | ~8–10 px    | Micro text                  |
-| `Z4`–`Z`      | ~10–12 px   | Caption, footnote           |
-| `Y4`–`A`      | ~12–16 px   | Body text, small headings   |
+| `W`–`W2`      | ~8–10 px    | Micro text                  |
+| `Z`–`Z2`      | ~10–12 px   | Caption, footnote           |
+| `Y`–`A`       | ~12–16 px   | Body text, small headings   |
 | `A1`–`B`      | ~18–24 px   | Headings, large body        |
 | `B1`–`C`      | ~28–40 px   | Display headings            |
 | `C1`–`C2`     | ~48–64 px   | Hero headlines              |
@@ -187,14 +187,16 @@ Golden Ratio scale (1.618 by default). Used for `padding`, `margin`, `gap`, `wid
 
 | Token    | Approx value | Common use                      |
 | -------- | ------------ | ------------------------------- |
-| `W2`–`W` | 2–4 px       | Micro gaps, offsets             |
-| `X4`–`X` | 4–6 px       | Icon padding, tight gaps        |
-| `Z4`–`Z` | 10–16 px     | Compact padding                 |
-| `A`–`A4` | 16–26 px     | Default padding, gutters        |
-| `B`–`B4` | 26–42 px     | Section padding                 |
-| `C`–`C4` | 42–68 px     | Container padding, avatar sizes |
-| `D`–`D4` | 68–110 px    | Large sections                  |
+| `W`–`W2` | 2–4 px       | Micro gaps, offsets             |
+| `X`–`X2` | 4–6 px       | Icon padding, tight gaps        |
+| `Z`–`Z2` | 10–16 px     | Compact padding                 |
+| `A`–`A2` | 16–26 px     | Default padding, gutters        |
+| `B`–`B2` | 26–42 px     | Section padding                 |
+| `C`–`C2` | 42–68 px     | Container padding, avatar sizes |
+| `D`–`D2` | 68–110 px    | Large sections                  |
 | `E`–`F`  | 110–178 px   | Hero padding, max-widths        |
+
+> **Sub-sequence rules:** Small sequences like `W` and `X` only have `W`, `W1`, `W2` and `X`, `X1`, `X2`. Sub-tokens like `W4`, `X4` do **not** exist. The `3` and `4` sub-steps (e.g. `A3`, `A4`, `B3`, `B4`) only appear in larger sequences starting from `A` and above where the jump between base tokens is big enough to warrant them.
 
 ### Shorthand spacing
 

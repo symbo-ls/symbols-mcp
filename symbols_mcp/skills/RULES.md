@@ -14,6 +14,8 @@ You are working in a **Symbols.app** / DOMQL v3 project. These rules are absolut
 | `onRender: fn`             | ~~`on: { render: fn }`~~         |
 | props flattened at root    | ~~`props: { ... }` wrapper~~     |
 | `flexAlign: 'center center'`| ~~`align: 'center center'`~~   |
+| `children` + `childExtends`| ~~`$collection`, `$propsCollection`~~ |
+| `children: ({state}) => ..`| ~~`$stateCollection`~~           |
 
 ---
 
