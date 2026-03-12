@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "symbols-mcp",
   "display_name": "Symbols MCP",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "MCP server for Symbols.app — documentation search and framework reference",
   "author": {
     "name": "Symbols",
