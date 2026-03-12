@@ -427,6 +427,44 @@ smbls/
 
 ---
 
+## Rule 21 — Picture `src` goes on Img child, never on Picture
+
+The HTML `<picture>` tag does NOT support `src` as an attribute. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
+
+```js
+// ✅ CORRECT — src on the Img child
+Picture: {
+  Img: { src: '/files/photo.jpg' },
+  width: '100%',
+  aspectRatio: '16/9'
+}
+
+// ❌ WRONG — src on Picture is silently ignored
+Picture: { src: '/files/photo.jpg', width: '100%' }
+```
+
+---
+
+## Rule 22 — Component key `Map` auto-detects as `<map>` — add `tag: 'div'`
+
+The key `Map` is auto-detected as the HTML `<map>` element (for image maps), which defaults to `display: inline` and has height 0. Always add `tag: 'div'` when using `Map` as a component name:
+
+```js
+export const Map = {
+  extends: 'Flex',
+  tag: 'div',   // prevents <map> auto-detection
+  // ...
+}
+```
+
+---
+
+## Rule 23 — `/files/` path resolution
+
+File paths like `/files/logo.png` reference the framework's embedded file system via `context.files`. The `/files/` prefix is stripped automatically when resolving — keys are just filenames (e.g., `"logo.png"`, not `"/files/logo.png"`).
+
+---
+
 ## Output Verification Checklist
 
 Before finalizing any generated code, verify:
@@ -445,3 +483,6 @@ Before finalizing any generated code, verify:
 - [ ] One H1 per page; logical heading hierarchy H1→H2→H3
 - [ ] Buttons for actions, Links for navigation
 - [ ] Forms have labeled inputs with `name` and `type` attributes
+- [ ] Picture `src` is on the Img child, not on Picture itself
+- [ ] `Map` component key has `tag: 'div'` to avoid `<map>` auto-detection
+- [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern

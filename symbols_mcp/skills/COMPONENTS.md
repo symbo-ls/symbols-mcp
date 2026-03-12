@@ -99,6 +99,30 @@ Img: { src: '/logo.png', alt: 'Logo', boxSize: 'B' }
 ```
 Props: `src`, `alt`, `loading`, `width`, `height`, `boxSize`, `objectFit`
 
+The `src` attribute resolves through the files system: if the value is not a valid URL, it looks up `context.files[filename]` for embedded file data. Paths starting with `/files/` have the prefix stripped automatically (e.g., `/files/logo.png` → looks up `"logo.png"` in context.files).
+
+### Picture
+```js
+// Basic usage — src goes on the Img child, NOT on Picture
+Picture: {
+  Img: { src: '/files/photo.jpg' },
+  width: '100%',
+  aspectRatio: '16/9'
+}
+
+// With theme-aware sources
+Picture: {
+  extends: 'Picture',
+  Img: { src: '/files/map-dark.svg' },
+  '@dark': { srcset: '/files/map-dark.svg' },
+  '@light': { srcset: '/files/map-light.svg' }
+}
+```
+
+**Critical**: The HTML `<picture>` tag does NOT support `src` as an attribute. Never put `src` directly on a Picture component — it will be silently ignored. Always put `src` on the `Img` child inside the Picture.
+
+The Picture component's Img child can also read `src` from its parent's props (`element.parent.props.src`) or from state (`state.src`).
+
 ### Iframe
 ```js
 Iframe: { src: 'https://example.com', width: '100%', height: '300px' }

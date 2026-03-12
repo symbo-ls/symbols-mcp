@@ -422,6 +422,27 @@ By default, each item in `children` becomes `props` on the child element. Use `c
 // → child IS: { tag: 'span', text: 'Hi' }
 ```
 
+### `state: 'key'` — narrow state scope for children
+
+When a parent has nested state (e.g. `state.data` is an array), use `state: 'data'` on the container to narrow the scope so children receive individual items:
+
+```js
+// Parent narrows state to the 'members' key
+export const TeamList = {
+  state: 'members',
+  childExtends: 'TeamItem',
+  children: ({ state }) => state
+}
+
+// Child reads individual item state — requires state: true
+export const TeamItem = {
+  state: true,
+  Title: { text: ({ state }) => state.name }
+}
+```
+
+**Important**: `state: true` is required on child components that read `({ state }) => state.field` when used with `childExtends`. Without it, children don't receive individual state from the parent's children array.
+
 ### `content` — single dynamic child
 
 ```js

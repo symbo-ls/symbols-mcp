@@ -61,12 +61,79 @@ Rules:
   $stateCollection: (el, s) => s.data
 }
 
-// v3
+// v3 — Option A: childrenAs: 'state' (explicit)
 {
   childExtends: 'TeamItem',
   childrenAs: 'state',
   children: (el, s) => s.data
 }
+
+// v3 — Option B: state: 'dataKey' shorthand (preferred for nested state)
+{
+  state: 'data',
+  childExtends: 'TeamItem',
+  children: ({ state }) => state
+}
+```
+
+#### `state: true` on child components
+
+Components used with `childExtends` that read individual item state (e.g. `({ state }) => state.title`) need `state: true` at their root so each child receives its own state from the parent's children array:
+
+```js
+// Parent container
+export const TeamList = {
+  state: 'members',
+  childExtends: 'TeamItem',
+  children: ({ state }) => state
+}
+
+// Child component — state: true is REQUIRED
+export const TeamItem = {
+  state: true,
+  Title: { text: ({ state }) => state.name },
+  Role: { text: ({ state }) => state.role }
+}
+```
+
+#### Common pitfall: `children: ({ state }) => state.data`
+
+**WRONG**: `children: ({ state }) => state.data` does NOT properly pass individual state to child components — all children receive the parent's full state instead of their own item.
+
+**CORRECT**: Use `state: 'data'` on the container first, then `children: ({ state }) => state`:
+
+```js
+// ❌ WRONG — children don't get individual state
+{ children: ({ state }) => state.data, childExtends: 'Item' }
+
+// ✅ CORRECT — state: 'data' narrows scope, children get individual items
+{ state: 'data', children: ({ state }) => state, childExtends: 'Item' }
+```
+
+### Replace `$propsCollection` with `children`
+
+```js
+// v2
+{
+  childExtend: 'Paragraph',
+  $propsCollection: ({ state }) => state.parse()
+}
+
+// v3
+{
+  childExtends: 'Paragraph',
+  children: ({ state }) => state.parse()
+}
+```
+
+`$propsCollection` is fully removed in v3. Replace 1:1 with `children`. The same pattern applies to array data:
+
+```js
+// v2
+$propsCollection: ({ state }) => state
+
+// v3
+children: ({ state }) => state
 ```
 
 ### Replace `props: (fn)` function with individual prop functions
@@ -96,6 +163,80 @@ Rules:
 // v3 — only PascalCase keys create elements
 { div: {} }   // treated as a plain prop, NOT rendered
 { Div: {} }   // creates a child element (equivalent to { extends: 'Div' })
+```
+
+### Replace array spread `...[items]` with `children: [items]`
+
+```js
+// v2 — numeric keys from spread are lowercase, treated as CSS in v3
+{
+  childExtend: 'NavLink',
+  ...[{ text: 'About us' }, { text: 'Hiring' }]
+}
+
+// v3 — use children array
+{
+  childExtends: 'NavLink',
+  children: [{ text: 'About us' }, { text: 'Hiring' }]
+}
+```
+
+Array spread creates numeric keys (`0`, `1`, `2`…) which v3 treats as CSS properties (lowercase). Always use `children` array instead.
+
+### Picture `src` must go on Img child
+
+The HTML `<picture>` tag does NOT support `src` as an attribute. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
+
+```js
+// ❌ WRONG — src on Picture is silently ignored
+Picture: { src: '/files/photo.jpg', width: '100%' }
+
+// ✅ CORRECT — src goes on the Img child inside Picture
+Picture: {
+  Img: { src: '/files/photo.jpg' },
+  width: '100%',
+  aspectRatio: '16/9'
+}
+```
+
+For theme-aware sources, use `@dark`/`@light` with `srcset` on Picture, but always put the default `src` on the Img child.
+
+### `<map>` tag auto-detection
+
+Component keys named `Map` auto-detect as the HTML `<map>` tag (for image maps), which defaults to `display: inline` and has height 0. If using `Map` as a component name for geographic maps or similar, add `tag: 'div'`:
+
+```js
+export const Map = {
+  extends: 'Flex',
+  tag: 'div',     // prevents <map> auto-detection
+  // ...
+}
+```
+
+### Non-existent base components
+
+These v2 component names don't exist in v3 uikit:
+- `extends: 'Page'` → use `extends: 'Flex', flexFlow: 'column'`
+- `extends: 'Overflow'` → use `extends: 'Flex'`
+
+### `state: true` vs `state: 'fieldName'` for children
+
+- `state: true` — for `childExtends`-created children; maps individual array items as each child's state
+- `state: 'fieldName'` — for direct PascalCase children that need a specific field from parent state
+
+```js
+// childExtends children — use state: true on the child component
+export const ListItem = {
+  state: true,
+  Title: { text: ({ state }) => state.name }
+}
+
+// Direct PascalCase child — use state: 'fieldName'
+Description: {
+  state: 'description',
+  childExtends: 'Paragraph',
+  children: ({ state }) => state.parse()
+}
 ```
 
 ### Full example
