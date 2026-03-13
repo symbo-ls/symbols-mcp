@@ -31,7 +31,7 @@ uv build
 
 # Publish to PyPI
 if [ -f .pypirc ]; then
-  TOKEN=$(awk '/\[symbols-mcp\]/{f=1} f && /password/{print $3; exit}' .pypirc)
+  source .pypirc
 else
   read -rsp "PyPI token: " TOKEN; echo
 fi
