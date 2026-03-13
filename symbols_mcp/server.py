@@ -176,6 +176,12 @@ def get_seo_metadata() -> str:
     return _read_skill("SEO-METADATA.md")
 
 
+@mcp.resource("symbols://skills/ssr-brender")
+def get_ssr_brender() -> str:
+    """Server-side rendering with brender — SSR/SSG for Symbols apps."""
+    return _read_skill("SSR-BRENDER.md")
+
+
 @mcp.resource("symbols://reference/spacing-tokens")
 def get_spacing_tokens() -> str:
     """Spacing token reference for the Symbols design system."""
@@ -379,7 +385,14 @@ Paste your code below:"""
 # ---------------------------------------------------------------------------
 def main():
     """Run the Symbols MCP server."""
-    mcp.run(transport="stdio")
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    host = os.getenv("MCP_HOST", "0.0.0.0")
+    port = int(os.getenv("MCP_PORT", "8080"))
+
+    if transport == "sse":
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

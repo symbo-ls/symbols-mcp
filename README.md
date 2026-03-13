@@ -20,6 +20,7 @@ No API keys required. All tools work fully offline using bundled documentation.
 - `symbols://skills/design-direction` — UI/UX design direction
 - `symbols://skills/migration-guide` — React/Angular/Vue → Symbols migration guide
 - `symbols://skills/v2-to-v3-migration` — DOMQL v2 → v3 changes
+- `symbols://skills/ssr-brender` — Server-side rendering with brender (SSR/SSG)
 - `symbols://skills/quickstart` — CLI quickstart
 - `symbols://reference/spacing-tokens` — Spacing token reference
 - `symbols://reference/atom-components` — Built-in atom components
