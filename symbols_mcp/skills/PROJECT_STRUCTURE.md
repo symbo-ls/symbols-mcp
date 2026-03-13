@@ -1,12 +1,12 @@
-# Symbols Project Structure & Setup
+# Symbols Project Structure
 
-Environment-agnostic folder structure for the Symbols platform. Generates independent files without JS module preloading, enabling seamless rendering across VSCode, file structure, Symbols platform, server rendering, and browsers.
+Follow this environment-agnostic folder structure for the Symbols platform. Generate independent files without JS module preloading. Files must render seamlessly across VSCode, file structure, Symbols platform, server rendering, and browsers.
 
 ---
 
 ## Core Principle
 
-**NO JavaScript imports/exports for component usage.** Components are registered once in their folders and reused through a declarative object tree. No build step required.
+Do NOT use JavaScript imports/exports for component usage. Register components once in their folders and reuse them through a declarative object tree. No build step is required.
 
 ---
 
@@ -21,11 +21,11 @@ smbls/
 ├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
 │
 ├── components/
-│   ├── index.js              # export * from './Foo.js'  ← FLAT re-exports only
+│   ├── index.js              # export * from './Foo.js'  — FLAT re-exports only
 │   └── Navbar.js             # export const Navbar = { ... }
 │
 ├── pages/
-│   ├── index.js              # import-based registry — ONLY file with imports allowed
+│   ├── index.js              # Import-based registry — ONLY file with imports allowed
 │   └── main.js               # export const main = { extends: 'Page', ... }
 │
 ├── functions/
@@ -47,9 +47,13 @@ smbls/
     └── metrics.js            # export default [{ title: 'Status', ... }]
 ```
 
+Each folder is described below. Follow these rules strictly when creating or modifying files.
+
 ---
 
-## 1. Components (`components/`)
+## Components (`components/`)
+
+Create one named export per file, PascalCase, matching the filename exactly.
 
 ```js
 // components/Header.js
@@ -63,25 +67,28 @@ export const Header = {
 }
 ```
 
-Rules:
-- Named export matching filename (PascalCase)
-- Component name MUST match filename
-- No imports from other project files — reference by key name in tree
-- Props use design system tokens (`minWidth: 'G2'`, `padding: 'A'`)
+**Rules:**
+- Use a named export matching the filename (PascalCase).
+- Never import from other project files — reference by key name in the tree.
+- Use design system tokens for props (`minWidth: 'G2'`, `padding: 'A'`).
+
+Use `export *` only in `components/index.js`. Never use `export * as`.
 
 ```js
-// components/index.js — use export * ONLY, never export * as
+// components/index.js
 export * from './Header.js'
 export * from './Navbar.js'
-// ❌ NEVER: export * as Header from './Header.js'
+// NEVER: export * as Header from './Header.js'
 ```
 
 ---
 
-## 2. Pages (`pages/`)
+## Pages (`pages/`)
+
+Create files as shown. Use dash-case filenames and camelCase exports. Always extend from `'Page'`.
 
 ```js
-// pages/dashboard.js — dash-case filename, camelCase export
+// pages/dashboard.js
 export const dashboard = {
   extends: 'Page',
   width: '100%',
@@ -97,13 +104,15 @@ export const dashboard = {
 }
 ```
 
-Rules:
-- Filenames: **dash-case** (`add-network.js`, `edit-node.js`)
-- Exports: **camelCase** (`export const addNetwork`)
-- Always extend from `'Page'`
+**Rules:**
+- Filenames: dash-case (`add-network.js`, `edit-node.js`).
+- Exports: camelCase (`export const addNetwork`).
+- Always extend from `'Page'`.
+
+Register routes in `pages/index.js` — the only file where imports are allowed:
 
 ```js
-// pages/index.js — only file where imports are allowed
+// pages/index.js
 import { main } from './main.js'
 import { dashboard } from './dashboard.js'
 
@@ -115,7 +124,9 @@ export default {
 
 ---
 
-## 3. Functions (`functions/`)
+## Functions (`functions/`)
+
+Create pure, standalone utilities with a named export matching the filename (camelCase). Do not import other project files.
 
 ```js
 // functions/parseNetworkRow.js
@@ -124,13 +135,10 @@ export const parseNetworkRow = function parseNetworkRow(data) {
 }
 ```
 
-Rules:
-- Named export matching filename (camelCase)
-- Pure, standalone utilities — no imports of other project files
-- Called via `el.call('functionName', ...args)` from event handlers
+Call functions from event handlers via `el.call()`:
 
 ```js
-// In component
+// In a component
 Button: { onClick: (e, el) => el.call('parseNetworkRow', data) }
 ```
 
@@ -138,7 +146,9 @@ Button: { onClick: (e, el) => el.call('parseNetworkRow', data) }
 
 ---
 
-## 4. Methods (`methods/`)
+## Methods (`methods/`)
+
+Create utility methods that extend element behavior. Register once; they become reusable across all components.
 
 ```js
 // methods/formatDate.js
@@ -147,13 +157,11 @@ export const formatDate = function(date) {
 }
 ```
 
-Rules:
-- Utility methods that extend element behavior
-- Registered once, reused across all components
-
 ---
 
-## 5. Design System (`designSystem/`)
+## Design System (`designSystem/`)
+
+Define tokens in separate UPPERCASE files. Aggregate them in `index.js`.
 
 ```js
 // designSystem/COLOR.js
@@ -172,11 +180,13 @@ import THEME from './THEME.js'
 export default { COLOR, THEME }
 ```
 
-See `DESIGN_SYSTEM.md` for full token reference.
+See `DESIGN_SYSTEM.md` for the full token reference.
 
 ---
 
-## 6. State (`state.js` or `state/index.js`)
+## State (`state.js` or `state/index.js`)
+
+Declare pure data structures only. Do not include logic or methods. Keep all initial state in a single file with no cross-imports.
 
 ```js
 // state.js
@@ -188,14 +198,13 @@ export default {
 }
 ```
 
-Rules:
-- Pure data structures only — no logic, no methods
-- All initial state inline in a single file (no cross-imports)
-- Accessed and updated via `state.propertyName` or `state.update({})`
+Access and update state via `state.propertyName` or `state.update({})`.
 
 ---
 
-## 7. Dependencies (`dependencies.js`)
+## Dependencies (`dependencies.js`)
+
+Map npm package names to exact version numbers. Do not use `^` or `~`. Do not preload modules — import on demand via dynamic `import()`.
 
 ```js
 export default {
@@ -205,12 +214,8 @@ export default {
 }
 ```
 
-Rules:
-- Maps npm package names to **exact** version numbers (no `^` or `~`)
-- No module preloading — packages imported on-demand via dynamic `import()`
-- Keeps structure resolvable without a build step
-
 Dynamic import pattern:
+
 ```js
 onClick: async (e, el) => {
   const { Chart } = await import('chart.js')
@@ -220,7 +225,9 @@ onClick: async (e, el) => {
 
 ---
 
-## 8. Config (`config.js`)
+## Config (`config.js`)
+
+Control runtime behavior and rendering flags:
 
 ```js
 export default {
@@ -235,13 +242,11 @@ export default {
 }
 ```
 
-Controls runtime behavior and rendering flags.
-
 ---
 
 ## Root `index.js`
 
-The root entry file wires everything together:
+Wire everything together in the root entry file:
 
 ```js
 export * as components from './components/index.js'
@@ -269,90 +274,81 @@ next/
 └── rita/, bazaar/, ...        # consumer apps
 ```
 
-All packages version-locked at the same version across the monorepo. Consumer apps depend on `"smbls": "3.x.x"` (workspace-resolved).
+All packages are version-locked at the same version across the monorepo. Consumer apps depend on `"smbls": "3.x.x"` (workspace-resolved).
 
 ---
 
 ## CLI Setup
 
-### Installation
+### Install
 
 ```bash
 npm i -g @symbo.ls/cli
 ```
 
-### Create a new project
+### Create a Project
 
-```bash
-# Local-only (fastest)
-smbls create <project-name>
-cd <project-name>
-npm start
-
-# Platform-linked (collaboration + remote preview)
-smbls project create <project-name> --create-new
-cd <project-name>
-npm start
-```
+| Goal | Command |
+|------|---------|
+| Local-only (fastest) | `smbls create <project-name> && cd <project-name> && npm start` |
+| Platform-linked (collaboration + remote preview) | `smbls project create <project-name> --create-new && cd <project-name> && npm start` |
 
 ### Authentication
 
-```bash
-smbls login --check    # check login status
-smbls login            # sign in
-smbls servers          # list servers
-smbls servers --select # switch server
-```
+| Command | Action |
+|---------|--------|
+| `smbls login --check` | Check login status |
+| `smbls login` | Sign in |
+| `smbls servers` | List servers |
+| `smbls servers --select` | Switch server |
 
 ### Sync & Collaboration
 
-```bash
-smbls push             # upload local → platform
-smbls fetch --update   # download platform → local
-smbls sync             # two-way sync (interactive conflict handling)
-smbls collab           # live collaboration watch mode (separate terminal)
-```
+| Command | Action |
+|---------|--------|
+| `smbls push` | Upload local to platform |
+| `smbls fetch --update` | Download platform to local |
+| `smbls sync` | Two-way sync (interactive conflict handling) |
+| `smbls collab` | Live collaboration watch mode (run in separate terminal) |
 
 ### File Management
 
-```bash
-smbls files list
-smbls files upload
-smbls files download
-smbls files rm
-```
+| Command | Action |
+|---------|--------|
+| `smbls files list` | List files |
+| `smbls files upload` | Upload files |
+| `smbls files download` | Download files |
+| `smbls files rm` | Remove files |
 
 ### Linking an Existing Platform Project
 
-```bash
-smbls project link .                     # interactive picker
-smbls project link . --key <key>.symbo.ls  # non-interactive
-smbls project link . --id <projectId>
-```
+| Command | Action |
+|---------|--------|
+| `smbls project link .` | Interactive picker |
+| `smbls project link . --key <key>.symbo.ls` | Non-interactive, by key |
+| `smbls project link . --id <projectId>` | Non-interactive, by ID |
 
 ### Shell Auto-completion
 
-```bash
-smbls completion zsh --install
-smbls completion bash --install
-```
+| Command | Action |
+|---------|--------|
+| `smbls completion zsh --install` | Install zsh completions |
+| `smbls completion bash --install` | Install bash completions |
 
 ---
 
 ## Remote Preview URLs
 
-After linking and pushing a project, the preview URLs follow this pattern:
+After linking and pushing a project, access previews at these URLs:
 
-```
-Preview:   https://<app>.<user>.preview.symbo.ls/
-Dev env:   https://dev.<app>.<user>.preview.symbo.ls/
-With path: https://<app>.<user>.preview.symbo.ls/<subpath>
-```
+| Type | URL Pattern |
+|------|-------------|
+| Preview | `https://<app>.<user>.preview.symbo.ls/` |
+| Dev environment | `https://dev.<app>.<user>.preview.symbo.ls/` |
+| With subpath | `https://<app>.<user>.preview.symbo.ls/<subpath>` |
 
-Where:
 - `<user>` — Symbols username or org
 - `<app>` — project identifier
-- `<env>` — optional environment (`dev`, `stage`, etc.)
 
 Example for user `nikoloza`, project `my-app`:
 ```
@@ -364,13 +360,13 @@ https://dev.my-app.nikoloza.preview.symbo.ls/
 
 ## AI Integration
 
-To instruct an AI coding assistant to follow project conventions:
+Instruct an AI coding assistant to follow project conventions with:
 
 ```
 Use instructions from all .md files in the /docs folder
 ```
 
-Best tools for Symbols development: Claude Code > Cursor > Copilot
+Recommended tools for Symbols development: Claude Code > Cursor > Copilot.
 
 Workflows that work best with AI assistance:
 - Extending existing Symbols apps
@@ -381,15 +377,17 @@ Workflows that work best with AI assistance:
 
 ## Troubleshooting
 
-| Problem                       | Fix                                          |
-| ----------------------------- | -------------------------------------------- |
-| Auth required / access denied | `smbls login`                                |
-| Missing project key           | Check `symbols.json` or `smbls project link .` |
-| Need verbose output           | Add `--verbose` to any command               |
-| CLI not found                 | `npm i -g @symbo.ls/cli`                     |
+| Problem | Fix |
+|---------|-----|
+| Auth required / access denied | Run `smbls login` |
+| Missing project key | Check `symbols.json` or run `smbls project link .` |
+| Need verbose output | Add `--verbose` to any command |
+| CLI not found | Run `npm i -g @symbo.ls/cli` |
 | Build fails on new pkg method | Add method to `METHODS` in `keys.js` AND `set.js` |
 
-### Build order for monorepo changes
+---
+
+## Build Order
 
 When changing smbls source, rebuild in dependency order:
 

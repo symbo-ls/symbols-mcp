@@ -1,8 +1,12 @@
-# Symbols / DOMQL v3 — Full Audit, Enforcement & Feedback Framework
+# Symbols / DOMQL v3 — Full Audit Protocol
+
+Follow this protocol exactly. Execute each phase in order. Do not skip steps.
 
 ---
 
-## 1. MCP Installation
+## 1. Install the MCP Server
+
+Run the following command to install:
 
 ```bash
 pip install symbols-mcp
@@ -10,17 +14,16 @@ pip install symbols-mcp
 
 ---
 
-## 2. MCP Server Configuration
+## 2. Configure the MCP Server
+
+Add this configuration to your MCP settings:
 
 ```json
 {
   "mcpServers": {
     "symbols": {
       "command": "uvx",
-      "args": ["symbols-mcp"],
-      "env": {
-        "SYMBOLS_SKILLS_DIR": "/path/to/your/skills"
-      }
+      "args": ["symbols-mcp"]
     }
   }
 }
@@ -28,42 +31,37 @@ pip install symbols-mcp
 
 ---
 
-## 3. Authority Model
+## 3. Apply the Authority Model
 
-Force usage of the MCP server for all analysis.
+Use the MCP server for all analysis. Treat every file as required. Treat every rule as mandatory.
 
-No file is optional.
-No rule is advisory.
+Resolve conflicts in this priority order:
 
-Conflict resolution priority:
-
-1. DOMQL v3 conventions
+1. DOMQL v3 conventions (highest)
 2. Architectural direction
-3. Design system integrity
+3. Design system integrity (lowest)
 
 ---
 
-## 4. Mandatory Skills Coverage
+## 4. Load All Mandatory Skills
+
+Before auditing, confirm that every skill below has been consulted. Do not proceed without full coverage.
 
 ### Accessibility
-
 - ACCESSIBILITY
 - ACCESSIBILITY_AUDITORY
 
 ### Design System
-
 - DEFAULT_DESIGN_SYSTEM
 - DESIGN_SYSTEM_CONFIG
 - DESIGN_SYSTEM_IN_PROPS
 - DESIGN_SYSTEM_ARCHITECT
 
 ### DOMQL / Migration
-
 - DOMQL_v2-v3_MIGRATION
 - MIGRATE_TO_SYMBOLS
 
 ### UI / UX / Direction
-
 - UI_UX_PATTERNS
 - DESIGN_DIRECTION
 - DESIGN_CRITIQUE
@@ -71,12 +69,10 @@ Conflict resolution priority:
 - FIGMA_MATCHING
 
 ### Components
-
 - BUILT_IN_COMPONENTS
 - DEFAULT_COMPONENTS
 
 ### Architecture / Setup
-
 - PROJECT_SETUP
 - QUICKSTART
 - CLI_QUICK_START
@@ -85,203 +81,185 @@ Conflict resolution priority:
 - OPTIMIZATIONS_FOR_AGENT
 
 ### Brand / Presentation
-
-- BRAND_INDENTITY
+- BRAND_IDENTITY
 - MARKETING_ASSETS
-- THE_PRESENTATION
+- PRESENTATION
 
 ### Meta / Agent
-
 - AGENT_INSTRUCTIONS
 
 ### SEO
-
 - SEO-METADATA
 
 ---
 
-## 5. Full `smbls/` Codebase Audit Scope
+## 5. Define the Audit Scope
 
-Audit the entire `smbls/` directory without exception.
+Scan the entire `smbls/` directory. Cover every file without exception.
 
-No partial scans.
-No selective fixes.
+- Do not perform partial scans.
+- Do not apply selective fixes.
+- Audit everything.
 
 ---
 
-## 6. Audit Phases
+## 6. Execute the 7 Audit Phases
+
+Complete each phase fully before moving to the next.
 
 ### Phase 1 — Structural & Syntax Integrity
 
-- Eliminate all critical syntax errors.
-- Remove legacy DOMQL v2 patterns.
-- Enforce DOMQL v3 structure.
-- Normalize event handler conventions.
-- Standardize shorthand props.
-- Enforce correct atom usage.
-- Enforce state patterns.
-- Validate dynamic children handling.
-
----
+1. Scan for and eliminate all critical syntax errors.
+2. Identify and remove all legacy DOMQL v2 patterns.
+3. Enforce DOMQL v3 structure on every component.
+4. Normalize all event handler conventions.
+5. Standardize all shorthand props.
+6. Verify correct atom usage throughout.
+7. Enforce proper state patterns.
+8. Validate all dynamic children handling.
 
 ### Phase 2 — Design System Enforcement
 
-- Replace hardcoded styles with tokens.
-- Enforce design tokens in props.
-- Validate spacing, typography, radii, color, shadows.
-- Align with DEFAULT_DESIGN_SYSTEM.md and DESIGN_SYSTEM_CONFIG.md.
-- Remove visual drift.
-
----
+1. Find and replace all hardcoded styles with design tokens.
+2. Enforce design tokens in all props.
+3. Validate spacing, typography, radii, color, and shadow values against the token system.
+4. Align all visual output with DEFAULT_DESIGN_SYSTEM.md and DESIGN_SYSTEM_CONFIG.md.
+5. Eliminate all visual drift from the design system.
 
 ### Phase 3 — Component Discipline
 
-- Replace custom hacks with built-in components where applicable.
-- Enforce BUILT_IN_COMPONENTS.md.
-- Align with DEFAULT_COMPONENTS.md.
-- Remove duplication.
-
----
+1. Identify custom implementations that duplicate built-in components.
+2. Replace those with the correct built-in component per BUILT_IN_COMPONENTS.md.
+3. Align all component usage with DEFAULT_COMPONENTS.md.
+4. Remove all component duplication.
 
 ### Phase 4 — Accessibility Compliance
 
-- Semantic HTML validation.
-- Keyboard navigation compliance.
-- ARIA correctness.
-- Auditory accessibility patterns.
-- Contrast enforcement.
-- Interaction feedback correctness.
-
----
+1. Validate semantic HTML across all components.
+2. Verify keyboard navigation compliance.
+3. Check all ARIA attributes for correctness.
+4. Apply auditory accessibility patterns per ACCESSIBILITY_AUDITORY.
+5. Enforce contrast ratios.
+6. Confirm interaction feedback is present and correct.
 
 ### Phase 5 — Icons & Visual Consistency
 
-- Standardize icon system.
-- Remove mixed icon sets.
-- Align with design system scale and weight.
-
----
+1. Standardize the icon system across the codebase.
+2. Remove all mixed or inconsistent icon sets.
+3. Align icon scale and weight with the design system.
 
 ### Phase 6 — SEO & Metadata
 
-- Enforce structured metadata.
-- Validate semantic markup.
-- Apply SEO-METADATA.md rules.
-
----
+1. Enforce structured metadata on all applicable pages.
+2. Validate semantic markup for search engines.
+3. Apply all rules from SEO-METADATA.md.
 
 ### Phase 7 — UI / UX Coherence
 
-- Align with DESIGN_DIRECTION.md.
-- Enforce hierarchy discipline.
-- Remove layout inconsistencies.
-- Validate Figma-to-code fidelity.
-- Remove visual noise.
+1. Align all layouts and flows with DESIGN_DIRECTION.md.
+2. Enforce visual hierarchy discipline.
+3. Fix all layout inconsistencies.
+4. Validate Figma-to-code fidelity per FIGMA_MATCHING.
+5. Remove all visual noise.
 
 ---
 
-## 7. Execution Order
+## 7. Follow This Execution Order
 
-1. Full static audit.
-2. Categorized issue extraction.
-3. Refactor plan generation.
-4. Structural fixes.
-5. Design system fixes.
-6. Accessibility fixes.
-7. Visual polish.
-8. Final consistency sweep.
+Perform these steps sequentially. Do not start a later step until the previous one is complete.
 
-No cosmetic adjustments before structural compliance.
+1. Run a full static audit of the codebase.
+2. Extract and categorize all issues found.
+3. Generate a refactor plan from the categorized issues.
+4. Apply structural fixes (Phase 1).
+5. Apply design system fixes (Phase 2).
+6. Apply accessibility fixes (Phase 4).
+7. Apply visual polish (Phases 3, 5, 7).
+8. Run a final consistency sweep across the entire codebase.
 
----
-
-## 8. Thread-Wide Findings Extraction
-
-From the entire conversation history:
-
-Collect and normalize:
-
-- All reported bugs.
-- All recurring friction points.
-- All misuse of Symbols patterns.
-- All unclear API usage.
-- All architectural inconsistencies.
-- All design complaints.
-- All ambiguity in documentation.
-
-Deduplicate and classify.
+Do not make cosmetic adjustments before structural compliance is achieved.
 
 ---
 
-## 9. Feedback Documentation Output
+## 8. Extract Thread-Wide Findings
 
-Generate or update the following files:
+Review the entire conversation history. Collect and normalize every instance of:
 
-### symbols-feedback.md
+- Reported bugs
+- Recurring friction points
+- Misuse of Symbols patterns
+- Unclear API usage
+- Architectural inconsistencies
+- Design complaints
+- Ambiguity in documentation
 
-Scope: Framework-level issues only.
-
-Include:
-
-- DOMQL v3 violations.
-- Event handler misuse.
-- Atom/state mispatterns.
-- Shorthand inconsistencies.
-- Dynamic children misuse.
-- Design system misuse.
-- Migration errors.
-- Accessibility framework gaps.
-- Architectural inconsistencies.
-- Documentation ambiguity.
-- Agent friction.
-
-Strictly framework-level.
+Deduplicate all findings. Classify each one using the severity levels in Section 10.
 
 ---
 
-### project-feedback.md
+## 9. Produce Feedback Documentation
 
-Scope: Project-specific issues only.
+Generate or update two files. Keep their scopes strictly separated.
 
-Include:
+### symbols-feedback.md — Framework-Level Issues Only
 
-- Design direction inconsistencies.
-- UX confusion.
-- Visual imbalance.
-- Layout flaws.
-- Component misuse specific to project.
-- Brand drift.
-- Interaction flaws.
-- Missing states.
-- SEO implementation errors.
-- Bug reports.
+Include only framework-level findings:
 
-Strictly implementation-level.
+- DOMQL v3 violations
+- Event handler misuse
+- Atom/state mispatterns
+- Shorthand inconsistencies
+- Dynamic children misuse
+- Design system misuse
+- Migration errors
+- Accessibility framework gaps
+- Architectural inconsistencies
+- Documentation ambiguity
+- Agent friction
+
+Do not include project-specific issues in this file.
+
+### project-feedback.md — Project-Level Issues Only
+
+Include only project-specific findings:
+
+- Design direction inconsistencies
+- UX confusion
+- Visual imbalance
+- Layout flaws
+- Component misuse specific to the project
+- Brand drift
+- Interaction flaws
+- Missing states
+- SEO implementation errors
+- Bug reports
+
+Do not include framework-level issues in this file.
 
 ---
 
-## 10. Severity Classification
+## 10. Classify Severity
 
-All findings must be categorized:
+Assign exactly one severity level to every finding. Do not mix categories.
 
-- Critical — Breaking, unsafe, or structurally invalid.
-- Structural — Architecture misalignment.
-- Systemic — Pattern-level or repeated misuse.
-- Cosmetic — Visual or minor consistency issues.
-
-No category mixing.
+| Severity | Definition |
+|---|---|
+| **Critical** | Breaking, unsafe, or structurally invalid. Must fix immediately. |
+| **Structural** | Architecture misalignment. Fix before any polish work. |
+| **Systemic** | Pattern-level or repeated misuse across multiple files. |
+| **Cosmetic** | Visual or minor consistency issues. Fix last. |
 
 ---
 
-## 11. Output Requirements
+## 11. Deliver the Final Output
 
-Deliver:
+Produce the following deliverables:
 
-- Executive audit summary.
-- Severity breakdown.
-- Refactor roadmap.
-- Clear separation between:
-  - Framework issues (Symbols-level)
-  - Project issues (Implementation-level)
+1. **Executive audit summary** — High-level overview of codebase health.
+2. **Severity breakdown** — Count and list of findings per severity level.
+3. **Refactor roadmap** — Ordered plan for resolving all issues.
+4. **Separated issue lists:**
+   - Framework issues (Symbols-level) in symbols-feedback.md
+   - Project issues (implementation-level) in project-feedback.md
 
-Enforce full DOMQL v3 purity across the entire codebase.
+Enforce full DOMQL v3 purity across the entire codebase. No exceptions.

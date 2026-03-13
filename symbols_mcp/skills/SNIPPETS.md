@@ -1,13 +1,12 @@
 # Symbols Snippets — Production Component Patterns
 
-Real-world, production-tested component patterns from Symbols projects.
-Use these as starting points for common UI needs.
+11 production-tested component patterns. Use as starting points for common UI needs.
 
 ---
 
-## Navigation Header
+## 1. Navigation Header
 
-A responsive header with logo, nav links, and mobile support.
+Sticky responsive header with logo, nav links, and mobile menu button.
 
 ```js
 export const Header = {
@@ -67,9 +66,9 @@ export const Header = {
 
 ---
 
-## Hero Section
+## 2. Hero Section
 
-Full-width hero with heading, description, and CTA.
+Full-width hero with heading, description, and CTA buttons.
 
 ```js
 export const Hero = {
@@ -130,7 +129,7 @@ export const Hero = {
 
 ---
 
-## Feature Card
+## 3. Feature Card
 
 Card with icon, title, and description.
 
@@ -166,9 +165,9 @@ export const FeatureCard = {
 
 ---
 
-## Feature Grid
+## 4. Feature Grid
 
-Responsive grid of feature cards.
+Responsive grid of feature cards using `children` + `childExtends`.
 
 ```js
 export const FeatureGrid = {
@@ -197,7 +196,7 @@ export const FeatureGrid = {
 
 ---
 
-## Pricing Card
+## 5. Pricing Card
 
 Pricing option with features list and CTA.
 
@@ -266,7 +265,7 @@ export const PriceCard = {
 
 ---
 
-## Testimonial Card
+## 6. Testimonial Card
 
 User testimonial with avatar and quote.
 
@@ -309,7 +308,7 @@ export const TestimonialCard = {
 
 ---
 
-## Search with Dropdown
+## 7. Search with Dropdown
 
 Search input with filtered results dropdown.
 
@@ -359,9 +358,9 @@ export const SearchDropdown = {
 
 ---
 
-## Footer
+## 8. Footer
 
-Responsive footer with columns.
+Responsive footer with column layout.
 
 ```js
 export const Footer = {
@@ -411,7 +410,7 @@ export const Footer = {
 
 ---
 
-## Data Table
+## 9. Data Table
 
 Structured data table from state array.
 
@@ -459,9 +458,9 @@ export const DataTable = {
 
 ---
 
-## Layout with Sidebar
+## 10. Layout with Sidebar
 
-Common app layout with sidebar navigation and main content area.
+App layout with sidebar navigation and main content area.
 
 ```js
 export const AppLayout = {
@@ -510,9 +509,9 @@ export const AppLayout = {
 
 ---
 
-## Notification Toast
+## 11. Notification Toast
 
-Auto-dismissing notification with variants.
+Auto-dismissing fixed-position notification.
 
 ```js
 export const Toast = {
@@ -552,7 +551,7 @@ export const Toast = {
 
 ---
 
-## Contact Form
+## 12. Contact Form
 
 Multi-field form with submit handling.
 

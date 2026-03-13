@@ -1,26 +1,17 @@
 # Default Library — Fundamental Component Layer
 
-## Overview
+## What It Contains
 
-Symbols projects can include a **default library** (`default.symbo.ls`) — a foundational layer of pre-built, production-ready components. This library provides the building blocks that most applications need, so you don't start from scratch.
-
-When creating a project via the CLI (`smbls create`), users are prompted:
-- **Default (recommended)** — includes `default.symbo.ls` library
-- **Blank** — empty project, no pre-built components
-
-Projects created on the Symbols platform automatically include the default library.
+The default library (`default.symbo.ls`) provides 127+ pre-built, production-ready components. Included automatically when creating projects via `smbls create` (Default option) or the Symbols platform. Choose "Blank" for an empty project.
 
 ---
 
-## What the Default Library Contains
-
-The default library includes **127+ components** organized into categories:
+## Component Tables
 
 ### Atoms (Foundation)
-Core building blocks that everything else extends:
 
 | Component | Extends | Purpose |
-|-----------|---------|---------|
+|---|---|---|
 | `Box` | — | Generic container with CSS-in-props |
 | `Text` | — | Text rendering (H1-H6, P, Caption, etc.) |
 | `Flex` | `Box` | Flexbox layout |
@@ -34,10 +25,11 @@ Core building blocks that everything else extends:
 | `Shape` | `Box` | Shape utilities |
 
 ### Buttons
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Button` | Base button with text/icon support |
-| `IconButton` | Button with icon only |
+| `IconButton` | Icon-only button |
 | `SquareButton` | Fixed-aspect button |
 | `CircleButton` | Circular button |
 | `SubmitButton` | Form submit button |
@@ -47,8 +39,9 @@ Core building blocks that everything else extends:
 | `ConfirmationButtons` | Confirm/Cancel pair |
 
 ### Inputs & Forms
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Input` | Text input |
 | `Textarea` | Multi-line input |
 | `NumberInput` | Numeric input |
@@ -60,16 +53,18 @@ Core building blocks that everything else extends:
 | `Search` | Search input with icon |
 
 ### Avatar & Social
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Avatar` | User avatar (extends Img) |
 | `AvatarSet` | Group of avatars |
 | `AvatarStatus` | Avatar with status indicator |
 | `AvatarHgroup` | Avatar + name/description |
 
 ### Data Display
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Badge` | Status/count badge |
 | `StatusDot` | Colored status indicator |
 | `Progress` | Progress bar |
@@ -78,8 +73,9 @@ Core building blocks that everything else extends:
 | `UnitValue` | Number + unit display |
 
 ### Navigation
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Link` | Navigation link with router |
 | `LinkSet` | Group of links |
 | `Breadcrumb` | Breadcrumb navigation |
@@ -87,8 +83,9 @@ Core building blocks that everything else extends:
 | `Pagination` | Page navigation |
 
 ### Feedback & Overlay
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Modal` | Modal dialog |
 | `Notification` | Notification banner |
 | `Tooltip` | Hover tooltip |
@@ -96,28 +93,42 @@ Core building blocks that everything else extends:
 | `Accordion` | Expandable sections |
 
 ### Icons
+
 | Component | Description |
-|-----------|-------------|
+|---|---|
 | `Icon` | SVG icon from icon set |
 | `IconText` | Icon + text combination |
 | `IconHeading` | Icon + heading |
 
 ---
 
-## How Components Extend the Library
+## Extension Chain
 
-Default library components are available by PascalCase key name — no imports needed:
+Components form a three-level inheritance chain:
+
+```
+UIKit Atom (Box, Flex, etc.)
+  -> Default Library Component (Button, Avatar, etc.)
+    -> Your Project Component (MyButton, ProfileAvatar, etc.)
+```
 
 ```js
-// Your component automatically extends the library's Button
-export const MyButton = {
-  extends: 'Button',
-  text: 'Click Me',
-  theme: 'primary',
-  padding: 'Z2 B',
-}
+// UIKit defines the base
+// Avatar extends Img with default styling
+// Your component extends Avatar with customization
 
-// PascalCase keys auto-extend matching components
+export const ProfileAvatar = {
+  extends: 'Avatar',
+  boxSize: 'D D',
+  round: 'A',
+  border: '2px solid',
+  borderColor: 'primary',
+}
+```
+
+PascalCase keys auto-extend matching registered components:
+
+```js
 export const MyCard = {
   extends: 'Flex',
   flow: 'y',
@@ -145,36 +156,9 @@ export const MyCard = {
 
 ---
 
-## Extension Chain
-
-Components form an extension chain:
-
-```
-UIKit Atom (Box, Flex, etc.)
-  → Default Library Component (Button, Avatar, etc.)
-    → Your Project Component (MyButton, ProfileAvatar, etc.)
-```
-
-Example:
-```js
-// UIKit defines the base
-// Avatar extends Img with default styling
-// Your component extends Avatar with customization
-
-export const ProfileAvatar = {
-  extends: 'Avatar',
-  boxSize: 'D D',
-  round: 'A',
-  border: '2px solid',
-  borderColor: 'primary',
-}
-```
-
----
-
 ## Design System Integration
 
-The default library components automatically use your project's design system tokens:
+Default library components automatically use your project's design system tokens:
 
 ```js
 // designSystem/index.js
@@ -244,7 +228,7 @@ project/
 
 ## Router Pattern
 
-Pages use the router with the default library's layout components:
+Pages use the router with default library layout components:
 
 ```js
 // pages/index.js
@@ -305,12 +289,14 @@ export * as snippets from './snippets/index.js'
 
 ---
 
-## Key Rules When Using Default Library
+## Usage Rules
 
-1. **Never import components** — reference by PascalCase key name
-2. **extends is required** to inherit library behavior — `extends: 'Button'`
-3. **PascalCase keys auto-extend** — `Avatar: {}` automatically extends the registered Avatar
-4. **Design tokens override** — your designSystem tokens take precedence
-5. **Flat folders only** — no subfolders in components/, pages/, etc.
-6. **Named exports** for components — `export const MyComp = { ... }`
-7. **Default exports** for state/pages/config — `export default { ... }`
+| Rule | Details |
+|---|---|
+| Never import components | Reference by PascalCase key name |
+| `extends` is required | Use `extends: 'Button'` to inherit library behavior |
+| PascalCase keys auto-extend | `Avatar: {}` automatically extends registered Avatar |
+| Design tokens override | Your designSystem tokens take precedence over defaults |
+| Flat folders only | No subfolders in `components/`, `pages/`, etc. |
+| Named exports for components | `export const MyComp = { ... }` |
+| Default exports for state/pages/config | `export default { ... }` |

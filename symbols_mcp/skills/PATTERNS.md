@@ -1,10 +1,14 @@
-# Symbols / DOMQL — UI Patterns, Accessibility & AI Optimization
+# Symbols / DOMQL Patterns Reference
+
+Use these patterns as recipes when building Symbols/DOMQL components. Each pattern is self-contained: apply it directly.
 
 ---
 
-## Part 1: UI/UX Patterns
+## UI Patterns
 
 ### Loading State
+
+When to use: Any component that fetches data asynchronously.
 
 ```js
 export const DataList = {
@@ -35,6 +39,8 @@ export const DataList = {
 
 ### Toggle / Accordion
 
+When to use: Expandable/collapsible content sections.
+
 ```js
 export const Accordion = {
   state: { open: false },
@@ -56,6 +62,8 @@ export const Accordion = {
 
 ### Active List Item
 
+When to use: Navigation menus or lists where one item is selected.
+
 ```js
 export const Menu = {
   state: { active: null },
@@ -69,6 +77,8 @@ export const Menu = {
 ```
 
 ### Modal (v3 complete pattern)
+
+When to use: Dialog overlays with backdrop, focus trapping, and animated open/close.
 
 ```js
 // components/ModalCard.js
@@ -128,7 +138,7 @@ export const closeModal = function closeModal() {
 
 ### Tab Switching (DOM ID pattern)
 
-Use DOM IDs for view switching — NOT reactive `display` bindings (causes rendering failures).
+When to use: Multi-view tab interfaces. Use DOM IDs for view switching -- NOT reactive `display` bindings (causes rendering failures).
 
 ```js
 // Page definition
@@ -152,6 +162,8 @@ export const switchView = function switchView(view) {
 
 ### Dynamic Class Toggle
 
+When to use: Conditionally applying a style class based on props or state.
+
 ```js
 export const Button = {
   '.active': { background: 'primary', color: 'white' },
@@ -160,6 +172,8 @@ export const Button = {
 ```
 
 ### Dynamic Form / Async Submit
+
+When to use: Forms with async submission, loading indicators, and inline error display.
 
 ```js
 export const LoginForm = {
@@ -196,6 +210,8 @@ export const LoginForm = {
 
 ### Responsive Layout
 
+When to use: Grid-based layouts that adapt across breakpoints.
+
 ```js
 export const Layout = {
   extends: 'Grid',
@@ -209,14 +225,14 @@ export const Layout = {
 
 ---
 
-## Part 2: Accessibility
+## Accessibility
 
 ### Semantic Atoms First
 
-Always prefer built-in semantic atoms over generic containers:
+Always prefer built-in semantic atoms over generic containers.
 
 ```js
-// ✅ CORRECT — semantic atoms
+// CORRECT -- semantic atoms
 Button: { text: 'Submit' }                           // <button>
 Link: { text: 'Dashboard', href: '/dashboard' }      // <a>
 Input: { placeholder: 'Search...' }                  // <input>
@@ -225,7 +241,7 @@ Header: {}                                           // <header>
 Footer: {}                                           // <footer>
 Main: {}                                             // <main>
 
-// ❌ WRONG — loses semantics
+// WRONG -- loses semantics
 Box: { tag: 'div', text: 'Submit', onClick: fn }    // div is not a button
 ```
 
@@ -250,6 +266,8 @@ Button: {
 
 ### Keyboard Navigation
 
+When to use: Custom interactive widgets (listbox, dropdown, menu).
+
 ```js
 // Custom keyboard interaction (listbox pattern)
 {
@@ -273,10 +291,13 @@ Button: {
 }
 ```
 
-Tabindex rules:
-- `tabindex: '0'` — in tab order
-- `tabindex: '-1'` — focusable programmatically only
-- Never use `tabindex > 0`
+#### Tabindex Rules
+
+| Value | Behavior |
+|-------|----------|
+| `tabindex: '0'` | Element is in the natural tab order |
+| `tabindex: '-1'` | Focusable programmatically only (not via Tab key) |
+| `tabindex > 0` | **Never use.** Breaks natural tab order. |
 
 ### Focus Styles
 
@@ -326,17 +347,17 @@ Button: { Icon: { name: 'search', attr: { 'aria-hidden': 'true' } }, text: 'Sear
 
 ### Color and Contrast
 
-- Do NOT rely on color alone for error/success states — always combine with icon + text
-- Use `title`, `caption`, `paragraph` semantic tokens for sufficient contrast
-- Low opacity colors (`gray 0.3`) likely fail WCAG AA — verify contrast ratio
+- Do NOT rely on color alone for error/success states -- always combine with icon + text.
+- Use `title`, `caption`, `paragraph` semantic tokens for sufficient contrast.
+- Low opacity colors (`gray 0.3`) likely fail WCAG AA -- verify contrast ratio.
 
 ---
 
-## Part 3: AI Agent Optimization
+## AI Agent Optimization
 
 ### `aid-*` Attributes for Machine Parsing
 
-Include `aid-*` attributes so AI agents can parse structural intent:
+Add `aid-*` attributes so AI agents can parse structural intent.
 
 ```js
 export const HeroSection = {
@@ -353,29 +374,33 @@ export const HeroSection = {
 }
 ```
 
-| `aid-type` values | Meaning                                              |
-| ----------------- | ---------------------------------------------------- |
-| `header`          | Page header                                          |
-| `nav`             | Navigation                                           |
-| `main`            | Primary content                                      |
-| `content`         | Content section                                      |
-| `complementary`   | Supplementary (sidebar, aside)                       |
-| `interactive`     | Form, control panel                                  |
-| `modal`           | Dialog overlay                                       |
-| `alert`           | Error or notification                                |
-| `search`          | Search interface                                     |
+#### `aid-type` Values
 
-| `aid-state` values | Meaning              |
-| ------------------ | -------------------- |
-| `idle`             | Default state        |
-| `loading`          | Fetching data        |
-| `processing`       | Submitting/computing |
-| `done`             | Completed            |
-| `error`            | Error state          |
+| Value | Meaning |
+|-------|---------|
+| `header` | Page header |
+| `nav` | Navigation |
+| `main` | Primary content |
+| `content` | Content section |
+| `complementary` | Supplementary (sidebar, aside) |
+| `interactive` | Form, control panel |
+| `modal` | Dialog overlay |
+| `alert` | Error or notification |
+| `search` | Search interface |
+
+#### `aid-state` Values
+
+| Value | Meaning |
+|-------|---------|
+| `idle` | Default state |
+| `loading` | Fetching data |
+| `processing` | Submitting/computing |
+| `done` | Completed |
+| `error` | Error state |
 
 ### JSON-LD Structured Data
 
-Include JSON-LD for entity representation by AI agents and search engines:
+When to use: Entity representation for AI agents and search engines.
 
 ```js
 export const StructuredData = {
@@ -395,19 +420,19 @@ export const StructuredData = {
 }
 ```
 
-Schema types to use: `Organization`, `Product`, `Service`, `Article`, `FAQPage`, `BreadcrumbList`
+Supported schema types: `Organization`, `Product`, `Service`, `Article`, `FAQPage`, `BreadcrumbList`.
 
 Structured data must match server-rendered content exactly.
 
 ### Semantic Heading Structure
 
-```
-One H1 per page defining the primary subject.
-Logical hierarchy: H1 → H2 → H3 — never skip levels.
-Heading hierarchy is used by AI agents to determine page structure.
-```
+- One `H1` per page defining the primary subject.
+- Logical hierarchy: H1 then H2 then H3 -- never skip levels.
+- AI agents use heading hierarchy to determine page structure.
 
 ### AI-Accessible Tool Exposure (Chrome WebMCP)
+
+When to use: Exposing form-based tools for AI agent interaction via MCP.
 
 ```js
 export const CheckOrderTool = {
@@ -423,7 +448,7 @@ export const CheckOrderTool = {
 
 ### llms.txt Support
 
-Provide `/llms.txt` at your project root for AI routing guidance:
+Provide `/llms.txt` at your project root for AI routing guidance.
 
 ```text
 # Organization Name
@@ -444,43 +469,45 @@ Provide `/llms.txt` at your project root for AI routing guidance:
 
 ### Server-Rendered Critical Content
 
-- All critical content (text, headings, prices, key data) must be server-rendered in the initial HTML
-- Do not rely on client-side-only rendering for content AI agents need to parse
-- `aria-busy="true"` while loading; `aria-busy="false"` when complete
+- All critical content (text, headings, prices, key data) must be server-rendered in the initial HTML.
+- Do not rely on client-side-only rendering for content AI agents need to parse.
+- Set `aria-busy="true"` while loading; `aria-busy="false"` when complete.
 
-### Failure Pattern Recognition
+### Anti-Patterns (Failure Pattern Recognition)
 
-Watch for these anti-patterns that break AI comprehension:
-- Excessive divs/boxes without semantic meaning
-- Non-descriptive link text ("click here", "read more")
-- Missing or skipped heading levels
-- Critical content rendered client-side only
-- Conflicting metadata (page title vs. H1 vs. JSON-LD)
-- Missing `alt` text on informative images
+Avoid these -- they break AI comprehension:
+
+- Excessive divs/boxes without semantic meaning.
+- Non-descriptive link text ("click here", "read more").
+- Missing or skipped heading levels.
+- Critical content rendered client-side only.
+- Conflicting metadata (page title vs. H1 vs. JSON-LD).
+- Missing `alt` text on informative images.
 
 ---
 
-## Part 4: Design Principles
+## Design Principles
 
 ### Visual Hierarchy
 
-- Lead with the most important content (F-pattern, Z-pattern)
-- Use typographic scale (`H1`→`H6`, `P`, `Caption`) to create hierarchy
-- Adequate whitespace — breathing room improves comprehension
+- Lead with the most important content (F-pattern, Z-pattern).
+- Use typographic scale (`H1` through `H6`, `P`, `Caption`) to create hierarchy.
+- Adequate whitespace -- breathing room improves comprehension.
 
 ### Component Button Hierarchy
 
-| Level        | Component          | Use                     |
-| ------------ | ------------------ | ----------------------- |
-| Primary      | `theme: 'primary'` | Main CTA (one per view) |
-| Secondary    | `theme: 'dialog'`  | Supporting actions      |
-| Tertiary     | `theme: 'transparent'` | Least important      |
-| Destructive  | `theme: 'warning'` | Irreversible actions    |
+| Level | Component | Use |
+|-------|-----------|-----|
+| Primary | `theme: 'primary'` | Main CTA (one per view) |
+| Secondary | `theme: 'dialog'` | Supporting actions |
+| Tertiary | `theme: 'transparent'` | Least important |
+| Destructive | `theme: 'warning'` | Irreversible actions |
 
 ### Responsive Behavior
 
+When to use: Mobile-first progressive enhancement.
+
 ```js
-// Mobile-first approach
 Component: {
   padding: 'A',                              // mobile base
   '@tabletS': { padding: 'B' },             // tablet
@@ -488,12 +515,12 @@ Component: {
 }
 ```
 
-### Transitions & Micro-interactions
+### Transitions and Micro-interactions
 
 ```js
 // Standard transition
 Component: {
-  transition: 'B defaultBezier',            // B ≈ 280ms
+  transition: 'B defaultBezier',            // B = 280ms
   transitionProperty: 'opacity, transform'
 }
 
@@ -504,6 +531,6 @@ Button: {
 }
 ```
 
-Easing: `defaultBezier` = `cubic-bezier(.29, .67, .51, .97)` (smooth ease-out)
+Easing: `defaultBezier` = `cubic-bezier(.29, .67, .51, .97)` (smooth ease-out).
 
-Do NOT animate layout properties (`width`, `height`, `top`, `left`) — they force reflow. Animate `transform` and `opacity` instead.
+Do NOT animate layout properties (`width`, `height`, `top`, `left`) -- they force reflow. Animate `transform` and `opacity` instead.

@@ -1,23 +1,27 @@
-# Migration Guide — DOMQL v2→v3 & React/Angular/Vue→Symbols
+# Migration Rules: DOMQL v2 to v3 & Framework to Symbols
+
+Apply these transformation rules when migrating code. Each rule is a BEFORE/AFTER pair.
 
 ---
 
-## Part 1: DOMQL v2 → v3 Migration
+## Part 1: DOMQL v2 to v3
 
-### Summary of changes
+### Rule Summary
 
-| Change                    | v2 ❌                         | v3 ✅                         |
-| ------------------------- | ----------------------------- | ----------------------------- |
-| CSS props wrapper         | `props: { padding: 'A' }`    | `padding: 'A'` (at root)      |
-| Events wrapper            | `on: { click: fn }`          | `onClick: fn` (at root)       |
-| Inheritance               | `extend: 'Component'`        | `extends: 'Component'`        |
-| Child extend              | `childExtend: 'Item'`        | `childExtends: 'Item'`        |
-| Child element detection   | any key including lowercase  | PascalCase keys ONLY          |
+| What changed            | v2 (REMOVE)                   | v3 (USE INSTEAD)              |
+| ----------------------- | ----------------------------- | ----------------------------- |
+| CSS props wrapper       | `props: { padding: 'A' }`    | `padding: 'A'` (at root)     |
+| Events wrapper          | `on: { click: fn }`          | `onClick: fn` (at root)      |
+| Inheritance             | `extend: 'Component'`        | `extends: 'Component'`       |
+| Child extend            | `childExtend: 'Item'`        | `childExtends: 'Item'`       |
+| Child element detection | any key including lowercase   | PascalCase keys ONLY          |
 
-### Flatten `props` and `on`
+### Rule 1: Flatten `props` and `on`
 
+Move all `props` entries to root. Remove `on` wrapper; prefix each event with `on` + CapitalizedEventName. Apply at root AND all nested elements.
+
+BEFORE:
 ```js
-// v2
 {
   props: { position: 'absolute', gap: 'A' },
   on: {
@@ -26,8 +30,10 @@
     wheel: (e, t) => {},
   },
 }
+```
 
-// v3
+AFTER:
+```js
 {
   position: 'absolute',
   gap: 'A',
@@ -37,38 +43,39 @@
 }
 ```
 
-Rules:
-- Move all `props` entries directly to the component object root
-- Remove the `on` wrapper; prefix each event with `on` + `CapitalizedEventName`
-- Applies to root and all nested elements
+### Rule 2: Rename `extend` to `extends`, `childExtend` to `childExtends`
 
-### Rename properties
-
+BEFORE:
 ```js
-// v2
 { extend: SomeComponent, childExtend: AnotherComponent }
+```
 
-// v3
+AFTER:
+```js
 { extends: SomeComponent, childExtends: AnotherComponent }
 ```
 
-### Replace `$stateCollection` with `children` + `childrenAs: 'state'`
+### Rule 3: Replace `$stateCollection` with `children` + `childrenAs: 'state'`
 
+BEFORE:
 ```js
-// v2
 {
   childExtend: 'TeamItem',
   $stateCollection: (el, s) => s.data
 }
+```
 
-// v3 — Option A: childrenAs: 'state' (explicit)
+AFTER (Option A -- explicit):
+```js
 {
   childExtends: 'TeamItem',
   childrenAs: 'state',
   children: (el, s) => s.data
 }
+```
 
-// v3 — Option B: state: 'dataKey' shorthand (preferred for nested state)
+AFTER (Option B -- preferred for nested state):
+```js
 {
   state: 'data',
   childExtends: 'TeamItem',
@@ -76,10 +83,9 @@ Rules:
 }
 ```
 
-#### `state: true` on child components
+**`state: true` requirement for child components:** Components used with `childExtends` that read individual item state need `state: true` at their root so each child receives its own state from the parent's children array.
 
-Components used with `childExtends` that read individual item state (e.g. `({ state }) => state.title`) need `state: true` at their root so each child receives its own state from the parent's children array:
-
+BEFORE (parent + child):
 ```js
 // Parent container
 export const TeamList = {
@@ -88,7 +94,7 @@ export const TeamList = {
   children: ({ state }) => state
 }
 
-// Child component — state: true is REQUIRED
+// Child component -- state: true is REQUIRED
 export const TeamItem = {
   state: true,
   Title: { text: ({ state }) => state.name },
@@ -96,102 +102,111 @@ export const TeamItem = {
 }
 ```
 
-#### Common pitfall: `children: ({ state }) => state.data`
+**CRITICAL PITFALL -- `children: ({ state }) => state.data`:**
 
-**WRONG**: `children: ({ state }) => state.data` does NOT properly pass individual state to child components — all children receive the parent's full state instead of their own item.
-
-**CORRECT**: Use `state: 'data'` on the container first, then `children: ({ state }) => state`:
-
+WRONG -- children don't get individual state:
 ```js
-// ❌ WRONG — children don't get individual state
 { children: ({ state }) => state.data, childExtends: 'Item' }
+```
 
-// ✅ CORRECT — state: 'data' narrows scope, children get individual items
+CORRECT -- `state: 'data'` narrows scope, children get individual items:
+```js
 { state: 'data', children: ({ state }) => state, childExtends: 'Item' }
 ```
 
-### Replace `$propsCollection` with `children`
+### Rule 4: Replace `$propsCollection` with `children`
 
+`$propsCollection` is fully removed in v3. Replace 1:1 with `children`.
+
+BEFORE:
 ```js
-// v2
 {
   childExtend: 'Paragraph',
   $propsCollection: ({ state }) => state.parse()
 }
+```
 
-// v3
+AFTER:
+```js
 {
   childExtends: 'Paragraph',
   children: ({ state }) => state.parse()
 }
 ```
 
-`$propsCollection` is fully removed in v3. Replace 1:1 with `children`. The same pattern applies to array data:
+Also applies to array data:
 
+BEFORE: `$propsCollection: ({ state }) => state`
+AFTER: `children: ({ state }) => state`
+
+### Rule 5: Replace `props: (fn)` function with individual prop functions
+
+Dynamic props functions are REMOVED in v3. Split into per-property functions.
+
+BEFORE:
 ```js
-// v2
-$propsCollection: ({ state }) => state
-
-// v3
-children: ({ state }) => state
-```
-
-### Replace `props: (fn)` function with individual prop functions
-
-```js
-// v2 — dynamic props function (REMOVED in v3)
 {
   props: ({ state }) => ({
     color: state.active ? 'red' : 'blue',
     opacity: state.loading ? 0.5 : 1
   })
 }
+```
 
-// v3 — each property is its own function
+AFTER:
+```js
 {
   color: ({ state }) => state.active ? 'red' : 'blue',
   opacity: ({ state }) => state.loading ? 0.5 : 1
 }
 ```
 
-### Child element detection
+### Rule 6: PascalCase-only child elements
 
+In v3, only PascalCase keys create child elements. Lowercase keys are treated as CSS properties.
+
+BEFORE (v2):
 ```js
-// v2 — lowercase keys could create elements
 { div: {} }   // creates <div>
+```
 
-// v3 — only PascalCase keys create elements
+AFTER (v3):
+```js
 { div: {} }   // treated as a plain prop, NOT rendered
 { Div: {} }   // creates a child element (equivalent to { extends: 'Div' })
 ```
 
-### Replace array spread `...[items]` with `children: [items]`
+### Rule 7: Replace array spread with `children` array
 
+Array spread creates numeric keys (`0`, `1`, `2`...) which v3 treats as CSS properties. Always use `children` array.
+
+BEFORE:
 ```js
-// v2 — numeric keys from spread are lowercase, treated as CSS in v3
 {
   childExtend: 'NavLink',
   ...[{ text: 'About us' }, { text: 'Hiring' }]
 }
+```
 
-// v3 — use children array
+AFTER:
+```js
 {
   childExtends: 'NavLink',
   children: [{ text: 'About us' }, { text: 'Hiring' }]
 }
 ```
 
-Array spread creates numeric keys (`0`, `1`, `2`…) which v3 treats as CSS properties (lowercase). Always use `children` array instead.
-
-### Picture `src` must go on Img child
+### Rule 8: Picture `src` must go on Img child
 
 The HTML `<picture>` tag does NOT support `src` as an attribute. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
 
+WRONG:
 ```js
-// ❌ WRONG — src on Picture is silently ignored
 Picture: { src: '/files/photo.jpg', width: '100%' }
+```
 
-// ✅ CORRECT — src goes on the Img child inside Picture
+CORRECT:
+```js
 Picture: {
   Img: { src: '/files/photo.jpg' },
   width: '100%',
@@ -201,7 +216,7 @@ Picture: {
 
 For theme-aware sources, use `@dark`/`@light` with `srcset` on Picture, but always put the default `src` on the Img child.
 
-### `<map>` tag auto-detection
+### Rule 9: `<map>` tag auto-detection
 
 Component keys named `Map` auto-detect as the HTML `<map>` tag (for image maps), which defaults to `display: inline` and has height 0. If using `Map` as a component name for geographic maps or similar, add `tag: 'div'`:
 
@@ -213,25 +228,30 @@ export const Map = {
 }
 ```
 
-### Non-existent base components
+### Rule 10: Non-existent base components
 
 These v2 component names don't exist in v3 uikit:
-- `extends: 'Page'` → use `extends: 'Flex', flexFlow: 'column'`
-- `extends: 'Overflow'` → use `extends: 'Flex'`
 
-### `state: true` vs `state: 'fieldName'` for children
+| v2 (REMOVE)            | v3 (USE INSTEAD)                          |
+| ---------------------- | ----------------------------------------- |
+| `extends: 'Page'`     | `extends: 'Flex', flexFlow: 'column'`     |
+| `extends: 'Overflow'` | `extends: 'Flex'`                          |
 
-- `state: true` — for `childExtends`-created children; maps individual array items as each child's state
-- `state: 'fieldName'` — for direct PascalCase children that need a specific field from parent state
+### Rule 11: `state: true` vs `state: 'fieldName'` for children
+
+| Context                            | Use              | Purpose                                                   |
+| ---------------------------------- | ---------------- | --------------------------------------------------------- |
+| `childExtends`-created children    | `state: true`    | Maps individual array items as each child's state          |
+| Direct PascalCase children         | `state: 'field'` | Picks a specific field from parent state                   |
 
 ```js
-// childExtends children — use state: true on the child component
+// childExtends children -- use state: true on the child component
 export const ListItem = {
   state: true,
   Title: { text: ({ state }) => state.name }
 }
 
-// Direct PascalCase child — use state: 'fieldName'
+// Direct PascalCase child -- use state: 'fieldName'
 Description: {
   state: 'description',
   childExtends: 'Paragraph',
@@ -239,10 +259,10 @@ Description: {
 }
 ```
 
-### Full example
+### Full v2 to v3 transformation example
 
+BEFORE:
 ```js
-// v2
 {
   extend: 'Flex',
   childExtend: 'ListItem',
@@ -262,8 +282,10 @@ Description: {
     },
   },
 }
+```
 
-// v3
+AFTER:
+```js
 {
   extends: 'Flex',
   childExtends: 'ListItem',
@@ -283,9 +305,9 @@ Description: {
 
 ---
 
-## Part 2: React / Angular / Vue → Symbols
+## Part 2: React / Angular / Vue to Symbols
 
-### From React
+### React to Symbols
 
 | React Pattern                          | Symbols Equivalent                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------- |
@@ -310,7 +332,7 @@ Description: {
 | `<form onSubmit>`                     | `tag: 'form', onSubmit: (ev, el, s) => { ev.preventDefault(); ... }`      |
 | `fetch()` in components               | `functions/fetch.js` + `el.call('fetch', method, path, data)`             |
 
-### From Angular
+### Angular to Symbols
 
 | Angular Pattern                    | Symbols Equivalent                                                     |
 | ---------------------------------- | ---------------------------------------------------------------------- |
@@ -334,7 +356,7 @@ Description: {
 | SCSS / component styles            | Flatten to props with design tokens                                    |
 | Reactive Forms                     | `tag: 'form'`, `Input` children with `name`, `onSubmit` handler        |
 
-### From Vue
+### Vue to Symbols
 
 | Vue Pattern                       | Symbols Equivalent                                                                |
 | --------------------------------- | --------------------------------------------------------------------------------- |
@@ -361,7 +383,7 @@ Description: {
 
 ---
 
-## Part 3: CSS → Design Tokens
+## Part 3: CSS to Design Tokens
 
 | CSS                                                   | Symbols                                      |
 | ----------------------------------------------------- | -------------------------------------------- |
@@ -434,7 +456,7 @@ export const ComponentName = {
   '@mobileL': { padding: 'A' },
   '@tabletS': { padding: 'B' },
 
-  // Children — PascalCase keys, no imports
+  // Children -- PascalCase keys, no imports
   Header: {},
   Content: {
     Article: { text: 'Hello' },
@@ -447,15 +469,16 @@ export const ComponentName = {
 
 ## Part 5: State Management Migration
 
-| Framework pattern         | Symbols equivalent                                   |
-| ------------------------- | ---------------------------------------------------- |
-| Global store (Redux, Pinia, NgRx) | `state/index.js` with initial flat state. Access via `s.root` in any component |
-| Local component state     | `state: { key: val }` on the component               |
-| Derived/computed state    | Dynamic prop function: `text: (el, s) => derived(s)` |
-| Async data fetch          | `onRender: async (el, s) => { ... s.update({data}) }` |
-| State persistence         | Functions that read/write to localStorage/cookie     |
+| Framework pattern                       | Symbols equivalent                                                            |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| Global store (Redux, Pinia, NgRx)       | `state/index.js` with initial flat state. Access via `s.root` in any component |
+| Local component state                   | `state: { key: val }` on the component                                        |
+| Derived/computed state                  | Dynamic prop function: `text: (el, s) => derived(s)`                          |
+| Async data fetch                        | `onRender: async (el, s) => { ... s.update({data}) }`                         |
+| State persistence                       | Functions that read/write to localStorage/cookie                              |
 
-Example async state pattern:
+Async state pattern:
+
 ```js
 export const DataView = {
   state: { data: null, loading: true, error: null },
@@ -477,43 +500,43 @@ export const DataView = {
 
 ### Color tokens: space-separated to dot-notation
 
-| Old | New | Notes |
-|---|---|---|
-| `'white .1'` | `'white.1'` | Opacity 0.1 |
-| `'gray 0.85'` | `'gray.85'` | Opacity 0.85 |
-| `'gray .92 +8'` | `'gray.92+8'` | Opacity + relative tone |
-| `'gray 1 +16'` | `'gray+16'` | Alpha 1 = default, omit |
-| `'gray 1 -68'` | `'gray-68'` | Relative tone |
-| `'gray 1 90'` | `'gray=90'` | Absolute lightness (=prefix) |
-| `'white 1 -78'` | `'white-78'` | Tone only |
+| BEFORE            | AFTER            | Notes                         |
+| ----------------- | ---------------- | ----------------------------- |
+| `'white .1'`      | `'white.1'`      | Opacity 0.1                   |
+| `'gray 0.85'`     | `'gray.85'`      | Opacity 0.85                  |
+| `'gray .92 +8'`   | `'gray.92+8'`    | Opacity + relative tone       |
+| `'gray 1 +16'`    | `'gray+16'`      | Alpha 1 = default, omit       |
+| `'gray 1 -68'`    | `'gray-68'`      | Relative tone                 |
+| `'gray 1 90'`     | `'gray=90'`      | Absolute lightness (=prefix)  |
+| `'white 1 -78'`   | `'white-78'`     | Tone only                     |
 
 ### border: comma-separated to space-separated (CSS order)
 
-| Old | New |
-|---|---|
-| `'solid, gray, 1px'` | `'1px solid gray'` |
-| `'gray6 .1, solid, 1px'` | `'1px solid gray6.1'` |
-| `'solid, mediumGrey'` | `'solid mediumGrey'` |
-| `'1px, solid'` | `'1px solid'` |
+| BEFORE                      | AFTER                   |
+| --------------------------- | ----------------------- |
+| `'solid, gray, 1px'`       | `'1px solid gray'`      |
+| `'gray6 .1, solid, 1px'`   | `'1px solid gray6.1'`   |
+| `'solid, mediumGrey'`      | `'solid mediumGrey'`    |
+| `'1px, solid'`             | `'1px solid'`           |
 
 ### boxShadow: commas to spaces within shadow, pipe to comma between shadows
 
-| Old | New |
-|---|---|
-| `'white .1, 0, A, C, C'` | `'white.1 0 A C C'` |
-| `'black .10, 0px, 2px, 8px, 0px'` | `'black.1 0px 2px 8px 0px'` |
-| `'a, b \| c, d'` | `'a b, c d'` |
+| BEFORE                              | AFTER                       |
+| ----------------------------------- | --------------------------- |
+| `'white .1, 0, A, C, C'`           | `'white.1 0 A C C'`        |
+| `'black .10, 0px, 2px, 8px, 0px'`  | `'black.1 0px 2px 8px 0px'` |
+| `'a, b \| c, d'`                   | `'a b, c d'`                |
 
 ### textStroke/textShadow: comma-separated to space-separated
 
-| Old | New |
-|---|---|
-| `'1px, gray6'` | `'1px gray6'` |
-| `'gray1, 6px, 6px'` | `'gray1 6px 6px'` |
+| BEFORE                | AFTER              |
+| --------------------- | ------------------ |
+| `'1px, gray6'`       | `'1px gray6'`      |
+| `'gray1, 6px, 6px'`  | `'gray1 6px 6px'`  |
 
 ### CSS fallback
 
-Raw CSS values now pass through unchanged:
+Raw CSS values pass through unchanged:
 ```js
 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'  // passes through as-is
 border: '1px solid #333'                  // passes through as-is

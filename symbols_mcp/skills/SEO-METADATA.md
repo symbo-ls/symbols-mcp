@@ -1,19 +1,32 @@
 # SEO Metadata
 
-Symbols provides comprehensive SEO metadata support through the `@symbo.ls/helmet` plugin. Define a declarative `metadata` object on your app, pages, or any component. The same code works at runtime (updates DOM `<head>` tags) and during SSR (generates HTML via brender).
+Define a declarative `metadata` object on any app, page, or component. Works at runtime (updates DOM `<head>`) and during SSR (generates HTML via brender). Provided by `@symbo.ls/helmet`.
 
-The system automatically:
+## Supported Metadata Types
 
-- Generates correct `<title>`, `<meta>`, and `<link>` elements
-- Expands array values into multiple tags
-- Handles namespace prefixes (`og:`, `twitter:`, `article:`, `product:`, `DC:`, `itemprop:`, `http-equiv:`)
-- Outputs valid HTML head markup
-- Supports function values receiving `(element, state)` for dynamic metadata
-- Merges metadata from global SEO settings, app-level, and page-level (page wins)
+| Prefix / Type | Generates | Example Key |
+|---|---|---|
+| _(none)_ | `<title>`, `<meta name>`, `<link rel>` | `title`, `description`, `canonical` |
+| `og:` | `<meta property="og:...">` | `og:title`, `og:image` |
+| `twitter:` | `<meta name="twitter:...">` | `twitter:card`, `twitter:site` |
+| `article:` | `<meta property="article:...">` | `article:published_time` |
+| `product:` | `<meta property="product:...">` | `product:price:amount` |
+| `DC:` | `<meta name="DC....">` | `DC:title`, `DC:creator` |
+| `itemprop:` | `<meta itemprop="...">` | `itemprop:name` |
+| `http-equiv:` | `<meta http-equiv="...">` | `http-equiv:cache-control` |
+| `apple:` | `<meta name="apple:...">` | `apple:mobile-web-app-capable` |
+| `msapplication:` | `<meta name="msapplication:...">` | `msapplication:TileColor` |
+| `alternate` | `<link rel="alternate" ...>` | `alternate: [{ hreflang, href }]` |
+| `customMeta` | `<meta ...attrs>` | `customMeta: { name, content }` |
+
+**Behaviors:**
+- Array values expand into multiple tags
+- Function values receive `(element, state)` for dynamic metadata
+- Merges metadata from global, app-level, and page-level (page wins)
 
 ---
 
-# Complete Unified Example
+## Complete Example
 
 ```js
 export default {
@@ -113,7 +126,7 @@ export default {
 
 ---
 
-# Dynamic Metadata
+## Dynamic Metadata
 
 Metadata values can be functions receiving `(element, state)`. Both the whole object and individual properties support this:
 
@@ -139,12 +152,14 @@ export const profilePage = {
 
 ---
 
-# Merge Priority
+## Merge Priority
 
-When metadata is defined at multiple levels, higher priority wins:
+Higher priority wins. Later levels override earlier ones.
 
-1. `data.integrations.seo` — global SEO settings (lowest)
-2. `data.app.metadata` — app-level defaults
-3. `page.metadata` — page-level overrides (highest)
+| Priority | Source | Scope |
+|---|---|---|
+| 1 (lowest) | `data.integrations.seo` | Global SEO settings |
+| 2 | `data.app.metadata` | App-level defaults |
+| 3 (highest) | `page.metadata` | Page-level overrides |
 
-If no `title` is found after merging, it falls back to `page.state.title`, then `data.name`.
+**Fallback chain for `title`:** `page.metadata.title` -> `page.state.title` -> `data.name`

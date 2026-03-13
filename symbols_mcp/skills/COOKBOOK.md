@@ -1,13 +1,12 @@
-# Symbols Cookbook — Interactive DOMQL v3 Recipes
+# Symbols Cookbook — DOMQL v3 Recipes
 
-Practical recipes showing state, events, rendering, data fetching, and more.
-Every example is a complete, runnable DOMQL v3 component.
+28 complete, runnable DOMQL v3 component recipes covering state, events, rendering, data fetching, and more.
 
 ---
 
-## State Toggle
+## 1. State Toggle
 
-Switch a boolean and update UI.
+Toggle a boolean and update UI.
 
 ```js
 export const StateToggle = {
@@ -44,7 +43,7 @@ export const StateToggle = {
 
 ---
 
-## Counter
+## 2. Counter
 
 Increment and decrement a number.
 
@@ -71,7 +70,7 @@ export const Counter = {
 
 ---
 
-## Conditional Rendering
+## 3. Conditional Rendering
 
 Show or hide content based on state.
 
@@ -98,7 +97,7 @@ export const ConditionalRender = {
 
 ---
 
-## Async Data Fetch
+## 4. Async Data Fetch
 
 Fetch data from an API and update state.
 
@@ -134,7 +133,7 @@ export const AsyncFetch = {
 
 ---
 
-## Form Input
+## 5. Form Input
 
 Capture input and reflect in UI.
 
@@ -158,9 +157,9 @@ export const FormInput = {
 
 ---
 
-## Form Validation
+## 6. Form Validation
 
-Simple validation with visual feedback.
+Validation with visual feedback.
 
 ```js
 export const FormValidation = {
@@ -187,7 +186,7 @@ export const FormValidation = {
 
 ---
 
-## Two-Way Binding
+## 7. Two-Way Binding
 
 Sync multiple inputs with shared state.
 
@@ -217,7 +216,7 @@ export const TwoWayBinding = {
 
 ---
 
-## Clock (Auto-update)
+## 8. Clock (Auto-update)
 
 Auto-update every second using setInterval.
 
@@ -240,7 +239,7 @@ export const Clock = {
 
 ---
 
-## Tabs
+## 9. Tabs
 
 Switch content via active state using children array.
 
@@ -269,7 +268,7 @@ export const Tabs = {
 
 ---
 
-## Accordion
+## 10. Accordion
 
 Expand and collapse sections.
 
@@ -306,7 +305,7 @@ export const Accordion = {
 
 ---
 
-## Todo App
+## 11. Todo App
 
 Add and toggle tasks with keyboard input.
 
@@ -350,7 +349,7 @@ export const TodoApp = {
 
 ---
 
-## Dynamic List
+## 12. Dynamic List
 
 Add and remove list items dynamically.
 
@@ -385,7 +384,7 @@ export const DynamicList = {
 
 ---
 
-## API Pagination
+## 13. API Pagination
 
 Fetch paginated data with prev/next buttons.
 
@@ -435,7 +434,7 @@ export const ApiPagination = {
 
 ---
 
-## Modal Window
+## 14. Modal Window
 
 Open and close a modal overlay.
 
@@ -467,9 +466,9 @@ export const ModalExample = {
 
 ---
 
-## WebSocket
+## 15. WebSocket
 
-Receive live stream messages via WebSocket.
+Receive live messages via WebSocket.
 
 ```js
 export const WebSocketDemo = {
@@ -502,7 +501,7 @@ export const WebSocketDemo = {
 
 ---
 
-## Theme Switcher
+## 16. Theme Switcher
 
 Toggle light/dark theme dynamically.
 
@@ -528,7 +527,7 @@ export const ThemeSwitcher = {
 
 ---
 
-## Fade Animation
+## 17. Fade Animation
 
 Animate opacity on toggle with CSS transitions.
 
@@ -556,7 +555,7 @@ export const FadeAnimation = {
 
 ---
 
-## Stopwatch
+## 18. Stopwatch
 
 Start, stop, and reset timer.
 
@@ -590,7 +589,7 @@ export const Stopwatch = {
 
 ---
 
-## Progress Bar
+## 19. Progress Bar
 
 Fill dynamically with state.
 
@@ -617,7 +616,7 @@ export const ProgressBar = {
 
 ---
 
-## Draggable Box
+## 20. Draggable Box
 
 Drag an element using mouse events.
 
@@ -644,7 +643,7 @@ export const DragBox = {
 
 ---
 
-## Lazy Image
+## 21. Lazy Image
 
 Load image on intersection using IntersectionObserver.
 
@@ -668,7 +667,7 @@ export const LazyImage = {
 
 ---
 
-## Text Typer
+## 22. Text Typer
 
 Animate text one character at a time.
 
@@ -701,7 +700,7 @@ export const TextTyper = {
 
 ---
 
-## Temperature Converter
+## 23. Temperature Converter
 
 Convert Celsius to Fahrenheit in real time.
 
@@ -732,7 +731,7 @@ export const TempConverter = {
 
 ---
 
-## Image Gallery
+## 24. Image Gallery
 
 Cycle through images with state.
 
@@ -761,7 +760,7 @@ export const ImageGallery = {
 
 ---
 
-## Local Storage
+## 25. Local Storage
 
 Persist state between page reloads.
 
@@ -788,7 +787,7 @@ export const LocalStorage = {
 
 ---
 
-## Slider Control
+## 26. Slider Control
 
 Adjust a range and reflect in state.
 
@@ -812,7 +811,7 @@ export const SliderControl = {
 
 ---
 
-## Keyboard Shortcut
+## 27. Keyboard Shortcut
 
 Listen for keypress and update state.
 
@@ -832,7 +831,7 @@ export const KeyboardShortcut = {
 
 ---
 
-## Mouse Tracker
+## 28. Mouse Tracker
 
 Track cursor position in real-time.
 

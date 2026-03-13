@@ -356,6 +356,120 @@ Passed: {'Yes' if result['passed'] else 'No'}
     return output
 
 
+@mcp.tool()
+def detect_environment(
+    has_symbols_json: bool = False,
+    has_symbols_dir: bool = False,
+    has_package_json: bool = False,
+    has_cdn_import: bool = False,
+    has_iife_script: bool = False,
+    has_json_data: bool = False,
+    has_mermaid_config: bool = False,
+    file_list: str = "",
+) -> str:
+    """Detect what type of Symbols environment the user is working in.
+
+    Determines whether it's a local project, CDN, JSON runtime, or remote server
+    based on project indicators, and returns the appropriate setup guide and code format.
+
+    Args:
+        has_symbols_json: Whether symbols.json exists in the project root.
+        has_symbols_dir: Whether a symbols/ directory exists with components/, pages/, etc.
+        has_package_json: Whether package.json exists with smbls dependency.
+        has_cdn_import: Whether HTML files contain CDN imports (esm.sh/smbls, etc.).
+        has_iife_script: Whether HTML files use script src smbls (IIFE global).
+        has_json_data: Whether the project uses frank-generated JSON data files.
+        has_mermaid_config: Whether mermaid/wrangler config or GATEWAY_URL/JSON_PATH env vars are present.
+        file_list: Comma-separated list of key files in the project root.
+    """
+    env_type = "unknown"
+    confidence = "low"
+
+    if has_mermaid_config:
+        env_type = "remote_server"
+        confidence = "high"
+    elif has_json_data:
+        env_type = "json_runtime"
+        confidence = "high"
+    elif has_symbols_json and has_symbols_dir:
+        env_type = "local_project"
+        confidence = "high"
+    elif has_symbols_dir or (has_package_json and has_symbols_json):
+        env_type = "local_project"
+        confidence = "medium"
+    elif has_cdn_import or has_iife_script:
+        env_type = "cdn"
+        confidence = "high"
+    elif has_package_json:
+        env_type = "local_project"
+        confidence = "low"
+    elif file_list:
+        files = file_list.lower()
+        if "index.html" in files and "package.json" not in files and "symbols.json" not in files:
+            env_type = "cdn"
+            confidence = "medium"
+
+    full_guide = _read_skill("RUNNING_APPS.md")
+    output = f"# Environment Detection\n\n**Detected: {env_type}** (confidence: {confidence})\n\n"
+
+    if env_type == "local_project":
+        structure_guide = _read_skill("PROJECT_STRUCTURE.md")
+        output += "## Your Environment: Local Project\n\n"
+        output += "You're working in a standard Symbols project with file-based structure.\n\n"
+        output += "### Code Format\n"
+        output += "- Components: `export const Name = { extends: 'Flex', ... }` in `components/`\n"
+        output += "- Pages: `export const pageName = { extends: 'Page', ... }` in `pages/`\n"
+        output += "- State: `export default { key: value }` in `state.js`\n"
+        output += "- Functions: `export const fn = function() {}` in `functions/`\n"
+        output += "- No imports between files (except pages/index.js)\n\n"
+        output += "### Commands\n"
+        output += "```bash\nnpm start          # dev server\nsmbls build        # production build\nsmbls push         # deploy to platform\nsmbls deploy       # deploy to provider\n```\n\n"
+        output += f"### Full Project Structure Reference\n\n{structure_guide}"
+    elif env_type == "cdn":
+        cdn_guide = _read_skill("RUNNING_APPS.md")
+        output += "## Your Environment: CDN (Browser-Only)\n\n"
+        output += "You're running Symbols directly in the browser via CDN import.\n\n"
+        output += "### Code Format\n"
+        output += "- Single HTML file with `<script type=\"module\">`\n"
+        output += "- Import: `import { create } from 'https://esm.sh/smbls'`\n"
+        output += "- Define app as inline object tree\n"
+        output += "- Mount: `create(App, { designSystem, components, functions, state })`\n"
+        output += "- Components defined as JS variables (no file-based registry)\n\n"
+        output += "### Limitations\n"
+        output += "- No file-based routing (use tab/view switching)\n"
+        output += "- No SSR\n"
+        output += "- `childExtends: 'Name'` needs components passed to `create()`\n\n"
+        output += f"### Full CDN Reference\n\n{cdn_guide}"
+    elif env_type == "json_runtime":
+        output += "## Your Environment: JSON Runtime (Frank)\n\n"
+        output += "You're running Symbols from serialized JSON project data.\n\n"
+        output += "### Code Format\n"
+        output += "- Project data is a JSON object with components, pages, designSystem, state, functions\n"
+        output += "- Functions are serialized as strings\n"
+        output += "- Convert with: `smbls frank to-json ./symbols` or `toJSON({ entry: './symbols' })`\n"
+        output += "- Reverse with: `smbls frank to-fs data.json -o ./output` or `toFS(data, './output')`\n"
+        output += "- Can be loaded by Mermaid server via JSON_PATH env var\n\n"
+        output += f"### Full Reference\n\n{full_guide}"
+    elif env_type == "remote_server":
+        output += "## Your Environment: Remote Symbols Server (Mermaid)\n\n"
+        output += "You're working with the Mermaid rendering server for hosted Symbols apps.\n\n"
+        output += "### URL Patterns\n"
+        output += "- Production: `https://app.user.preview.symbols.app/`\n"
+        output += "- Development: `https://app.user.preview.dev.symbols.app/`\n"
+        output += "- Staging: `https://app.user.preview.staging.symbols.app/`\n"
+        output += "- Legacy: `https://app.symbo.ls/`\n"
+        output += "- Custom domains supported\n\n"
+        output += "### Deployment\n"
+        output += "```bash\nsmbls push    # deploy to Symbols platform\n```\n\n"
+        output += f"### Full Reference\n\n{full_guide}"
+    else:
+        output += "## Could Not Determine Environment\n\n"
+        output += "Provide more details about your project files to get specific guidance.\n\n"
+        output += f"### All 4 Ways to Run Symbols Apps\n\n{full_guide}"
+
+    return output
+
+
 # ---------------------------------------------------------------------------
 # RESOURCES — Expose skills documentation as browsable resources
 # ---------------------------------------------------------------------------
@@ -451,10 +565,22 @@ def get_default_library() -> str:
     return _read_skill("DEFAULT_LIBRARY.md")
 
 
+@mcp.resource("symbols://skills/default-components")
+def get_default_components() -> str:
+    """Complete source code of all 130+ default project template components."""
+    return _read_skill("DEFAULT_COMPONENTS.md")
+
+
 @mcp.resource("symbols://skills/learnings")
 def get_learnings() -> str:
     """Framework internals, technical gotchas, and deep runtime knowledge."""
     return _read_skill("LEARNINGS.md")
+
+
+@mcp.resource("symbols://skills/running-apps")
+def get_running_apps() -> str:
+    """4 ways to run Symbols apps — local project, CDN, JSON runtime (Frank), remote server."""
+    return _read_skill("RUNNING_APPS.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")

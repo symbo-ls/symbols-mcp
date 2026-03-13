@@ -1,64 +1,83 @@
-The Design-to-Code Translator
+# Design-to-Code Translator for Symbols
 
-You are a Design Engineer at Vercel, bridging design and development.
+Convert designs into production-ready Symbols/DOMQL components. Use the Symbols framework and its declarative object syntax — not React, Vue, or other frameworks.
 
-Convert this design into production-ready frontend code:
+---
 
-[DESIGN DESCRIPTION, WIREFRAME, OR COMPONENT SPECS]
+## Input
 
-Tech stack: [REACT/VUE/SV ELTE/NEXT.JS/TAILWIND/ETC.]
+Provide one or more of: design description, wireframe, screenshot, or component specs.
 
-Deliverables:
+---
 
-1. COMPONENT ARCHITECTURE
-   • Component hierarchy tree
-   • Props interface definition (TypeScript)
-   • State management strategy
-   • Data flow diagram
+## Deliverables
 
-2. PRODUCTION CODE
-   • Complete, copy-paste ready component code
-   • Responsive implementation (mobile-first)
-   • Accessibility attributes (ARIA labels, roles, states)
-   • Error boundaries and loading states
-   • Animation/transition implementation
+### 1. Component Architecture
 
-3. STYLING SPECIFICATIONS
-   • CSS/Tailwind classes with design token mapping
-   • CSS variables for theming
-   • Dark mode implementation
-   • Responsive breakpoints
-   • Hover/focus/active states
+- Component hierarchy tree (using Symbols PascalCase key nesting)
+- State shape definition (plain object, not TypeScript interfaces)
+- Data flow: parent state vs. child state vs. root state
+- `extends` chain for each component
 
-4. DESIGN TOKEN INTEGRATION
-   • Color tokens mapped to CSS variables
-   • Typography tokens (font sizes, weights, line heights)
-   • Spacing tokens (padding, margin, gap)
-   • Shadow/elevation tokens
-   • Border radius tokens
+### 2. Production Code
 
-5. ASSET OPTIMIZATION
-   • Image component with lazy loading
-   • SVG optimization strategy
-   • Icon system (SVG sprite or icon library)
-   • Font loading strategy
+- Complete, copy-paste ready Symbols component objects
+- Responsive implementation using Symbols breakpoint syntax (`@tabletS`, `@mobileL`, etc.)
+- Accessibility: semantic `tag` values, ARIA attributes where needed
+- Loading states via `if` conditionals and state flags
+- Animation via CSS transition properties on the component object
 
-6. PERFORMANCE CONSIDERATIONS
-   • Code splitting recommendations
-   • Bundle size optimization
-   • Rendering optimization (React.memo, useMemo, etc.)
-   • Image optimization (next/image or equivalent)
+### 3. Styling Specifications
 
-7. TESTING STRATEGY
-   • Unit test cases (React Testing Library)
-   • Visual regression test scenarios
-   • Accessibility tests (axe-core)
-   • Responsive test cases
+- CSS-in-props on each component (no separate CSS files)
+- Design token usage: spacing tokens (`A`, `B`, `C`...), font size tokens, color tokens
+- Theme integration via `theme: 'themeName'` referencing `designSystem/THEME.js`
+- Conditional styles via `.propName` (truthy) and `!propName` (falsy) syntax
+- Hover/focus/active via `:hover`, `:focus`, `:active` keys
 
-8. DOCUMENTATION
-   • JSDoc comments for all props
-   • Usage examples (3 variations)
-   • Do's and don'ts
-   • Changelog template
+### 4. Design Token Integration
 
-Include "Designer's Intent" comments explaining why certain code decisions preserve the design vision.
+- Map colors to `designSystem/COLOR.js` entries
+- Map typography to `designSystem/TYPOGRAPHY.js` (font sizes use letter tokens: `Y`, `Z`, `A`, `B`, `C`, `D`, `E`)
+- Map spacing to Symbols spacing tokens (`X`, `Z`, `A`, `B`, `C`, `D`, `E`, `F`, `G`, `H`)
+- Map border radius to `round` property with tokens
+- Define themes in `designSystem/THEME.js` for reusable style groups
+
+### 5. Asset Optimization
+
+- Images via `Img` component with lazy loading pattern (see Cookbook recipe 21)
+- Icons via `Icon` component with `name` property referencing the icon set
+- SVG inlining via `Svg` component
+- Font loading handled by designSystem FONT/FONT_FAMILY tokens
+
+### 6. Performance Considerations
+
+- Use `childExtends` + `children` for repeated elements (avoid manual duplication)
+- Use `if` for conditional rendering (removes from DOM when false)
+- Use `scope` for component-local data that does not trigger re-renders
+- Keep state minimal — derive computed values in function props
+
+### 7. Testing Strategy
+
+- Verify state transitions: toggle, update, replace behaviors
+- Verify responsive breakpoints render correctly
+- Verify `children` arrays render the correct number of items
+- Verify conditional `if` shows/hides correctly based on state
+
+### 8. Documentation
+
+- Add "Designer's Intent" comments explaining why code decisions preserve the design vision
+- Provide 3 usage variations showing different state/prop configurations
+- List do's and don'ts specific to the component
+
+---
+
+## Rules
+
+- All components are plain objects with `export const ComponentName = { ... }`
+- Never use JSX, templates, or framework-specific syntax
+- Never import between component files — reference by PascalCase key name
+- Use `extends` to inherit from UIKit or default library components
+- Use `state.update()` for state changes, never direct mutation (except `state.toggle()`)
+- Use Symbols spacing/sizing tokens, not raw pixel values
+- Place CSS properties directly on the component object (CSS-in-props)

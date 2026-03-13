@@ -1,68 +1,52 @@
-# AI Agent Context — Modern UI / UX Direction
+# Design Direction — UI/UX Generation Rules
 
 ## Objective
 
-Generate visually striking, contemporary interfaces that demonstrate clarity, authority, and perceptual refinement. Output must optimize cognitive flow, aesthetic coherence, and interaction intuitiveness without introducing system implementation assumptions or design-system mechanics.
+Generate visually striking, contemporary interfaces with clarity, authority, and perceptual refinement. Optimize cognitive flow, aesthetic coherence, and interaction intuitiveness. Do NOT introduce system implementation assumptions or design-system mechanics.
 
-This context governs visual direction, composition behavior, and user-experience reasoning only.
+These rules govern visual direction, composition behavior, and user-experience reasoning only.
 
 ---
 
 ## Core Perceptual Goals
 
-### 1 — Immediate Comprehension
+### 1. Immediate Comprehension
 
-Interfaces must communicate structure and purpose within seconds.
+Ensure the interface communicates structure and purpose within seconds.
 
-- Primary action obvious without search
-- Information hierarchy visually evident
-- Navigation intent inferable without labels
-- No visual noise competing with task completion
+- Make the primary action obvious without search
+- Make information hierarchy visually evident
+- Make navigation intent inferable without labels
+- Eliminate visual noise that competes with task completion
 
----
+### 2. Cognitive Load Minimization
 
-### 2 — Cognitive Load Minimization
-
-Design reduces interpretation effort.
+Reduce interpretation effort at every level.
 
 - Avoid dense clustering of elements
 - Use whitespace to segment meaning
-- Present progressive disclosure of complexity
+- Apply progressive disclosure of complexity
 - Prioritize recognition over recall
 
----
+### 3. Visual Authority
 
-### 3 — Visual Authority
+Produce UI that appears deliberate and engineered.
 
-UI must appear deliberate and engineered.
+- Maintain balanced composition
+- Use confident typographic scale
+- Enforce stable alignment
+- Establish clear focal anchors
+- Avoid arbitrary decoration
+- Avoid trend imitation without structural value
+- Avoid visual gimmicks
 
-- Balanced composition
-- Confident typographic scale
-- Stable alignment
-- Clear focal anchors
+### 4. Emotional Tone
 
-Avoid:
+Target these tonal qualities: precise, calm, intelligent, contemporary.
 
-- Arbitrary decoration
-- Trend imitation without structural value
-- Visual gimmicks
-
----
-
-### 4 — Emotional Tone
-
-Target tone:
-
-- Precise
-- Calm
-- Intelligent
-- Contemporary
-
-Avoid:
-
-- Playfulness unless product-specific
-- Excessive personality signaling
-- Novelty-first visual choices
+- Avoid playfulness unless product-specific
+- Avoid excessive personality signaling
+- Avoid novelty-first visual choices
 
 ---
 
@@ -72,98 +56,67 @@ Avoid:
 
 Construct layouts around focal gravity.
 
-- Define primary visual center
-- Arrange secondary elements in orbit
+- Define a primary visual center
+- Arrange secondary elements in orbit around it
 - Maintain directional eye flow
 - Avoid visual dead zones
-
-Preferred flows:
-
-- Top-down scanning
-- Z-pattern
-- Layered depth grouping
-
----
+- Prefer top-down scanning, Z-pattern, or layered depth grouping
 
 ### Spatial Relationships
 
-Spacing conveys meaning.
+Treat spacing as a semantic tool, never as decoration.
 
-- Proximity indicates relation
-- Separation indicates conceptual boundary
-- Density signals priority
-- Openness signals optionality
-
-Never treat spacing as decoration.
-
----
+- Use proximity to indicate relation
+- Use separation to indicate conceptual boundary
+- Use density to signal priority
+- Use openness to signal optionality
 
 ### Hierarchy Signaling
 
-Hierarchy must be perceivable without reading text.
-
-Use:
+Ensure hierarchy is perceivable without reading text. Combine these tools:
 
 - Size contrast
 - Weight contrast
 - Positional prominence
 - Color emphasis
 - Depth layering
-
-Avoid relying solely on color changes.
-
----
+- Never rely solely on color changes for hierarchy
 
 ### Depth & Layering
 
-Depth creates structural understanding.
+Use depth to create structural understanding.
 
-Modern approaches:
+- Apply soft elevation separation
+- Apply subtle translucency
+- Isolate foreground elements
+- De-emphasize background elements
+- Avoid overlapping without hierarchy
+- Avoid excessive blur
+- Avoid artificial skeuomorphism
 
-- Soft elevation separation
-- Subtle translucency
-- Foreground isolation
-- Background de-emphasis
+### Color Usage
 
-Avoid:
-
-- Overlapping without hierarchy
-- Excessive blur
-- Artificial skeuomorphism
-
----
-
-### Color Usage Philosophy
-
-Color directs attention and emotional framing.
+Direct attention and emotional framing through color.
 
 - Use restrained palettes
 - Reserve high saturation for action or importance
 - Maintain visual stability across screens
 - Prevent color dominance conflicts
+- Avoid rainbow distribution
+- Avoid decorative gradients everywhere
+- Avoid competing accent colors
 
-Avoid:
+### Typography
 
-- Rainbow distribution
-- Decorative gradients everywhere
-- Competing accent colors
+Establish personality and clarity through type.
 
----
-
-### Typography Expression
-
-Typography establishes personality and clarity.
-
-- Confident scale transitions
-- Consistent rhythm
-- Strong headline anchoring
-- Comfortable reading density
-
-Avoid:
-
-- Typography treated as ornament
-- Excessive weight variation
-- Alignment inconsistency
+- Use confident scale transitions
+- Maintain consistent rhythm
+- Anchor with strong headlines
+- Ensure comfortable reading density
+- Avoid treating typography as ornament
+- Avoid excessive weight variation
+- Avoid alignment inconsistency
 
 ---
 
@@ -171,102 +124,81 @@ Avoid:
 
 ### Behavioral Clarity
 
-Every interactive element must visually indicate affordance.
+Ensure every interactive element visually indicates its affordance.
 
-- Clickable looks actionable
-- Draggable looks movable
-- Expandable looks expandable
+- Make clickable elements look actionable
+- Make draggable elements look movable
+- Make expandable elements look expandable
+- Never allow affordance ambiguity
 
-Ambiguity prohibited.
+### Feedback
 
----
+Make system responses feel immediate and informative.
 
-### Feedback Philosophy
+- Make state changes visible
+- Make action confirmation perceptible
+- Make errors recoverable
+- Make progress perceivable
+- Never use silent transitions
 
-System responses must feel immediate and informative.
+### Motion
 
-- State changes visible
-- Action confirmation perceptible
-- Errors recoverable
-- Progress perceivable
+Use motion only to communicate state or continuity.
 
-Avoid silent transitions.
+- Use motion for focus guidance
+- Use motion for structural transition
+- Use motion for causality explanation
+- Avoid decorative animation
+- Avoid distracting motion
+- Avoid excessive choreography
 
----
+### Navigation
 
-### Motion Character
+Create spatial orientation through navigation.
 
-Motion exists to communicate state or continuity.
-
-Appropriate uses:
-
-- Focus guidance
-- Structural transition
-- Causality explanation
-
-Avoid:
-
-- Decorative animation
-- Distracting motion
-- Excessive choreography
-
----
-
-### Navigation Experience
-
-Navigation should create spatial orientation.
-
-- Predictable structure
-- Clear location awareness
-- Easy return paths
-- Minimal disorientation
-
-Avoid:
-
-- Hidden hierarchy
-- Mode confusion
-- Unexpected context shifts
+- Ensure predictable structure
+- Provide clear location awareness
+- Provide easy return paths
+- Minimize disorientation
+- Avoid hidden hierarchy
+- Avoid mode confusion
+- Avoid unexpected context shifts
 
 ---
 
-## Responsiveness Experience Direction
+## Responsiveness
 
-Design must preserve intent across environments.
+Preserve design intent across all environments.
 
 - Maintain hierarchy integrity
 - Preserve interaction accessibility
-- Ensure readability
+- Ensure readability at every viewport
 - Keep actions discoverable
-
-Avoid:
-
-- Content collapse hiding key functions
-- Layout fragmentation
-- Interaction shrinking
+- Avoid content collapse that hides key functions
+- Avoid layout fragmentation
+- Avoid interaction shrinking
 
 ---
 
-## Accessibility as UX Quality
+## Accessibility as UX
 
-Accessibility treated as experience optimization.
+Treat accessibility as experience optimization, not compliance.
 
-- Perceptual clarity
-- Motor accessibility
-- Cognitive simplicity
-- Readable contrast
-- Focus visibility
-
-Avoid treating accessibility as compliance-only.
+- Ensure perceptual clarity
+- Ensure motor accessibility
+- Ensure cognitive simplicity
+- Ensure readable contrast
+- Ensure focus visibility
 
 ---
 
-## Error States & Empty States
+## Error & Empty States
 
 ### Empty States
 
 - Provide direction
 - Reduce uncertainty
-- Encourage next action
+- Encourage the next action
 
 ### Error States
 
@@ -274,13 +206,13 @@ Avoid treating accessibility as compliance-only.
 - Enable recovery
 - Avoid alarm tone
 
-These states influence perceived maturity of the product.
+These states directly influence perceived product maturity. Design them with the same care as primary flows.
 
 ---
 
 ## Visual Sophistication Indicators
 
-Generated UI should exhibit:
+Ensure generated UI exhibits all of the following:
 
 - Intentional restraint
 - Structural balance
@@ -292,13 +224,15 @@ Generated UI should exhibit:
 
 ---
 
-## Common Model Mistakes to Prevent
+## Common Model Mistakes
+
+Avoid these failure patterns:
 
 - Overcrowding layouts
 - Symmetry overuse
 - Center-alignment dominance
 - Excess shadow stacking
-- Trend dumping (multiple stylistic trends combined indiscriminately)
+- Trend dumping (combining multiple stylistic trends indiscriminately)
 - Decorative icons without meaning
 - Excess panels/cards
 - Inconsistent focal anchors
@@ -309,7 +243,7 @@ Generated UI should exhibit:
 
 ## Expected Outcome Characteristics
 
-UI must demonstrate:
+Every generated UI must demonstrate:
 
 - Immediate usability
 - Visual precision

@@ -1,50 +1,50 @@
 # Symbols / DOMQL v3 — Strict Rules for AI Agents
 
-You are working in a **Symbols.app** / DOMQL v3 project. These rules are absolute and override any general coding instincts. Violations cause silent failures (black page, nothing renders).
+These rules are absolute. Violations cause silent failures (black page, nothing renders). DO NOT override with general coding instincts.
 
 ---
 
 ## CRITICAL: v3 Syntax Only
 
-| v3 ✅ USE THIS             | v2 ❌ NEVER USE                  |
-| -------------------------- | -------------------------------- |
-| `extends: 'Component'`     | ~~`extend: 'Component'`~~        |
-| `childExtends: 'Component'`| ~~`childExtend: 'Component'`~~   |
-| `onClick: fn`              | ~~`on: { click: fn }`~~          |
-| `onRender: fn`             | ~~`on: { render: fn }`~~         |
-| props flattened at root    | ~~`props: { ... }` wrapper~~     |
-| individual prop functions  | ~~`props: ({ state }) => ({})` function~~ |
-| `flexAlign: 'center center'`| ~~`align: 'center center'`~~   |
-| `children` + `childExtends`| ~~`$collection`, `$propsCollection`~~ |
-| `children` + `childrenAs: 'state'`| ~~`$stateCollection`~~     |
+| ✅ v3 — USE THIS              | ❌ v2 — NEVER USE                        |
+| ------------------------------ | ---------------------------------------- |
+| `extends: 'Component'`        | ~~`extend: 'Component'`~~               |
+| `childExtends: 'Component'`   | ~~`childExtend: 'Component'`~~          |
+| `onClick: fn`                  | ~~`on: { click: fn }`~~                 |
+| `onRender: fn`                 | ~~`on: { render: fn }`~~                |
+| props flattened at root        | ~~`props: { ... }` wrapper~~            |
+| individual prop functions      | ~~`props: ({ state }) => ({})` function~~ |
+| `flexAlign: 'center center'`  | ~~`align: 'center center'`~~            |
+| `children` + `childExtends`   | ~~`$collection`, `$propsCollection`~~   |
+| `children` + `childrenAs: 'state'` | ~~`$stateCollection`~~              |
 
 ---
 
 ## Rule 1 — Components are OBJECTS, never functions
 
 ```js
-// ✅ CORRECT
+// ✅
 export const Header = { extends: 'Flex', padding: 'A' }
 
-// ❌ WRONG — never do this
+// ❌
 export const Header = (el, state) => ({ padding: 'A' })
 ```
 
 ---
 
-## Rule 2 — NO imports between project files — EVER
+## Rule 2 — NO imports between project files
 
-Components reference each other by PascalCase key in the object tree. Never use `import` between `components/`, `pages/`, `functions/`, etc.
+NEVER use `import` between `components/`, `pages/`, `functions/`, etc. Reference components by PascalCase key in the object tree.
 
 ```js
-// ❌ WRONG
+// ❌
 import { Navbar } from './Navbar.js'
 
-// ✅ CORRECT — just use the key name in the tree
+// ✅
 Nav: { extends: 'Navbar' }
 ```
 
-**Only exception**: `pages/index.js` is the route registry — imports ARE allowed there.
+**Only exception:** `pages/index.js` is the route registry — imports ARE allowed there.
 
 ```js
 // pages/index.js — only file where imports are permitted
@@ -54,28 +54,30 @@ export default { '/': main }
 
 ---
 
-## Rule 3 — `components/index.js` — use `export *` NOT `export * as`
+## Rule 3 — `components/index.js` uses `export *`, NOT `export * as`
 
-`export * as Foo` wraps everything in a namespace object and **breaks component resolution entirely**.
+`export * as Foo` wraps in a namespace object and breaks component resolution.
 
 ```js
-// ✅ CORRECT
+// ✅
 export * from './Navbar.js'
 export * from './PostCard.js'
 
-// ❌ WRONG — breaks everything
+// ❌
 export * as Navbar from './Navbar.js'
 ```
 
 ---
 
-## Rule 4 — Pages extend `'Page'`, not `'Flex'` or `'Box'`
+## Rule 4 — Pages extend `'Page'`
+
+NEVER extend `'Flex'` or `'Box'` for page components.
 
 ```js
-// ✅ CORRECT
+// ✅
 export const main = { extends: 'Page', ... }
 
-// ❌ WRONG
+// ❌
 export const main = { extends: 'Flex', ... }
 ```
 
@@ -84,39 +86,43 @@ export const main = { extends: 'Flex', ... }
 ## Rule 5 — All folders are flat — no subfolders
 
 ```
-components/Navbar.js       ✅
-components/nav/Navbar.js   ❌
+✅ components/Navbar.js
+❌ components/nav/Navbar.js
 ```
 
 ---
 
 ## Rule 6 — PascalCase keys = child components (auto-extends)
 
+A PascalCase key auto-extends the registered component matching that name.
+
 ```js
-// The key "Hgroup" auto-extends the registered Hgroup component
 export const MyCard = {
-  Hgroup: {          // ← auto-extends: 'Hgroup' because key matches registered component
-    gap: '0',        // ← override merges with base Hgroup
+  Hgroup: {          // auto-extends: 'Hgroup'
+    gap: '0',        // merges with base Hgroup
   }
 }
 ```
 
-If you need a different base, set `extends` explicitly.
+SET `extends` explicitly only when the base differs from the key name.
 
 ---
 
-## Rule 7 — State — use `s.update()`, never mutate directly
+## Rule 7 — State updates via `s.update()`, NEVER mutate directly
 
 ```js
-onClick: (e, el, s) => s.update({ count: s.count + 1 })  // ✅ CORRECT
-onClick: (e, el, s) => { s.count = s.count + 1 }          // ❌ WRONG — no re-render
+// ✅
+onClick: (e, el, s) => s.update({ count: s.count + 1 })
+
+// ❌ — no re-render
+onClick: (e, el, s) => { s.count = s.count + 1 }
 ```
 
 Root-level global state: `s.root.update({ key: val })`
 
 ---
 
-## Rule 8 — `el.call('fn', arg)` — `this` is the element inside the function
+## Rule 8 — `el.call('fn', arg)` — `this` is the element
 
 ```js
 // functions/myFn.js
@@ -124,40 +130,45 @@ export const myFn = function myFn(arg1) {
   const node = this.node  // 'this' is the DOMQL element
 }
 
-onClick: (e, el) => el.call('myFn', someArg)  // ✅ CORRECT
-onClick: (e, el) => el.call('myFn', el, someArg)  // ❌ WRONG — el passed twice
+// ✅
+onClick: (e, el) => el.call('myFn', someArg)
+
+// ❌ — el passed twice
+onClick: (e, el) => el.call('myFn', el, someArg)
 ```
 
 ---
 
-## Rule 9 — Icons: NEVER use `Icon` inside `Button` — use `Svg` atom
+## Rule 9 — Icons: use `Svg` atom, NEVER `Icon` inside `Button`
+
+`Icon` will NOT render inside `Button`.
 
 ```js
-// ✅ CORRECT
+// ✅
 MyBtn: {
   extends: 'Flex', tag: 'button', flexAlign: 'center center', cursor: 'pointer',
   Svg: { viewBox: '0 0 24 24', width: '22', height: '22',
     html: '<path d="..." fill="currentColor"/>' }
 }
 
-// ❌ WRONG — Icon will NOT render inside Button
+// ❌
 MyBtn: { extends: 'Button', Icon: { name: 'heart' } }
 ```
 
 ---
 
-## Rule 10 — `childExtends` MUST be a named component string, never an inline object
+## Rule 10 — `childExtends` MUST be a named string, never an inline object
 
-Inline `childExtends` objects cause ALL property values to be concatenated as visible text content on every child.
+Inline objects cause ALL property values to render as visible text on every child.
 
 ```js
-// ✅ CORRECT — reference a named component
+// ✅
 childExtends: 'NavLink'
 
-// ❌ WRONG — dumps all prop values as raw text on every child
+// ❌ — dumps prop values as raw text
 childExtends: {
   tag: 'button',
-  background: 'transparent',    // renders as visible text!
+  background: 'transparent',
   border: '2px solid transparent'
 }
 ```
@@ -168,59 +179,53 @@ Define shared styles as a named component in `components/`, register in `compone
 
 ## Rule 11 — Color token syntax (dot-notation)
 
-Color tokens use **dot-notation** for opacity and `+`/`-`/`=` for tone modifiers:
+Use dot-notation for opacity. Use `+`/`-`/`=` for tone modifiers.
 
 ```js
-// ✅ CORRECT — dot-notation opacity
+// ✅
 { color: 'white.7' }
 { background: 'black.5' }
 { background: 'gray.92+8' }      // opacity 0.92, tone +8
 { color: 'gray+16' }             // full opacity, tone +16
 { color: 'gray=90' }             // absolute lightness 90%
 
-// ❌ WRONG — old space-separated syntax (no longer supported)
+// ❌ — old space-separated syntax
 { color: 'white .7' }
 { color: 'gray 1 +16' }
 ```
 
-For rarely-used colors, define named tokens in `designSystem/COLOR.js` instead.
+For rarely-used colors, define named tokens in `designSystem/COLOR.js`.
 
 ---
 
 ## Rule 12 — Border, boxShadow, textShadow — space-separated (CSS-like)
 
-These properties use **space-separated** syntax matching CSS conventions:
-
 ```js
-// ✅ CORRECT — space-separated, CSS order
+// ✅
 { border: '1px solid gray.1' }
 { border: 'solid mediumGrey' }
 { boxShadow: 'black.1 0 A C C' }
 { textShadow: 'gray1 6px 6px' }
+{ boxShadow: 'black.1 0 A C C, white.5 0 B D D' }  // multiple: use commas
+{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }          // raw CSS passes through
 
-// Multiple shadows use commas (CSS standard)
-{ boxShadow: 'black.1 0 A C C, white.5 0 B D D' }
-
-// Raw CSS passes through unchanged
-{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }
-
-// ❌ WRONG — old comma-separated syntax (no longer supported)
+// ❌ — old comma-separated syntax
 { border: 'solid, gray, 1px' }
 { boxShadow: 'black .1, 0, A, C, C' }
 ```
 
 ---
 
-## Rule 13 — CSS override precedence — component level beats props level
+## Rule 13 — CSS override precedence: component level beats props level
 
 ```js
-// ✅ CORRECT — override at component level to match base component level
+// ✅ — override at component level
 export const MyLink = {
   extends: 'Link',
   color: 'mediumBlue',     // WINS — same declaration level
 }
 
-// ❌ WRONG — props block CANNOT override component-level CSS
+// ❌ — props block CANNOT override component-level CSS
 export const MyLink = {
   extends: 'Link',
   props: { color: 'mediumBlue' }  // LOSES to Link's component-level color
@@ -229,20 +234,20 @@ export const MyLink = {
 
 ---
 
-## Rule 14 — Dynamic HTML attributes go in `attr: {}`, not at root level
+## Rule 14 — Dynamic HTML attributes go in `attr: {}`, not at root
 
 ```js
-// ✅ CORRECT — attr block resolves functions
+// ✅
 export const Input = {
-  type: 'text',           // static default at root
+  type: 'text',
   attr: {
-    type: ({ props }) => props.type   // dynamic resolution in attr
+    type: ({ props }) => props.type   // dynamic resolution
   }
 }
 
-// ❌ WRONG — function at component level gets stringified into the HTML attribute
+// ❌ — function at root gets stringified: type="(el)=>el.props.type"
 export const Input = {
-  type: ({ props }) => props.type   // renders as: type="(el)=>el.props.type"
+  type: ({ props }) => props.type
 }
 ```
 
@@ -260,9 +265,9 @@ onRender: (el) => {
 
 ---
 
-## Rule 16 — SVGs belong in `designSystem/svg_data.js`, not inline in components
+## Rule 16 — SVGs belong in `designSystem/svg_data.js`
 
-Store SVG markup in the design system and reference via context:
+DO NOT inline SVG strings in components.
 
 ```js
 // designSystem/svg_data.js
@@ -271,13 +276,13 @@ export default {
   folderBottomLeft: '<svg ...>...</svg>',
 }
 
-// In component — reference from designSystem
+// ✅ — reference from designSystem
 Svg: {
   src: ({ context }) => context.designSystem.SVG_DATA && context.designSystem.SVG_DATA.folderTopRight,
   aspectRatio: '466 / 48',
 }
 
-// ❌ WRONG — inline SVG string in component
+// ❌ — inline SVG string in component
 Svg: {
   src: '<svg fill="none" viewBox="0 0 466 48">...</svg>',
 }
@@ -287,7 +292,7 @@ Svg: {
 
 ## Rule 17 — `customRouterElement` for persistent layouts
 
-Use `customRouterElement` in config to render pages inside a specific element instead of the root:
+Use `customRouterElement` in config to render pages inside a specific element instead of root.
 
 ```js
 // config.js
@@ -298,16 +303,16 @@ export default {
 }
 ```
 
-The `/` (main) page defines the persistent layout. Sub-pages are rendered inside the target element without re-creating the layout.
+The `/` (main) page defines the persistent layout. Sub-pages render inside the target element without re-creating the layout.
 
 ---
 
-## Rule 18a — Tab/view switching — use DOM IDs + function, NOT reactive `display`
+## Rule 18 — Tab/view switching: use DOM IDs, NOT reactive `display`
 
 Reactive `display: (el, s) => ...` on multiple full-page trees causes rendering failures.
 
 ```js
-// ✅ CORRECT — use DOM ID pattern
+// ✅ — DOM ID pattern
 HomeView: { id: 'view-home', extends: 'Flex', ... },
 ExploreView: { id: 'view-explore', extends: 'Flex', display: 'none', ... },
 
@@ -322,10 +327,10 @@ export const switchView = function switchView(view) {
 
 ---
 
-## Rule 17 — v3 Conditional Props — use `isX` + `'.isX'`
+## Rule 19 — Conditional props: use `isX` + `'.isX'`
 
 ```js
-// ✅ NEW — v3 conditional props pattern
+// ✅ — v3 conditional props
 export const ModalCard = {
   opacity: '0',
   visibility: 'hidden',
@@ -337,7 +342,7 @@ export const ModalCard = {
   },
 }
 
-// ❌ OLD — props function with conditional spread (deprecated)
+// ❌ — deprecated props function with conditional spread
 export const ModalCard = {
   props: (el, s) => ({
     ...(s.root.activeModal ? { opacity: '1' } : { opacity: '0' })
@@ -347,9 +352,9 @@ export const ModalCard = {
 
 ---
 
-## Rule 18 — CSS transitions require forced reflow
+## Rule 20 — CSS transitions require forced reflow
 
-DOMQL + Emotion apply all CSS changes in one JS tick. The browser skips the "before" state. Fix:
+DOMQL + Emotion apply all CSS changes in one JS tick. The browser skips the "before" state. Force reflow to fix.
 
 ```js
 // FadeIn pattern
@@ -371,9 +376,9 @@ setTimeout(() => {
 
 ---
 
-## Rule 19 — Semantic-First Architecture
+## Rule 21 — Semantic-First Architecture
 
-Use semantic components, never generic divs for meaningful content:
+Use semantic components for meaningful content. NEVER use generic divs.
 
 | Intent                    | Use              |
 | ------------------------- | ---------------- |
@@ -389,7 +394,9 @@ Use semantic components, never generic divs for meaningful content:
 
 ---
 
-## Rule 20 — ARIA and accessibility attributes
+## Rule 22 — ARIA and accessibility attributes
+
+Place ARIA attributes in `attr: {}`. Use native elements instead of role overrides wherever possible.
 
 ```js
 attr: {
@@ -401,11 +408,47 @@ attr: {
 }
 ```
 
-Use native elements instead of role overrides wherever possible.
+---
+
+## Rule 23 — Picture `src` goes on Img child, NEVER on Picture
+
+The `<picture>` tag does NOT support `src`. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
+
+```js
+// ✅
+Picture: {
+  Img: { src: '/files/photo.jpg' },
+  width: '100%',
+  aspectRatio: '16/9'
+}
+
+// ❌
+Picture: { src: '/files/photo.jpg', width: '100%' }
+```
 
 ---
 
-## Project structure quick reference
+## Rule 24 — `Map` component key needs `tag: 'div'`
+
+The key `Map` auto-detects as HTML `<map>` (image maps), which defaults to `display: inline` with height 0. ALWAYS add `tag: 'div'`.
+
+```js
+export const Map = {
+  extends: 'Flex',
+  tag: 'div',   // prevents <map> auto-detection
+  // ...
+}
+```
+
+---
+
+## Rule 25 — `/files/` path resolution
+
+Paths like `/files/logo.png` reference the framework's embedded file system via `context.files`. The `/files/` prefix is stripped automatically — keys are just filenames (e.g., `"logo.png"`, not `"/files/logo.png"`).
+
+---
+
+## Project Structure Quick Reference
 
 ```
 smbls/
@@ -413,7 +456,7 @@ smbls/
 ├── state.js                  # export default { ... }
 ├── dependencies.js           # export default { 'pkg': 'version' }
 ├── components/
-│   ├── index.js              # export * from './Foo.js'  ← flat re-exports ONLY
+│   ├── index.js              # export * from './Foo.js'  — flat re-exports ONLY
 │   └── Navbar.js             # export const Navbar = { ... }
 ├── pages/
 │   ├── index.js              # import + export default { '/': main }
@@ -427,62 +470,26 @@ smbls/
 
 ---
 
-## Rule 21 — Picture `src` goes on Img child, never on Picture
-
-The HTML `<picture>` tag does NOT support `src` as an attribute. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
-
-```js
-// ✅ CORRECT — src on the Img child
-Picture: {
-  Img: { src: '/files/photo.jpg' },
-  width: '100%',
-  aspectRatio: '16/9'
-}
-
-// ❌ WRONG — src on Picture is silently ignored
-Picture: { src: '/files/photo.jpg', width: '100%' }
-```
-
----
-
-## Rule 22 — Component key `Map` auto-detects as `<map>` — add `tag: 'div'`
-
-The key `Map` is auto-detected as the HTML `<map>` element (for image maps), which defaults to `display: inline` and has height 0. Always add `tag: 'div'` when using `Map` as a component name:
-
-```js
-export const Map = {
-  extends: 'Flex',
-  tag: 'div',   // prevents <map> auto-detection
-  // ...
-}
-```
-
----
-
-## Rule 23 — `/files/` path resolution
-
-File paths like `/files/logo.png` reference the framework's embedded file system via `context.files`. The `/files/` prefix is stripped automatically when resolving — keys are just filenames (e.g., `"logo.png"`, not `"/files/logo.png"`).
-
----
-
 ## Output Verification Checklist
 
-Before finalizing any generated code, verify:
+Before finalizing generated code, verify ALL of the following:
 
-- [ ] Components are objects, not functions
-- [ ] No cross-file imports except `pages/index.js`
-- [ ] `components/index.js` uses `export *`, not `export * as`
-- [ ] All folders are flat (no subfolders)
-- [ ] Pages extend `'Page'`
-- [ ] v3 event syntax (`onClick`, `onRender`, not `on: { click: ... }`)
-- [ ] `flexAlign` not `align` for Flex shorthand
-- [ ] State updated via `state.update()`, never direct mutation
-- [ ] `childExtends` references named component strings only
-- [ ] No opacity modifier syntax in color props (`color: 'white .7'` is invalid)
-- [ ] Dynamic HTML attributes are in `attr: {}` block, not at root level
-- [ ] One H1 per page; logical heading hierarchy H1→H2→H3
-- [ ] Buttons for actions, Links for navigation
+- [ ] Components are objects, not functions (Rule 1)
+- [ ] No cross-file imports except `pages/index.js` (Rule 2)
+- [ ] `components/index.js` uses `export *`, not `export * as` (Rule 3)
+- [ ] Pages extend `'Page'` (Rule 4)
+- [ ] All folders are flat — no subfolders (Rule 5)
+- [ ] v3 event syntax: `onClick`, `onRender`, not `on: { click: ... }` (CRITICAL table)
+- [ ] `flexAlign` not `align` for Flex shorthand (CRITICAL table)
+- [ ] State updated via `s.update()`, never direct mutation (Rule 7)
+- [ ] `childExtends` references named component strings only (Rule 10)
+- [ ] Color uses dot-notation: `'white.7'` not `'white .7'` (Rule 11)
+- [ ] Dynamic HTML attributes are in `attr: {}` block (Rule 14)
+- [ ] `onRender` guards against double-init (Rule 15)
+- [ ] Conditional props use `isX` / `'.isX'` pattern (Rule 19)
+- [ ] One H1 per page; logical heading hierarchy H1 > H2 > H3
+- [ ] Buttons for actions, Links for navigation (Rule 21)
 - [ ] Forms have labeled inputs with `name` and `type` attributes
-- [ ] Picture `src` is on the Img child, not on Picture itself
-- [ ] `Map` component key has `tag: 'div'` to avoid `<map>` auto-detection
-- [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern
+- [ ] Picture `src` is on the Img child (Rule 23)
+- [ ] `Map` component key has `tag: 'div'` (Rule 24)
+- [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern (CRITICAL table)
