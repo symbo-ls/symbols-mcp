@@ -31,24 +31,24 @@ Provide one or more of: design description, wireframe, screenshot, or component 
 
 - CSS-in-props on each component (no separate CSS files)
 - Design token usage: spacing tokens (`A`, `B`, `C`...), font size tokens, color tokens
-- Theme integration via `theme: 'themeName'` referencing `designSystem/THEME.js`
+- Theme integration via `theme: 'themeName'` referencing `designSystem/theme.js`
 - Conditional styles via `.propName` (truthy) and `!propName` (falsy) syntax
 - Hover/focus/active via `:hover`, `:focus`, `:active` keys
 
 ### 4. Design Token Integration
 
-- Map colors to `designSystem/COLOR.js` entries
-- Map typography to `designSystem/TYPOGRAPHY.js` (font sizes use letter tokens: `Y`, `Z`, `A`, `B`, `C`, `D`, `E`)
+- Map colors to `designSystem/color.js` entries
+- Map typography to `designSystem/typography.js` (font sizes use letter tokens: `Y`, `Z`, `A`, `B`, `C`, `D`, `E`)
 - Map spacing to Symbols spacing tokens (`X`, `Z`, `A`, `B`, `C`, `D`, `E`, `F`, `G`, `H`)
 - Map border radius to `round` property with tokens
-- Define themes in `designSystem/THEME.js` for reusable style groups
+- Define themes in `designSystem/theme.js` for reusable style groups
 
 ### 5. Asset Optimization
 
 - Images via `Img` component with lazy loading pattern (see Cookbook recipe 21)
-- Icons via `Icon` component with `name` property referencing the icon set
-- SVG inlining via `Svg` component
-- Font loading handled by designSystem FONT/FONT_FAMILY tokens
+- Icons via `Icon` component with `name` prop referencing `designSystem.icons`
+- Decorative/structural SVGs via `Svg` component (not for icons)
+- Font loading handled by designSystem font/font_family tokens
 
 ### 6. Performance Considerations
 

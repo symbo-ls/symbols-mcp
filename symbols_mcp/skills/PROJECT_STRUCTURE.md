@@ -37,10 +37,10 @@ smbls/
 │   └── formatDate.js         # export const formatDate = function(date) { ... }
 │
 ├── designSystem/
-│   ├── index.js              # export default { COLOR, THEME, FONT, ... }
-│   ├── COLOR.js              # export default { blue: '#0474f2', ... }
-│   ├── THEME.js              # export default { dialog: { ... }, ... }
-│   └── TYPOGRAPHY.js         # export default { base: 16, ratio: 1.25, ... }
+│   ├── index.js              # export default { color, theme, font, ... }
+│   ├── color.js              # export default { blue: '#0474f2', ... }
+│   ├── theme.js              # export default { dialog: { ... }, ... }
+│   └── typography.js         # export default { base: 16, ratio: 1.25, ... }
 │
 └── state/                    # (alternative to state.js)
     ├── index.js              # export default { user: {}, metrics: [], ... }
@@ -58,7 +58,7 @@ Create one named export per file, PascalCase, matching the filename exactly.
 ```js
 // components/Header.js
 export const Header = {
-  extends: 'Flex',
+  flow: 'x',
   minWidth: 'G2',
   padding: 'A',
 
@@ -161,23 +161,23 @@ export const formatDate = function(date) {
 
 ## Design System (`designSystem/`)
 
-Define tokens in separate UPPERCASE files. Aggregate them in `index.js`.
+Define tokens in separate files. Aggregate them in `index.js`.
 
 ```js
-// designSystem/COLOR.js
+// designSystem/color.js
 export default {
   black: '#000',
   white: '#fff',
   primary: '#0066cc',
 }
 
-// designSystem/SPACING.js
+// designSystem/spacing.js
 export default { base: 16, ratio: 1.618 }
 
 // designSystem/index.js
-import COLOR from './COLOR.js'
-import THEME from './THEME.js'
-export default { COLOR, THEME }
+import color from './color.js'
+import theme from './theme.js'
+export default { color, theme }
 ```
 
 See `DESIGN_SYSTEM.md` for the full token reference.

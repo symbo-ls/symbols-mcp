@@ -10,7 +10,6 @@ Produce DOMQL elements as plain JS objects. Every key has a specific role:
 
 ```js
 export const MyCard = {
-  extends: 'Flex',            // composition
   tag: 'section',             // HTML tag (default: div)
 
   // CSS props (top-level, promoted via propertizeElement)
@@ -31,7 +30,7 @@ export const MyCard = {
   onRender: (el, state) => { console.log('rendered') },
 
   // Children (PascalCase keys)
-  Header: { extends: 'Flex', text: ({ props }) => props.title },
+  Header: { text: ({ props }) => props.title },
   Body: { html: ({ props }) => props.content }
 }
 ```
@@ -409,9 +408,9 @@ PascalCase or numeric keys become child elements:
 
 ```js
 export const Card = {
-  extends: 'Flex',
+  flow: 'y',
   Header: {
-    extends: 'Flex',
+    flow: 'x',
     Title: { text: ({ props }) => props.title },
   },
   Body: { html: ({ props }) => props.content },
@@ -775,7 +774,7 @@ export const Menu = {
 
 ```js
 export const ModalCard = {
-  position: 'absolute', flexAlign: 'center center',
+  position: 'absolute', align: 'center center',
   top: 0, left: 0, boxSize: '100% 100%',
   transition: 'all C defaultBezier',
   opacity: '0', visibility: 'hidden', pointerEvents: 'none', zIndex: '-1',

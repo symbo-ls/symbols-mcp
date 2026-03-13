@@ -21,7 +21,7 @@ export const StateToggle = {
     onClick: (event, element, state) => state.toggle('isOn'),
   },
   LabelTag: {
-    flexAlign: 'center',
+    align: 'center',
     gap: 'X2',
     Circle: {
       boxSize: 'X2',
@@ -53,7 +53,7 @@ export const Counter = {
     count: 0,
   },
   Flex: {
-    flexAlign: 'center',
+    align: 'center',
     gap: 'A',
     Button: {
       text: '+',

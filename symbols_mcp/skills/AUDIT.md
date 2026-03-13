@@ -47,49 +47,45 @@ Resolve conflicts in this priority order:
 
 Before auditing, confirm that every skill below has been consulted. Do not proceed without full coverage.
 
-### Accessibility
-- ACCESSIBILITY
-- ACCESSIBILITY_AUDITORY
+### Rules & Project Setup
+- RULES
+- PROJECT_STRUCTURE
+- RUNNING_APPS
+
+### Syntax & Migration
+- SYNTAX
+- MIGRATION
+- SSR-BRENDER
 
 ### Design System
-- DEFAULT_DESIGN_SYSTEM
-- DESIGN_SYSTEM_CONFIG
-- DESIGN_SYSTEM_IN_PROPS
+- DESIGN_SYSTEM
 - DESIGN_SYSTEM_ARCHITECT
-
-### DOMQL / Migration
-- DOMQL_v2-v3_MIGRATION
-- MIGRATE_TO_SYMBOLS
+- DEFAULT_LIBRARY
 
 ### UI / UX / Direction
-- UI_UX_PATTERNS
+- PATTERNS
 - DESIGN_DIRECTION
 - DESIGN_CRITIQUE
 - DESIGN_TREND
+- DESIGN_TO_CODE
 - FIGMA_MATCHING
 
 ### Components
-- BUILT_IN_COMPONENTS
+- COMPONENTS
 - DEFAULT_COMPONENTS
-
-### Architecture / Setup
-- PROJECT_SETUP
-- QUICKSTART
-- CLI_QUICK_START
-- SYMBOLS_LOCAL_INSTRUCTIONS
-- REMOTE_PREVIEW
-- OPTIMIZATIONS_FOR_AGENT
 
 ### Brand / Presentation
 - BRAND_IDENTITY
 - MARKETING_ASSETS
 - PRESENTATION
 
-### Meta / Agent
-- AGENT_INSTRUCTIONS
-
 ### SEO
 - SEO-METADATA
+
+### Reference & Learning
+- COOKBOOK
+- SNIPPETS
+- LEARNINGS
 
 ---
 
@@ -123,13 +119,13 @@ Complete each phase fully before moving to the next.
 1. Find and replace all hardcoded styles with design tokens.
 2. Enforce design tokens in all props.
 3. Validate spacing, typography, radii, color, and shadow values against the token system.
-4. Align all visual output with DEFAULT_DESIGN_SYSTEM.md and DESIGN_SYSTEM_CONFIG.md.
+4. Align all visual output with DESIGN_SYSTEM.md and DEFAULT_LIBRARY.md.
 5. Eliminate all visual drift from the design system.
 
 ### Phase 3 — Component Discipline
 
 1. Identify custom implementations that duplicate built-in components.
-2. Replace those with the correct built-in component per BUILT_IN_COMPONENTS.md.
+2. Replace those with the correct built-in component per COMPONENTS.md.
 3. Align all component usage with DEFAULT_COMPONENTS.md.
 4. Remove all component duplication.
 
@@ -138,7 +134,7 @@ Complete each phase fully before moving to the next.
 1. Validate semantic HTML across all components.
 2. Verify keyboard navigation compliance.
 3. Check all ARIA attributes for correctness.
-4. Apply auditory accessibility patterns per ACCESSIBILITY_AUDITORY.
+4. Apply auditory accessibility best practices.
 5. Enforce contrast ratios.
 6. Confirm interaction feedback is present and correct.
 

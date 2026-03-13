@@ -61,9 +61,9 @@ my-app/
     ├── methods/
     │   └── index.js
     └── designSystem/
-        ├── index.js          # export default { COLOR, THEME, FONT, ... }
-        ├── COLOR.js
-        └── THEME.js
+        ├── index.js          # export default { color, theme, font, ... }
+        ├── color.js
+        └── theme.js
 ```
 
 ### Key Rules
@@ -136,7 +136,6 @@ Run Symbols directly in the browser with a single HTML file. No npm, no bundler,
     import { create } from 'https://esm.sh/smbls'
 
     create({
-      extends: 'Flex',
       flow: 'column',
       padding: 'C',
       text: 'Hello from Symbols!'
@@ -165,7 +164,7 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
 <script src="https://cdn.jsdelivr.net/npm/smbls"></script>
 <script>
   Smbls.create({
-    extends: 'Flex',
+    flow: 'y',
     text: 'Hello!'
   })
 </script>
@@ -179,7 +178,6 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
 
   // Define reusable components as variables
   const Card = {
-    extends: 'Flex',
     flow: 'column',
     padding: 'B',
     round: 'A',
@@ -191,7 +189,6 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
   }
 
   const App = {
-    extends: 'Flex',
     flow: 'column',
     gap: 'B',
     padding: 'C',
@@ -199,7 +196,6 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
     state: { count: 0 },
 
     Counter: {
-      extends: 'Flex',
       gap: 'A',
       Label: { text: ({ state }) => `Count: ${state.count}` },
       Inc: {
@@ -298,16 +294,16 @@ await toFS(projectData, './output-dir', { overwrite: true })
 ```json
 {
   "components": {
-    "Navbar": "{ extends: 'Flex', ... }",
-    "Card": "{ extends: 'Flex', ... }"
+    "Navbar": "{ flow: 'x', ... }",
+    "Card": "{ flow: 'y', ... }"
   },
   "pages": {
     "/": "{ extends: 'Page', ... }",
     "/about": "{ extends: 'Page', ... }"
   },
   "designSystem": {
-    "COLOR": { "primary": "#0066cc" },
-    "THEME": { "dialog": { "round": "A" } }
+    "color": { "primary": "#0066cc" },
+    "theme": { "dialog": { "round": "A" } }
   },
   "state": { "user": {}, "activeModal": false },
   "functions": { "switchView": "function switchView() { ... }" },

@@ -101,26 +101,26 @@ import media from './media.js'
 import cases from './cases.js'
 
 export default {
-  COLOR: color,
-  GRADIENT: gradient,
-  THEME: theme,
-  FONT: font,
-  FONT_FAMILY: font_family,
-  TYPOGRAPHY: typography,
-  SPACING: spacing,
-  TIMING: timing,
-  CLASS: _class,
-  GRID: grid,
-  ICONS: icons,
-  SHAPE: shape,
-  RESET: reset,
-  ANIMATION: animation,
-  MEDIA: media,
-  CASES: cases,
+  color: color,
+  gradient: gradient,
+  theme: theme,
+  font: font,
+  font_family: font_family,
+  typography: typography,
+  spacing: spacing,
+  timing: timing,
+  class: _class,
+  grid: grid,
+  icons: icons,
+  shape: shape,
+  reset: reset,
+  animation: animation,
+  media: media,
+  cases: cases,
 }
 ```
 
-### COLOR
+### color
 ```js
 export default {
   green: '#389d34',
@@ -160,12 +160,12 @@ export default {
 };
 ```
 
-### GRADIENT
+### gradient
 ```js
 export default {};
 ```
 
-### THEME
+### theme
 ```js
 export default {
   document: {
@@ -284,12 +284,12 @@ export default {
 };
 ```
 
-### FONT
+### font
 ```js
 export default {};
 ```
 
-### FONT_FAMILY
+### font_family
 ```js
 export default {
   Default: {
@@ -302,7 +302,7 @@ export default {
 };
 ```
 
-### TYPOGRAPHY
+### typography
 ```js
 export default {
   '@default': {
@@ -317,7 +317,7 @@ export default {
 };
 ```
 
-### SPACING
+### spacing
 ```js
 export default {
   '@default': {
@@ -349,7 +349,7 @@ export default {};
 export default {};
 ```
 
-### ICONS
+### icons
 ```js
 export default {
   symbols: '<svg height="24" width="24"><path d="M13.843 2.7C19.063 2.7 23 6.366 23 11.228c0 3.754-2.862 6.584-6.658 6.584-3.287 0-5.007-2.318-5.007-4.609 0-2.395 1.923-4.344 4.287-4.344.566 0 1.023.12 1.309.223a.212.212 0 01.137.229l-.016.058-.514 1.18a.223.223 0 01-.245.13 2.965 2.965 0 00-.506-.046c-1.245 0-2.258 1.027-2.258 2.288 0 1.33 1.165 2.373 2.651 2.373 2.195 0 3.913-1.777 3.913-4.046 0-3.024-2.294-5.135-5.58-5.135-4.076 0-7.393 3.36-7.393 7.491a7.519 7.519 0 002.871 5.924l-4.96 3.18A12.042 12.042 0 012 14.7c0-6.617 5.313-12 11.843-12z" fill-rule="evenodd"/></svg>',
@@ -398,7 +398,7 @@ export default {
 export default {};
 ```
 
-### RESET
+### reset
 ```js
 export default {};
 ```
@@ -437,7 +437,7 @@ export default {
 };
 ```
 
-### MEDIA
+### media
 ```js
 export default {};
 ```
@@ -503,7 +503,6 @@ export const Accordion = {
       opacity: '0',
     },
   },
-  extends: 'Flex',
   flow: 'y',
 
   gap: 'Y2',
@@ -569,7 +568,6 @@ export const AvatarChatPreview = {
       NotificationCounter: {},
     },
   },
-  extends: 'Flex',
   gap: 'Z1',
 
   minWidth: 'G3',
@@ -587,7 +585,6 @@ export const AvatarHeading = {
     lineHeight: '1em',
     text: 'Heading',
   },
-  extends: 'Flex',
   gap: 'X2',
 
   align: 'center flex-start',
@@ -607,7 +604,6 @@ export const AvatarHgroup = {
     },
     P: {},
   },
-  extends: 'Flex',
   gap: 'Z',
 
   align: 'center flex-start',
@@ -669,7 +665,6 @@ export const AvatarParagraph = {
     text: 'Can you join us today?',
     margin: '0',
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y1',
@@ -682,8 +677,7 @@ export const AvatarSelectPicker = {
   tag: 'label',
   Avatar: {},
   Select: {
-    extends: 'Flex',
-    fontSize: 'A',
+      fontSize: 'A',
     boxSize: '100%',
     padding: '- B+V2 - Z',
     cursor: 'pointer',
@@ -720,7 +714,6 @@ export const AvatarSelectPicker = {
     margin: 'V - - -',
     fontSize: 'B',
   },
-  extends: 'Flex',
   round: '0',
 
   align: 'center flex-start',
@@ -732,7 +725,7 @@ export const AvatarSelectPicker = {
 ### AvatarSet
 ```js
 export const AvatarSet = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Avatar',
     childProps: {
   border: 'solid codGray',
@@ -820,7 +813,6 @@ export const AvatarSetChatPreview = {
       },
     },
   },
-  extends: 'Flex',
   gap: 'Z1',
 
   minWidth: 'G3',
@@ -832,13 +824,13 @@ export const AvatarSetChatPreview = {
 ### AvatarStatus
 ```js
 export const AvatarStatus = {
+  display: 'flex',
   Avatar: {},
   StatusDot: {
     position: 'absolute',
     bottom: 'W2',
     right: '0',
   },
-  extends: 'Flex',
   position: 'relative',
 };
 ```
@@ -874,7 +866,6 @@ export const AvatarStatusChatPreview = {
       NotificationCounter: {},
     },
   },
-  extends: 'Flex',
   gap: 'Z1',
 
   minWidth: 'G3',
@@ -888,7 +879,6 @@ export const AvatarStatusChatPreview = {
 export const Badge = {
   tag: 'label',
   text: '-2.902',
-  extends: 'Flex',
   align: 'center center',
 
   theme: 'warning',
@@ -914,7 +904,6 @@ export const BadgeCaption = {
     text: 'CAPTION',
   },
   Badge: {},
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y',
@@ -930,7 +919,6 @@ export const BadgeParagraph = {
     color: 'paragraph',
   },
   Badge: {},
-  extends: 'Flex',
   align: 'center space-between',
 
   gap: 'A',
@@ -996,7 +984,6 @@ export const Breadcrumb = {
 export const BulletCaption = {
   tag: 'caption',
   text: 'Orders history',
-  extends: 'Flex',
     align: 'center flex-start',
   gap: 'Y1',
   ':before': {
@@ -1026,7 +1013,6 @@ export const ButtonHeading = {
     text: 'Button',
     theme: 'dialog',
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -1048,7 +1034,6 @@ export const ButtonHgroup = {
     text: 'Button',
     theme: 'dialog',
   },
-  extends: 'Flex',
   align: 'flex-start flex-start',
 
   gap: 'Z',
@@ -1058,6 +1043,7 @@ export const ButtonHgroup = {
 ### ButtonParagraph
 ```js
 export const ButtonParagraph = {
+  display: 'flex',
   P: {
     text: `Didn't get the code?`,
     color: 'caption',
@@ -1068,7 +1054,6 @@ export const ButtonParagraph = {
     theme: 'transparent',
     text: 'Click to Resend',
   },
-  extends: 'Flex',
   alignItems: 'center',
 
   gap: 'X2',
@@ -1078,7 +1063,6 @@ export const ButtonParagraph = {
 ### ButtonSet
 ```js
 export const ButtonSet = {
-  extends: 'Flex',
   childExtends: 'Button',
     gap: 'Z',
   align: 'center flex-start',
@@ -1108,10 +1092,10 @@ export const Caption = {
 ### CardNumberField
 ```js
 export const CardNumberField = {
+  display: 'flex',
   state: {
     value: 'XXXXXXXXXXXXXXXX',
   },
-  extends: 'Flex',
   childExtends: 'FixedNumberField',
     gap: '0',
   childProps: {
@@ -1205,7 +1189,6 @@ export const CheckCaption = {
       },
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -1215,7 +1198,6 @@ export const CheckCaption = {
 ### CheckCaptionList
 ```js
 export const CheckCaptionList = {
-  extends: 'Flex',
   childExtends: 'CheckCaption',
     flow: 'y',
   gap: 'B',
@@ -1240,6 +1222,7 @@ export const CheckCaptionList = {
 ### CheckHgroup
 ```js
 export const CheckHgroup = {
+  display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
@@ -1255,7 +1238,6 @@ export const CheckHgroup = {
       },
     },
   },
-  extends: 'Flex',
   gap: 'Z',
 };
 ```
@@ -1263,7 +1245,6 @@ export const CheckHgroup = {
 ### CheckHgroupList
 ```js
 export const CheckHgroupList = {
-  extends: 'Flex',
   childExtends: 'CheckHgroup',
     flow: 'y',
   gap: 'B',
@@ -1314,7 +1295,6 @@ export const CheckStep = {
       value: 1,
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -1324,7 +1304,7 @@ export const CheckStep = {
 ### CheckStepSet
 ```js
 export const CheckStepSet = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'CheckStep',
     gap: 'Z1',
   childProps: {
@@ -1400,7 +1380,7 @@ export const CircleProgress = {
 ### ConfirmationButtons
 ```js
 export const ConfirmationButtons = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Button',
     gap: 'Y1',
   childProps: {
@@ -1463,8 +1443,7 @@ export const CounterParagraph = {
     overflow: 'hidden',
   },
   NotificationCounter: {},
-  extends: 'Flex',
-  flexAlign: 'center space-between',
+  align: 'center space-between',
   gap: 'B',
 };
 ```
@@ -1487,7 +1466,6 @@ export const Field = {
     right: 'Z2',
     opacity: '.45',
   },
-  extends: 'Flex',
   theme: 'field',
 
   align: 'center flex-start',
@@ -1517,7 +1495,6 @@ export const FieldCaption = {
     Input: {},
     Icon: {},
   },
-  extends: 'Flex',
   flow: 'column',
 
   boxSize: 'fit-content fit-content',
@@ -1608,7 +1585,6 @@ export const Group = {
     userSelect: 'none',
     whiteSpace: 'nowrap',
   },
-  extends: 'Flex',
     flow: 'y',
   align: 'flex-start',
   gap: 'Y1',
@@ -1708,7 +1684,6 @@ export const HgroupSteps = {
       flex: '1',
     },
   },
-  extends: 'Flex',
   flow: 'column',
 
   gap: 'A1',
@@ -1730,8 +1705,8 @@ export const Hr = {
 ### HrLegend
 ```js
 export const HrLegend = {
+  display: 'flex',
   text: 'Or',
-  extends: 'Flex',
     minWidth: 'G',
   fontWeight: '500',
   alignItems: 'center',
@@ -1792,7 +1767,6 @@ export const IconButtonHeading = {
     text: 'Heading',
   },
   IconButton: {},
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -1813,7 +1787,6 @@ export const IconButtonHgroup = {
   IconButton: {
     theme: 'dialog',
   },
-  extends: 'Flex',
   align: 'flex-start flex-start',
 
   gap: 'Z',
@@ -1823,7 +1796,7 @@ export const IconButtonHgroup = {
 ### IconButtonSet
 ```js
 export const IconButtonSet = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'IconButton',
     gap: 'Z',
   childProps: {
@@ -1881,7 +1854,6 @@ export const IconHeading = {
     lineHeight: '1em',
     fontWeight: '700',
   },
-  extends: 'Flex',
   gap: 'Z',
 
   align: 'center flex-start',
@@ -1905,7 +1877,6 @@ export const IconHgroup = {
     },
     P: {},
   },
-  extends: 'Flex',
   gap: 'X',
 
   align: 'flex-start',
@@ -1929,7 +1900,6 @@ export const IconInput = {
     zIndex: '2',
     right: 'Z2',
   },
-  extends: 'Flex',
   minWidth: 'G',
 
   align: 'center flex-start',
@@ -1974,7 +1944,6 @@ export const IcontextLink = {
 ### IconTextSet
 ```js
 export const IconTextSet = {
-  extends: 'Flex',
   childExtends: [
     'IconText',
     'Flex',
@@ -2043,7 +2012,6 @@ export const ImgHeading = {
     tag: 'h4',
     text: 'Heading',
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y1',
@@ -2091,7 +2059,6 @@ export const ImgHgroup = {
     },
     P: {},
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y1',
@@ -2109,7 +2076,6 @@ export const InputButton = {
     text: 'Sign up',
     theme: 'primary',
   },
-  extends: 'Flex',
     gap: 'Y2',
   align: 'center flex-start',
   height: 'C+X',
@@ -2150,7 +2116,7 @@ export const LayerSimple = {
     gap: 'A',
     childProps: {
       gap: 'X',
-      flexAlign: 'center',
+      align: 'center',
     },
     childExtends: {
       Icon: {
@@ -2219,7 +2185,6 @@ export const LinkHgroup = {
   Link: {
     text: 'Get direction',
   },
-  extends: 'Flex',
   flow: 'y',
 
   gap: 'Z',
@@ -2229,6 +2194,7 @@ export const LinkHgroup = {
 ### LinkParagraph
 ```js
 export const LinkParagraph = {
+  display: 'flex',
   P: {
     text: 'You are agree',
     color: 'caption',
@@ -2241,7 +2207,6 @@ export const LinkParagraph = {
     textDecoration: 'underline',
     fontWeight: '400',
   },
-  extends: 'Flex',
   alignItems: 'center',
 
   gap: 'X2',
@@ -2252,7 +2217,6 @@ export const LinkParagraph = {
 ```js
 export const LinkSet = {
   tag: 'nav',
-  extends: 'Flex',
   childExtends: 'Link',
     align: 'center flex-start',
   gap: 'A',
@@ -2273,6 +2237,7 @@ export const LinkSet = {
 ### ListingItem
 ```js
 export const ListingItem = {
+  display: 'flex',
   IconText: {
     color: 'paragraph',
     flow: 'column',
@@ -2338,7 +2303,6 @@ export const ListingItem = {
       ],
     },
   },
-  extends: 'Flex',
   gap: 'A2',
 
   alignItems: 'flex-start',
@@ -2410,7 +2374,6 @@ export const Modal = {
       name: 'x',
     },
   },
-  extends: 'Flex',
   boxSize: 'fit-content',
 
   align: 'stretch flex-start',
@@ -2434,7 +2397,7 @@ export const Modal = {
 ### NavigationArrows
 ```js
 export const NavigationArrows = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'IconButton',
     gap: 'Z',
   childProps: {
@@ -2458,8 +2421,8 @@ export const NavigationArrows = {
 ### NavigationDots
 ```js
 export const NavigationDots = {
+  display: 'flex',
   tag: 'nav',
-  extends: 'Flex',
   childExtends: 'Link',
     gap: 'C1',
   childProps: {
@@ -2495,7 +2458,6 @@ export const NotCounterParagraph = {
     overflow: 'hidden',
   },
   NotificationCounter: {},
-  extends: 'Flex',
   align: 'center space-between',
 
   gap: 'B',
@@ -2506,7 +2468,6 @@ export const NotCounterParagraph = {
 ```js
 export const NotificationCounter = {
   text: '3',
-  extends: 'Flex',
   widthRange: 'A',
 
   theme: 'primary',
@@ -2557,7 +2518,6 @@ export const NumberPicker = {
       })
     },
   },
-  extends: 'Flex',
     align: 'center flex-start',
   gap: 'Z',
   '> button': {
@@ -2577,6 +2537,7 @@ export const P = {
 ### PackageFeatureItem
 ```js
 export const PackageFeatureItem = {
+  display: 'flex',
   tag: 'label',
   Input: {
     display: 'none',
@@ -2596,7 +2557,6 @@ export const PackageFeatureItem = {
       name: 'logo',
     },
   },
-  extends: 'Flex',
   cursor: 'pointer',
 };
 ```
@@ -2654,7 +2614,6 @@ export const Pagination = {
       state.update({})
     },
   },
-  extends: 'Flex',
   gap: 'A',
 
   align: 'center flex-start',
@@ -2664,7 +2623,7 @@ export const Pagination = {
 ### Pills
 ```js
 export const Pills = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Link',
   gap: 'C1',
   childProps: {
@@ -2707,7 +2666,6 @@ export const Progress = {
       props
     }) => props.value,
   },
-  extends: 'Flex',
     height: 'X',
   minWidth: 'F3',
   round: 'Y',
@@ -2730,7 +2688,7 @@ export const Progress = {
 ### ProgressStepSet
 ```js
 export const ProgressStepSet = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Progress',
     gap: 'A',
   childProps: {
@@ -2757,7 +2715,6 @@ export const RadioCaption = {
       ':after': {},
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -2767,7 +2724,6 @@ export const RadioCaption = {
 ### RadioCaptionList
 ```js
 export const RadioCaptionList = {
-  extends: 'Flex',
   childExtends: 'RadioCaption',
     flow: 'y',
   gap: 'B',
@@ -2792,6 +2748,7 @@ export const RadioCaptionList = {
 ### RadioHgroup
 ```js
 export const RadioHgroup = {
+  display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
@@ -2805,7 +2762,6 @@ export const RadioHgroup = {
       ':after': {},
     },
   },
-  extends: 'Flex',
   gap: 'Z',
 };
 ```
@@ -2813,7 +2769,6 @@ export const RadioHgroup = {
 ### RadioHgroupList
 ```js
 export const RadioHgroupList = {
-  extends: 'Flex',
   childExtends: 'RadioHgroup',
     flow: 'y',
   gap: 'B',
@@ -2879,7 +2834,6 @@ export const RadioStep = {
       value: 1,
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y2',
@@ -2889,7 +2843,7 @@ export const RadioStep = {
 ### RadioSteps
 ```js
 export const RadioSteps = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'RadioStep',
     gap: 'Z1',
   childProps: {
@@ -2985,6 +2939,7 @@ export const ScrollableList = {
 ### Scrollbar
 ```js
 export const Scrollbar = {
+  display: 'flex',
   TrackContainer: {
     opacity: 1,
     transition: 'A defaultBezier opacity',
@@ -3013,7 +2968,6 @@ export const Scrollbar = {
       },
     },
   },
-  extends: 'Flex',
   minWidth: 'I',
 };
 ```
@@ -3038,7 +2992,6 @@ export const Search = {
     right: 'Z+W2',
     fontSize: 'B',
   },
-  extends: 'Flex',
   minWidth: 'G+A2',
 
   gap: 'Z',
@@ -3256,10 +3209,10 @@ export const SearchDropdown_copy = {
 ### SectionHeader
 ```js
 export const SectionHeader = {
+  display: 'flex',
   tag: 'header',
   Hgroup: {},
   IconButtonSet: {},
-  extends: 'Flex',
   gap: 'C1',
 };
 ```
@@ -3307,6 +3260,7 @@ export const SelectField = {
 ### SelectHgroup
 ```js
 export const SelectHgroup = {
+  display: 'flex',
   Hgroup: {
     gap: 'V2',
     H: {
@@ -3326,7 +3280,6 @@ export const SelectHgroup = {
       ],
     },
   },
-  extends: 'Flex',
   gap: 'C',
 };
 ```
@@ -3335,12 +3288,10 @@ export const SelectHgroup = {
 ```js
 export const SelectPicker = {
   tag: 'label',
-  extends: 'Flex',
     round: '0',
   align: 'center flex-start',
   position: 'relative',
   Select: {
-  extends: 'Flex',
   fontSize: 'A',
   boxSize: '100%',
   padding: '- B+V2 - -',
@@ -3400,7 +3351,7 @@ export const SquareButton = {
 ### Stars
 ```js
 export const Stars = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Icon',
     fontSize: 'B',
   gap: 'W',
@@ -3445,6 +3396,7 @@ export const StatusDot = {
 ### StoryCard
 ```js
 export const StoryCard = {
+  display: 'flex',
   Img: {
     src: 'https://files-production-symbols-platform-development-en-d5-u3-p7x0.based.dev/fibd6dc13e/64be440c-ae12-4942-8da7-d772e06cb76c-b3013bf0-701c-4aff-b439-55d412265b2a-25215bc5-652d-40a7-8c99-af865865b74e.jpeg',
     boxSize: '100%',
@@ -3486,7 +3438,6 @@ export const StoryCard = {
       children: () => [{}, {}],
     },
   },
-  extends: 'Flex',
   position: 'relative',
 
   round: 'B2',
@@ -3530,7 +3481,7 @@ export const SubmitButton = {
 ### TabSet
 ```js
 export const TabSet = {
-  extends: 'Flex',
+  display: 'flex',
   childExtends: 'Button',
     padding: 'V2+V2',
   round: 'D',
@@ -3563,6 +3514,7 @@ export const TabSet = {
 ### TextareaIconButton
 ```js
 export const TextareaIconButton = {
+  display: 'flex',
   Textarea: {
     minHeight: 'C+Y',
     maxHeight: 'C+Y',
@@ -3576,7 +3528,6 @@ export const TextareaIconButton = {
       name: 'send',
     },
   },
-  extends: 'Flex',
   gap: 'Y1',
 };
 ```
@@ -3593,7 +3544,6 @@ export const ToggleCaption = {
       ':after': {},
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Z',
@@ -3603,7 +3553,6 @@ export const ToggleCaption = {
 ### ToggleCaptionList
 ```js
 export const ToggleCaptionList = {
-  extends: 'Flex',
   childExtends: 'ToggleCaption',
     flow: 'y',
   gap: 'B',
@@ -3628,6 +3577,7 @@ export const ToggleCaptionList = {
 ### ToggleHgroup
 ```js
 export const ToggleHgroup = {
+  display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
@@ -3642,7 +3592,6 @@ export const ToggleHgroup = {
       after: {},
     },
   },
-  extends: 'Flex',
   gap: 'Z',
 };
 ```
@@ -3650,7 +3599,6 @@ export const ToggleHgroup = {
 ### ToggleHgroupList
 ```js
 export const ToggleHgroupList = {
-  extends: 'Flex',
   childExtends: 'ToggleHgroup',
     flow: 'y',
   gap: 'B',
@@ -3694,7 +3642,6 @@ export const UnitValue = {
   Value: {
     text: '73',
   },
-  extends: 'Flex',
     align: 'center flex-start',
   gap: 'V',
   childProps: {
@@ -3783,7 +3730,6 @@ export const UserNavbar = {
     },
     children: () => [{}, {}],
   },
-  extends: 'Flex',
   minWidth: 'G2',
 
   align: 'center flex-start',
@@ -3829,7 +3775,6 @@ export const ValueHeading = {
     Unit: {},
     Value: {},
   },
-  extends: 'Flex',
   minWidth: 'F3',
 
   align: 'center space-between',
@@ -3854,7 +3799,6 @@ export const ValueProgress = {
       text: '%',
     },
   },
-  extends: 'Flex',
   align: 'center flex-start',
 
   gap: 'Y2',

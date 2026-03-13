@@ -14,9 +14,10 @@ These rules are absolute. Violations cause silent failures (black page, nothing 
 | `onRender: fn`                 | ~~`on: { render: fn }`~~                |
 | props flattened at root        | ~~`props: { ... }` wrapper~~            |
 | individual prop functions      | ~~`props: ({ state }) => ({})` function~~ |
-| `flexAlign: 'center center'`  | ~~`align: 'center center'`~~            |
+| `align: 'center center'`      | ~~`flexAlign: 'center center'`~~        |
 | `children` + `childExtends`   | ~~`$collection`, `$propsCollection`~~   |
 | `children` + `childrenAs: 'state'` | ~~`$stateCollection`~~              |
+| No `extends` needed for Text/Box/Flex | ~~`extends: 'Text'`~~, ~~`extends: 'Box'`~~, ~~`extends: 'Flex'`~~ |
 
 ---
 
@@ -24,7 +25,7 @@ These rules are absolute. Violations cause silent failures (black page, nothing 
 
 ```js
 // ✅
-export const Header = { extends: 'Flex', padding: 'A' }
+export const Header = { flow: 'x', padding: 'A' }
 
 // ❌
 export const Header = (el, state) => ({ padding: 'A' })
@@ -139,20 +140,23 @@ onClick: (e, el) => el.call('myFn', el, someArg)
 
 ---
 
-## Rule 9 — Icons: use `Svg` atom, NEVER `Icon` inside `Button`
+## Rule 9 — Icons: use `Icon` component, store SVGs in design system
 
-`Icon` will NOT render inside `Button`.
+Use the `Icon` component to render icons. `Icon` extends `Svg` internally, accepts a `name` or `icon` prop to reference icons from `designSystem.icons`, and auto-converts kebab-case to camelCase. Supports sprite mode via `useIconSprite: true` in the design system.
 
 ```js
-// ✅
+// ✅ — reference icon by name from designSystem.icons
 MyBtn: {
-  extends: 'Flex', tag: 'button', flexAlign: 'center center', cursor: 'pointer',
+  tag: 'button', align: 'center center', cursor: 'pointer',
+  Icon: { name: 'arrowRight' }
+}
+
+// ❌ — do NOT inline SVGs via Svg component for icons
+MyBtn: {
+  tag: 'button', align: 'center center', cursor: 'pointer',
   Svg: { viewBox: '0 0 24 24', width: '22', height: '22',
     html: '<path d="..." fill="currentColor"/>' }
 }
-
-// ❌
-MyBtn: { extends: 'Button', Icon: { name: 'heart' } }
 ```
 
 ---
@@ -194,7 +198,7 @@ Use dot-notation for opacity. Use `+`/`-`/`=` for tone modifiers.
 { color: 'gray 1 +16' }
 ```
 
-For rarely-used colors, define named tokens in `designSystem/COLOR.js`.
+For rarely-used colors, define named tokens in `designSystem/color.js`.
 
 ---
 
@@ -265,24 +269,24 @@ onRender: (el) => {
 
 ---
 
-## Rule 16 — SVGs belong in `designSystem/svg_data.js`
+## Rule 16 — Icons use `Icon`, decorative/structural SVGs use `Svg`
 
-DO NOT inline SVG strings in components.
+For **icons**, always use the `Icon` component referencing `designSystem.icons` by name. For **decorative or structural SVGs** (backgrounds, illustrations, shapes) that are not icons, use `Svg` and store the SVG data in `designSystem/svg_data.js`.
 
 ```js
-// designSystem/svg_data.js
-export default {
-  folderTopRight: '<svg ...>...</svg>',
-  folderBottomLeft: '<svg ...>...</svg>',
-}
+// ✅ — icons: use Icon component
+Icon: { name: 'arrowRight' }
 
-// ✅ — reference from designSystem
+// ✅ — decorative/structural SVG: reference from designSystem
 Svg: {
-  src: ({ context }) => context.designSystem.SVG_DATA && context.designSystem.SVG_DATA.folderTopRight,
+  src: ({ context }) => context.designSystem.svg_data && context.designSystem.svg_data.folderTopRight,
   aspectRatio: '466 / 48',
 }
 
-// ❌ — inline SVG string in component
+// ❌ — do NOT use Svg for icons
+Svg: { viewBox: '0 0 24 24', html: '<path d="..." fill="currentColor"/>' }
+
+// ❌ — do NOT inline SVG strings in components
 Svg: {
   src: '<svg fill="none" viewBox="0 0 466 48">...</svg>',
 }
@@ -313,8 +317,8 @@ Reactive `display: (el, s) => ...` on multiple full-page trees causes rendering 
 
 ```js
 // ✅ — DOM ID pattern
-HomeView: { id: 'view-home', extends: 'Flex', ... },
-ExploreView: { id: 'view-explore', extends: 'Flex', display: 'none', ... },
+HomeView: { id: 'view-home', flow: 'column', ... },
+ExploreView: { id: 'view-explore', flow: 'column', display: 'none', ... },
 
 // functions/switchView.js
 export const switchView = function switchView(view) {
@@ -434,7 +438,7 @@ The key `Map` auto-detects as HTML `<map>` (image maps), which defaults to `disp
 
 ```js
 export const Map = {
-  extends: 'Flex',
+  flow: 'y',
   tag: 'div',   // prevents <map> auto-detection
   // ...
 }
@@ -445,6 +449,25 @@ export const Map = {
 ## Rule 25 — `/files/` path resolution
 
 Paths like `/files/logo.png` reference the framework's embedded file system via `context.files`. The `/files/` prefix is stripped automatically — keys are just filenames (e.g., `"logo.png"`, not `"/files/logo.png"`).
+
+---
+
+## Rule 26 — NEVER extend `'Text'`, `'Box'`, or `'Flex'` — they are implicit defaults
+
+`Text`, `Box`, and `Flex` are built-in base primitives. Every element is already a Box; any element with `text:` already behaves as Text; any element with `flow:`, `align:`, or `gap:` already behaves as Flex. Extending them explicitly causes an unnecessary merge step at runtime.
+
+```js
+// ✅ CORRECT — no extends needed
+Tag: { tag: 'span', text: 'NEW', padding: 'X A', fontSize: 'Y' }
+Card: { tag: 'div', padding: 'B', background: 'white' }
+
+// ❌ WRONG — unnecessary merge overhead
+Tag: { extends: 'Text', text: 'NEW', padding: 'X A' }
+Card: { extends: 'Box', padding: 'B', background: 'white' }
+Row: { extends: 'Flex', gap: 'A', align: 'center' }
+```
+
+Use a semantic or functional component instead: `Link`, `Button`, `Header`, `Section`, etc. For flex layout, use `flow:`, `align:`, or `gap:` props directly.
 
 ---
 
@@ -465,7 +488,7 @@ smbls/
 │   ├── index.js              # export * from './switchView.js'
 │   └── switchView.js         # export const switchView = function(...) {}
 └── designSystem/
-    └── index.js              # export default { COLOR, THEME, ... }
+    └── index.js              # export default { color, theme, ... }
 ```
 
 ---
@@ -480,7 +503,7 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] Pages extend `'Page'` (Rule 4)
 - [ ] All folders are flat — no subfolders (Rule 5)
 - [ ] v3 event syntax: `onClick`, `onRender`, not `on: { click: ... }` (CRITICAL table)
-- [ ] `flexAlign` not `align` for Flex shorthand (CRITICAL table)
+- [ ] `align` not `flexAlign` for flex alignment shorthand (CRITICAL table)
 - [ ] State updated via `s.update()`, never direct mutation (Rule 7)
 - [ ] `childExtends` references named component strings only (Rule 10)
 - [ ] Color uses dot-notation: `'white.7'` not `'white .7'` (Rule 11)
@@ -493,3 +516,4 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] Picture `src` is on the Img child (Rule 23)
 - [ ] `Map` component key has `tag: 'div'` (Rule 24)
 - [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern (CRITICAL table)
+- [ ] No `extends: 'Text'`, `extends: 'Box'`, or `extends: 'Flex'` — they are implicit defaults (Rule 26)

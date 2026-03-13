@@ -10,15 +10,15 @@ Use flattened props (no `props` wrapper). CSS props go at the top level. Events 
 |------|----------|-------|---------|
 | `Text` | `<span>` | `text`, `color`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `textTransform`, `textDecoration`, `textAlign`, `maxWidth`, `overflow`, `whiteSpace` | `Text: { text: 'Hello', fontSize: 'B', color: 'title' }` |
 | `Box` | `<div>` | `padding`, `margin`, `border`, `borderRadius`, `background`, `shadow`, `width`, `height`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`, `position`, `inset`, `top`, `right`, `bottom`, `left`, `overflow`, `zIndex` | `Box: { padding: 'A B', background: 'surface', borderRadius: 'B' }` |
-| `Flex` | `<div>` | `flow`/`flexFlow`, `flexAlign` (**not** `align`), `alignItems`, `justifyContent`, `gap`, `flex`, `flexGrow`, `flexShrink`, `flexBasis`, `wrap` | `Flex: { flow: 'y', flexAlign: 'center space-between', gap: 'B' }` |
+| `Flex` | `<div>` | `flow`/`flexFlow`, `align`, `alignItems`, `justifyContent`, `gap`, `flex`, `flexGrow`, `flexShrink`, `flexBasis`, `wrap` | `Flex: { flow: 'y', align: 'center space-between', gap: 'B' }` |
 | `Grid` | `<div>` | `columns`/`gridTemplateColumns`, `rows`/`gridTemplateRows`, `gap`, `columnGap`, `rowGap`, `gridAutoFlow`, `gridAutoColumns`, `gridAutoRows` | `Grid: { columns: 'repeat(3, 1fr)', gap: 'A' }` |
 | `Link` | `<a>` | `href`, `target`, `rel`, `text`, `color`, `textDecoration`, `onClick` | `Link: { text: 'Docs', href: '/docs' }` |
 | `Input` | `<input>` | `type`, `name`, `value`, `placeholder`, `required`, `disabled`, `onInput`, `onChange`, `onKeydown`, `padding`, `background`, `border`, `round` | `Input: { type: 'text', name: 'title', placeholder: 'Enter title' }` |
 | `Radio` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Radio: { name: 'opt', value: 'a' }` |
 | `Checkbox` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Checkbox: { name: 'agree', checked: true }` |
-| `Svg` | `<svg>` | `html` (inline SVG markup), `width`, `height`, `viewBox`, `fill`, `stroke` | `Svg: { html: '<path d="..." />', viewBox: '0 0 24 24', width: '22', height: '22' }` |
+| `Svg` | `<svg>` | `html` (inline SVG markup), `width`, `height`, `viewBox`, `fill`, `stroke`. For non-icon SVGs only (decorative/structural). Use `Icon` for icons. | `Svg: { html: '<path d="..." />', viewBox: '0 0 24 24', width: '22', height: '22' }` |
 | `Icon` | `<svg>` | `name` (sprite symbol id), `size`/`boxSize`, `color` | `Icon: { name: 'chevronRight', boxSize: 'A' }` |
-| `IconText` | `<div>` | `icon`, `text`, `gap`, `flexAlign`, `color` | `IconText: { icon: 'search', text: 'Search', gap: 'Z' }` |
+| `IconText` | `<div>` | `icon`, `text`, `gap`, `align`, `color` | `IconText: { icon: 'search', text: 'Search', gap: 'Z' }` |
 | `Button` | `<button>` | `text`, `icon`, `type`, `disabled`, `theme`, `padding`, `round`, `onClick`, `onSubmit` | `Button: { text: 'Save', theme: 'primary', type: 'submit' }` |
 | `Img` | `<img>` | `src`, `alt`, `loading`, `width`, `height`, `boxSize`, `objectFit` | `Img: { src: '/logo.png', alt: 'Logo', boxSize: 'B' }` |
 | `Iframe` | `<iframe>` | `src`, `width`, `height` | `Iframe: { src: 'https://example.com', width: '100%', height: '300px' }` |
@@ -30,7 +30,7 @@ If `src` is not a valid URL, it resolves via `context.files[filename]`. Paths st
 
 ### Svg rule
 
-Use `Svg` (not `Icon`) for SVGs inside `Button` or custom controls. The key MUST be `Svg`.
+Use `Icon` (not `Svg`) for icons. `Icon: { name: 'iconName' }` references `designSystem.icons`. Use `Svg` only for decorative/structural SVGs that are not icons.
 
 ### Picture
 

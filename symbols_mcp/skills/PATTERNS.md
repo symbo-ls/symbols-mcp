@@ -45,7 +45,7 @@ When to use: Expandable/collapsible content sections.
 export const Accordion = {
   state: { open: false },
   Header: {
-    extends: 'Flex',
+    flow: 'x',
     attr: (el, s) => ({
       'aria-expanded': s.open,
       'aria-controls': 'accordion-body'
@@ -83,7 +83,7 @@ When to use: Dialog overlays with backdrop, focus trapping, and animated open/cl
 ```js
 // components/ModalCard.js
 export const ModalCard = {
-  position: 'absolute', flexAlign: 'center center',
+  position: 'absolute', align: 'center center',
   top: 0, left: 0, boxSize: '100% 100%',
   transition: 'all C defaultBezier',
   opacity: '0', visibility: 'hidden', pointerEvents: 'none', zIndex: '-1',
@@ -142,8 +142,8 @@ When to use: Multi-view tab interfaces. Use DOM IDs for view switching -- NOT re
 
 ```js
 // Page definition
-HomeView: { id: 'view-home', extends: 'Flex', ... },
-ExploreView: { id: 'view-explore', extends: 'Flex', display: 'none', ... },
+HomeView: { id: 'view-home', flow: 'column', ... },
+ExploreView: { id: 'view-explore', flow: 'column', display: 'none', ... },
 
 // Navbar
 Navbar: {
@@ -271,7 +271,7 @@ When to use: Custom interactive widgets (listbox, dropdown, menu).
 ```js
 // Custom keyboard interaction (listbox pattern)
 {
-  extends: 'Flex',
+  flow: 'y',
   attr: { role: 'listbox', tabindex: '0', 'aria-label': 'Select option' },
   onKeydown: (e, el, s) => {
     if (e.key === 'ArrowDown') {

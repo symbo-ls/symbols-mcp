@@ -19,7 +19,7 @@ The default library (`default.symbo.ls`) provides 127+ pre-built, production-rea
 | `Form` | `Box` | Form container |
 | `Hgroup` | `Flex` | Heading group |
 | `Img` | — | Image element |
-| `Svg` | — | SVG container |
+| `Svg` | — | SVG container for non-icon SVGs (decorative/structural). Use `Icon` for icons |
 | `Video` | — | Video element |
 | `Iframe` | — | Embedded frame |
 | `Shape` | `Box` | Shape utilities |
@@ -130,7 +130,6 @@ PascalCase keys auto-extend matching registered components:
 
 ```js
 export const MyCard = {
-  extends: 'Flex',
   flow: 'y',
   gap: 'A',
   padding: 'B',
@@ -163,12 +162,12 @@ Default library components automatically use your project's design system tokens
 ```js
 // designSystem/index.js
 export default {
-  COLOR: {
+  color: {
     primary: '#2563EB',
     surface: '#F8FAFC',
     text: '#0F172A',
   },
-  THEME: {
+  theme: {
     primary: {
       background: 'primary',
       color: 'white',
@@ -178,11 +177,11 @@ export default {
       borderRadius: 'A',
     },
   },
-  TYPOGRAPHY: {
+  typography: {
     base: 16,
     ratio: 1.25,
   },
-  SPACING: {
+  spacing: {
     base: 16,
     ratio: 1.618,
   },
@@ -215,10 +214,10 @@ project/
 │   │   └── about.js
 │   ├── designSystem/         # Your tokens override defaults
 │   │   ├── index.js
-│   │   ├── COLOR.js
-│   │   ├── THEME.js
-│   │   ├── TYPOGRAPHY.js
-│   │   └── SPACING.js
+│   │   ├── color.js
+│   │   ├── theme.js
+│   │   ├── typography.js
+│   │   └── spacing.js
 │   ├── functions/            # Utility functions
 │   ├── snippets/             # Reusable snippets
 │   └── methods/              # Custom methods

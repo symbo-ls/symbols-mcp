@@ -11,7 +11,6 @@ Sticky responsive header with logo, nav links, and mobile menu button.
 ```js
 export const Header = {
   tag: 'header',
-  extends: 'Flex',
   position: 'sticky',
   top: '0',
   width: '100%',
@@ -34,7 +33,6 @@ export const Header = {
   },
 
   Nav: {
-    extends: 'Flex',
     gap: 'B',
     align: 'center',
 
@@ -72,7 +70,6 @@ Full-width hero with heading, description, and CTA buttons.
 
 ```js
 export const Hero = {
-  extends: 'Flex',
   flow: 'y',
   align: 'center center',
   padding: 'F A',
@@ -80,7 +77,7 @@ export const Hero = {
   textAlign: 'center',
 
   Tag: {
-    extends: 'Text',
+    tag: 'span',
     text: 'NEW',
     padding: 'X A',
     round: 'Z',
@@ -110,7 +107,6 @@ export const Hero = {
   },
 
   Actions: {
-    extends: 'Flex',
     gap: 'A',
     align: 'center',
     Button_Primary: {
@@ -135,7 +131,6 @@ Card with icon, title, and description.
 
 ```js
 export const FeatureCard = {
-  extends: 'Flex',
   flow: 'y',
   gap: 'A',
   padding: 'B',
@@ -202,7 +197,6 @@ Pricing option with features list and CTA.
 
 ```js
 export const PriceCard = {
-  extends: 'Flex',
   flow: 'y',
   padding: 'C',
   round: 'A',
@@ -219,7 +213,7 @@ export const PriceCard = {
       fontSize: 'A2',
     },
     Price: {
-      flexAlign: 'end',
+      align: 'end',
       gap: 'X',
       H2: {
         tag: 'span',
@@ -271,7 +265,6 @@ User testimonial with avatar and quote.
 
 ```js
 export const TestimonialCard = {
-  extends: 'Flex',
   flow: 'y',
   gap: 'A2',
   padding: 'B',
@@ -288,7 +281,6 @@ export const TestimonialCard = {
   },
 
   Author: {
-    extends: 'Flex',
     align: 'center',
     gap: 'A',
     Avatar: {
@@ -365,7 +357,6 @@ Responsive footer with column layout.
 ```js
 export const Footer = {
   tag: 'footer',
-  extends: 'Flex',
   flow: 'y',
   gap: 'C',
   padding: 'D B',
@@ -398,7 +389,6 @@ export const Footer = {
   },
 
   Bottom: {
-    extends: 'Flex',
     align: 'center space-between',
     borderTop: '1px solid',
     borderTopColor: 'gray3',
@@ -464,12 +454,11 @@ App layout with sidebar navigation and main content area.
 
 ```js
 export const AppLayout = {
-  extends: 'Flex',
+  flow: 'x',
   width: '100%',
   minHeight: '100vh',
 
   Sidebar: {
-    extends: 'Flex',
     flow: 'y',
     width: 'F',
     padding: 'A',
@@ -498,7 +487,6 @@ export const AppLayout = {
   },
 
   Main: {
-    extends: 'Flex',
     flow: 'y',
     flex: '1',
     padding: 'B',
@@ -515,7 +503,6 @@ Auto-dismissing fixed-position notification.
 
 ```js
 export const Toast = {
-  extends: 'Flex',
   align: 'center',
   gap: 'A',
   padding: 'A B',
@@ -558,7 +545,6 @@ Multi-field form with submit handling.
 ```js
 export const ContactForm = {
   tag: 'form',
-  extends: 'Flex',
   flow: 'y',
   gap: 'A',
   maxWidth: 'G',

@@ -35,7 +35,7 @@ Card: {
 
 ---
 
-## COLOR
+## color
 
 ### Static colors
 
@@ -94,7 +94,7 @@ Card: { background: 'gray.92+8' } // with tone modifier
 
 ---
 
-## GRADIENT
+## gradient
 
 | Token | Description |
 |---|---|
@@ -115,7 +115,7 @@ Gradients with color tokens inside are auto-resolved via `resolveColorsInGradien
 
 ---
 
-## THEME
+## theme
 
 Apply with `theme: 'name'`. Themes define `background` + `color` pairs per dark/light mode.
 
@@ -150,8 +150,8 @@ Apply with `theme: 'name'`. Themes define `background` + `color` pairs per dark/
 | `success` | Green background (positive) |
 
 ```js
-Page: { extends: 'Flex', theme: 'document', minHeight: '100dvh' }
-Card: { extends: 'Flex', theme: 'dialog', round: 'A', padding: 'A' }
+Page: { flow: 'y', theme: 'document', minHeight: '100dvh' }
+Card: { flow: 'y', theme: 'dialog', round: 'A', padding: 'A' }
 Input: { theme: 'field' }
 Button: { theme: 'primary', text: 'Save' }
 Badge: { theme: 'alert', text: 'Error' }
@@ -192,7 +192,7 @@ theme: {
 
 ---
 
-## TYPOGRAPHY
+## typography
 
 Scale generated from ratio (Major Third = 1.25 default).
 
@@ -246,7 +246,7 @@ Title: { fontWeight: 700 }
 
 ---
 
-## SPACING
+## spacing
 
 Golden Ratio scale (1.618 default). Applies to `padding`, `margin`, `gap`, `width`, `height`, `boxSize`, `borderRadius`/`round`, `inset`, `top`, `left`, `right`, `bottom`, etc.
 
@@ -453,7 +453,7 @@ animation: {
 
 ---
 
-## MEDIA
+## media
 
 | Token | Query | Direction |
 |---|---|---|
@@ -648,8 +648,8 @@ Box: {
 |---|---|---|
 | `useReset` | `true` | Apply CSS reset |
 | `useVariable` | `true` | Emit CSS custom properties for all tokens |
-| `useFontImport` | `true` | Load FONT entries via @font-face |
-| `useIconSprite` | `true` | Inline the ICONS SVG sprite into the DOM |
+| `useFontImport` | `true` | Load font entries via @font-face |
+| `useIconSprite` | `true` | Inline the icons SVG sprite into the DOM |
 | `useSvgSprite` | `true` | Inline SVG sprite definitions |
 | `useDefaultConfig` | `true` | Merge smbls default design system config |
 | `useDocumentTheme` | `true` | Apply document theme to `<html>` |

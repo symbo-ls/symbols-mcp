@@ -15,6 +15,7 @@ Apply these transformation rules when migrating code. Each rule is a BEFORE/AFTE
 | Inheritance             | `extend: 'Component'`        | `extends: 'Component'`       |
 | Child extend            | `childExtend: 'Item'`        | `childExtends: 'Item'`       |
 | Child element detection | any key including lowercase   | PascalCase keys ONLY          |
+| Base components         | `extends: 'Text'` / `'Box'`  | Remove — implicit defaults    |
 
 ### Rule 1: Flatten `props` and `on`
 
@@ -222,7 +223,7 @@ Component keys named `Map` auto-detect as the HTML `<map>` tag (for image maps),
 
 ```js
 export const Map = {
-  extends: 'Flex',
+  flow: 'y',
   tag: 'div',     // prevents <map> auto-detection
   // ...
 }
@@ -234,8 +235,8 @@ These v2 component names don't exist in v3 uikit:
 
 | v2 (REMOVE)            | v3 (USE INSTEAD)                          |
 | ---------------------- | ----------------------------------------- |
-| `extends: 'Page'`     | `extends: 'Flex', flexFlow: 'column'`     |
-| `extends: 'Overflow'` | `extends: 'Flex'`                          |
+| `extends: 'Page'`     | `flow: 'column'`                           |
+| `extends: 'Overflow'` | `flow: 'x'`                                |
 
 ### Rule 11: `state: true` vs `state: 'fieldName'` for children
 
@@ -258,6 +259,24 @@ Description: {
   children: ({ state }) => state.parse()
 }
 ```
+
+### Rule 12: Remove `extends: 'Text'` and `extends: 'Box'`
+
+`Text` and `Box` are built-in implicit defaults. Extending them causes unnecessary merge at runtime.
+
+BEFORE:
+```js
+Tag: { extends: 'Text', text: 'NEW', padding: 'X A' }
+Card: { extends: 'Box', padding: 'B', background: 'white' }
+```
+
+AFTER:
+```js
+Tag: { tag: 'span', text: 'NEW', padding: 'X A' }
+Card: { tag: 'div', padding: 'B', background: 'white' }
+```
+
+Use semantic or functional components instead (`Flex`, `Link`, `Button`, `Header`, `Section`, etc.).
 
 ### Full v2 to v3 transformation example
 
@@ -287,7 +306,7 @@ BEFORE:
 AFTER:
 ```js
 {
-  extends: 'Flex',
+  flow: 'x',
   childExtends: 'ListItem',
   position: 'absolute',
   attr: { 'gs-w': 1, 'gs-h': 1 },
@@ -311,7 +330,7 @@ AFTER:
 
 | React Pattern                          | Symbols Equivalent                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------- |
-| `function Component()` / `class`       | `export const Component = { extends: 'Flex', ... }`                      |
+| `function Component()` / `class`       | `export const Component = { flow: 'y', ... }`                            |
 | `import Component from './Component'`  | Reference by key: `{ Component: {} }`                                     |
 | `useState(val)`                        | `state: { key: val }` + `s.update({ key: newVal })`                       |
 | `useEffect(() => {}, [])`              | `onRender: (el, s) => {}`                                                 |
@@ -395,7 +414,7 @@ AFTER:
 | `width: 42px; height: 42px`                           | `boxSize: 'C'`                               |
 | `display: flex; flex-direction: column`               | `flow: 'y'`                                  |
 | `display: flex; flex-direction: row`                  | `flow: 'x'`                                  |
-| `align-items: center; justify-content: center`        | `flexAlign: 'center center'`                 |
+| `align-items: center; justify-content: center`        | `align: 'center center'`                     |
 | `display: grid; grid-template-columns: repeat(3,1fr)` | `extends: 'Grid', columns: 'repeat(3, 1fr)'` |
 | `font-size: 20px`                                     | `fontSize: 'A1'`                             |
 | `font-weight: 500`                                    | `fontWeight: '500'`                          |
@@ -433,9 +452,8 @@ Use this as the base template for every new component:
 ```js
 // components/ComponentName.js
 export const ComponentName = {
-  extends: 'Flex',
-
   // Props flattened at root (design tokens)
+  flow: 'y',
   padding: 'A B',
   background: 'surface',
   borderRadius: 'B',
