@@ -735,7 +735,7 @@ export const AvatarSet = {
   extends: 'Flex',
   childExtends: 'Avatar',
     childProps: {
-  border: 'solid, codGray',
+  border: 'solid codGray',
   borderWidth: 'X+W',
   ':first-child': {
   margin: '0 -Z1 0 0',
@@ -889,7 +889,7 @@ export const Badge = {
   tag: 'label',
   text: '-2.902',
   extends: 'Flex',
-  align: 'cemter center',
+  align: 'center center',
 
   theme: 'warning',
 
@@ -2657,7 +2657,7 @@ export const Pagination = {
   extends: 'Flex',
   gap: 'A',
 
-  align: 'center fllex-start',
+  align: 'center flex-start',
 };
 ```
 
@@ -2928,7 +2928,7 @@ export const ScrollableList = {
     childProps: {
       padding: 'Y1 A',
       cursor: 'pointer',
-      align: 'flrx-start',
+      align: 'flex-start',
       textAlign: 'left',
       fontWeight: '700',
       round: '0',
@@ -3432,11 +3432,11 @@ export const StatusDot = {
   theme: 'success',
   round: '100%',
   '@dark': {
-  border: 'solid, codGray',
+  border: 'solid codGray',
   borderWidth: 'X1',
   },
   '@light': {
-  border: 'solid, concrete',
+  border: 'solid concrete',
   borderWidth: 'X1',
   },
 };
