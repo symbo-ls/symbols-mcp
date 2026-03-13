@@ -1,5 +1,5 @@
 """
-Symbols MCP — Documentation search and reference tools for Symbols.app.
+Symbols MCP — Documentation search, code generation, conversion and audit tools for Symbols.app.
 """
 
 import os
@@ -26,7 +26,8 @@ mcp = FastMCP(
     instructions=(
         "Reference assistant for the Symbols.app design-system framework. "
         "Searches Symbols documentation, exposes framework rules, and provides "
-        "comprehensive syntax and API reference."
+        "comprehensive syntax and API reference. Includes tools for generating "
+        "components, converting code from React/HTML, and auditing DOMQL v3 compliance."
     ),
 )
 
@@ -44,9 +45,69 @@ def _read_skill(filename: str) -> str:
     return f"Skill file '{filename}' not found at {path}"
 
 
+def _read_skills(*filenames: str) -> str:
+    """Read and concatenate multiple skill files."""
+    parts = []
+    for f in filenames:
+        content = _read_skill(f)
+        if not content.startswith("Skill file"):
+            parts.append(content)
+    return "\n\n---\n\n".join(parts)
+
+
 def _load_agent_instructions() -> str:
     """Load the upfront AI agent instructions from RULES.md."""
     return _read_skill("RULES.md")
+
+
+# ---------------------------------------------------------------------------
+# Audit helpers (deterministic rule checking)
+# ---------------------------------------------------------------------------
+
+_V2_PATTERNS = [
+    (r"\bextend\s*:", "v2 syntax: use 'extends' (plural) instead of 'extend'"),
+    (r"\bchildExtend\s*:", "v2 syntax: use 'childExtends' (plural) instead of 'childExtend'"),
+    (r"\bon\s*:\s*\{", "v2 syntax: flatten event handlers with onX prefix (e.g. onClick) instead of on: {} wrapper"),
+    (r"\bprops\s*:\s*\{(?!\s*\})", "v2 syntax: flatten props directly on the component instead of props: {} wrapper"),
+]
+
+_RULE_CHECKS = [
+    (r"\bimport\s+.*\bfrom\s+['\"]\.\/", "FORBIDDEN: No imports between project files — reference components by PascalCase key name"),
+    (r"\bexport\s+default\s+\{", "Components should use named exports (export const Name = {}), not default exports"),
+    (r"\bfunction\s+\w+\s*\(.*\)\s*\{[\s\S]*?return\s*\{", "Components must be plain objects, not functions that return objects"),
+    (r"(?:padding|margin|gap|width|height)\s*:\s*['\"]?\d+px", "Use design tokens (A, B, C) instead of hardcoded pixel values"),
+]
+
+
+def _audit_code(code: str) -> dict:
+    """Run deterministic v3 compliance checks on component code."""
+    violations = []
+    warnings = []
+
+    for pattern, message in _V2_PATTERNS:
+        matches = list(re.finditer(pattern, code))
+        for m in matches:
+            line_num = code[:m.start()].count("\n") + 1
+            violations.append({"line": line_num, "severity": "error", "message": message})
+
+    for pattern, message in _RULE_CHECKS:
+        matches = list(re.finditer(pattern, code))
+        for m in matches:
+            line_num = code[:m.start()].count("\n") + 1
+            level = "error" if "FORBIDDEN" in message else "warning"
+            target = violations if level == "error" else warnings
+            target.append({"line": line_num, "severity": level, "message": message})
+
+    total_issues = len(violations) + len(warnings)
+    score = max(1, 10 - total_issues)
+
+    return {
+        "passed": len(violations) == 0,
+        "score": score,
+        "violations": violations,
+        "warnings": warnings,
+        "summary": f"{len(violations)} errors, {len(warnings)} warnings — compliance score: {score}/10",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -61,8 +122,8 @@ def get_project_rules() -> str:
     Returns the mandatory Symbols.app rules that MUST be followed.
     Violations cause silent failures — black page, nothing renders.
 
-    Call this before: generate_project, generate_component, generate_page,
-    convert_to_symbols, or any code generation task.
+    Call this before: generate_component, generate_page, convert_react,
+    convert_html, or any code generation task.
     """
     return _load_agent_instructions()
 
@@ -103,6 +164,196 @@ async def search_symbols_docs(
     if results:
         return json.dumps(results[:max_results], indent=2)
     return f"No results found for '{query}'. Try a different search term."
+
+
+@mcp.tool()
+def generate_component(
+    description: str,
+    component_name: str = "MyComponent",
+) -> str:
+    """Generate a Symbols.app DOMQL v3 component from a description.
+
+    Returns the rules, syntax reference, component catalog, cookbook examples,
+    and default library reference as context. The calling LLM uses this context
+    to generate a correct component.
+
+    Args:
+        description: What the component should do and look like.
+        component_name: PascalCase name for the component.
+    """
+    context = _read_skills("RULES.md", "COMPONENTS.md", "SYNTAX.md", "COOKBOOK.md", "DEFAULT_LIBRARY.md")
+    return f"""# Generate Component: {component_name}
+
+## Description
+{description}
+
+## Requirements
+- Named export: `export const {component_name} = {{ ... }}`
+- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)
+- Use design tokens for spacing (A, B, C), colors from theme
+- NO imports between files — PascalCase keys auto-extend registered components
+- Include responsive breakpoints where appropriate (@tabletS, @mobileL)
+- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends
+- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load
+
+## Context — Rules, Syntax & Examples
+
+{context}"""
+
+
+@mcp.tool()
+def generate_page(
+    description: str,
+    page_name: str = "home",
+) -> str:
+    """Generate a Symbols.app page with routing integration.
+
+    Returns rules, project structure, patterns, snippets, and default library
+    reference as context for page generation.
+
+    Args:
+        description: What the page should contain and do.
+        page_name: camelCase name for the page (used in route map).
+    """
+    context = _read_skills(
+        "RULES.md", "PROJECT_STRUCTURE.md", "PATTERNS.md",
+        "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md",
+    )
+    return f"""# Generate Page: {page_name}
+
+## Description
+{description}
+
+## Requirements
+- Export as: `export const {page_name} = {{ ... }}`
+- Page is a plain object composing components
+- Add to pages/index.js route map: `'/{page_name}': {page_name}`
+- Use components by PascalCase key (Header, Footer, Hero, etc.)
+- Use design tokens — no hardcoded pixels
+- Include responsive layout adjustments
+
+## Context — Rules, Structure, Patterns & Snippets
+
+{context}"""
+
+
+@mcp.tool()
+def convert_react(source_code: str) -> str:
+    """Convert React/JSX code to Symbols.app DOMQL v3.
+
+    Provide React component code and receive the conversion context including
+    migration rules, syntax reference, and examples.
+
+    Args:
+        source_code: The React/JSX source code to convert.
+    """
+    context = _read_skills("RULES.md", "MIGRATION.md", "SYNTAX.md", "COMPONENTS.md", "LEARNINGS.md")
+    return f"""# Convert React → Symbols DOMQL v3
+
+## Source Code to Convert
+```jsx
+{source_code}
+```
+
+## Conversion Rules
+- Function/class components → plain object exports
+- JSX → nested object children (PascalCase keys auto-extend)
+- import/export between files → REMOVE (reference by key name)
+- useState → state: {{ key: val }} + s.update({{ key: newVal }})
+- useEffect → onRender (mount), onStateUpdate (deps)
+- props → flattened directly on component (no props wrapper)
+- onClick={{handler}} → onClick: (event, el, state) => {{}}
+- className → use design tokens and theme directly
+- map() → children: (el, s) => s.items, childExtends, childProps
+- conditional rendering → if: (el, s) => boolean
+- CSS modules/styled → CSS-in-props with design tokens
+- React.Fragment → not needed, just nest children
+
+## Context — Migration Guide, Syntax & Rules
+
+{context}"""
+
+
+@mcp.tool()
+def convert_html(source_code: str) -> str:
+    """Convert raw HTML/CSS to Symbols.app DOMQL v3 components.
+
+    Provide HTML code and receive the conversion context including component
+    catalog, syntax reference, and design system tokens.
+
+    Args:
+        source_code: The HTML/CSS source code to convert.
+    """
+    context = _read_skills("RULES.md", "SYNTAX.md", "COMPONENTS.md", "DESIGN_SYSTEM.md", "SNIPPETS.md", "LEARNINGS.md")
+    return f"""# Convert HTML → Symbols DOMQL v3
+
+## Source Code to Convert
+```html
+{source_code}
+```
+
+## Conversion Rules
+- <div> → Box, Flex, or Grid (based on layout purpose)
+- <span>, <p>, <h1>-<h6> → Text, P, H with tag property
+- <a> → Link (has built-in SPA router)
+- <button> → Button (has icon/text support)
+- <input> → Input, Radio, Checkbox (based on type)
+- <img> → Img
+- <form> → Form (extends Box with tag: 'form')
+- <ul>/<ol> + <li> → children array with childExtends
+- CSS classes → flatten as CSS-in-props on the component
+- CSS px values → design tokens (16px → 'A', 26px → 'B', 42px → 'C')
+- CSS colors → theme color tokens
+- media queries → @tabletS, @mobileL, @screenS breakpoints
+- id/class attributes → not needed (use key names and themes)
+- inline styles → flatten as component properties
+- <style> blocks → distribute to component-level properties
+
+## Context — Syntax, Components & Design System
+
+{context}"""
+
+
+@mcp.tool()
+def audit_component(component_code: str) -> str:
+    """Audit a Symbols/DOMQL component for v3 compliance and best practices.
+
+    Runs deterministic checks against v3 rules and returns a structured report
+    with violations, warnings, and a compliance score.
+
+    Args:
+        component_code: The JavaScript component code to audit.
+    """
+    result = _audit_code(component_code)
+    rules_context = _read_skill("AUDIT.md")
+
+    output = f"""# Audit Report
+
+## Summary
+{result['summary']}
+Passed: {'Yes' if result['passed'] else 'No'}
+
+## Violations (Errors)
+"""
+    if result["violations"]:
+        for v in result["violations"]:
+            output += f"- **Line {v['line']}**: {v['message']}\n"
+    else:
+        output += "No violations found.\n"
+
+    output += "\n## Warnings\n"
+    if result["warnings"]:
+        for w in result["warnings"]:
+            output += f"- **Line {w['line']}**: {w['message']}\n"
+    else:
+        output += "No warnings.\n"
+
+    output += f"""
+## Detailed Rules Reference
+
+{rules_context}"""
+
+    return output
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +431,30 @@ def get_seo_metadata() -> str:
 def get_ssr_brender() -> str:
     """Server-side rendering with brender — SSR/SSG for Symbols apps."""
     return _read_skill("SSR-BRENDER.md")
+
+
+@mcp.resource("symbols://skills/cookbook")
+def get_cookbook() -> str:
+    """Interactive DOMQL v3 cookbook with 30+ runnable recipes."""
+    return _read_skill("COOKBOOK.md")
+
+
+@mcp.resource("symbols://skills/snippets")
+def get_snippets() -> str:
+    """Production-ready component snippets (headers, heroes, cards, forms, layouts)."""
+    return _read_skill("SNIPPETS.md")
+
+
+@mcp.resource("symbols://skills/default-library")
+def get_default_library() -> str:
+    """Default library — 127+ pre-built components available in all Symbols projects."""
+    return _read_skill("DEFAULT_LIBRARY.md")
+
+
+@mcp.resource("symbols://skills/learnings")
+def get_learnings() -> str:
+    """Framework internals, technical gotchas, and deep runtime knowledge."""
+    return _read_skill("LEARNINGS.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")
@@ -303,7 +578,8 @@ Follow these strict rules:
 - Use design-system tokens for spacing (A, B, C), colors, typography
 - NO imports between files — reference components by PascalCase key name
 - All folders flat — no subfolders
-- Include responsive breakpoints (@mobile, @tablet) where appropriate
+- The project likely has a default library — use Button, Avatar, Icon, Field, etc. via extends
+- Include responsive breakpoints (@tabletS, @mobileL) where appropriate
 - Follow modern UI/UX: visual hierarchy, minimal cognitive load, confident typography
 
 Output ONLY the JavaScript code."""
@@ -325,6 +601,7 @@ Key conversion rules for {source_framework}:
 - State: state: {{ key: val }} + s.update({{ key: newVal }})
 - Effects: onRender for mount, onStateUpdate for dependency changes
 - Lists: children: (el, s) => s.items, childrenAs: 'state', childExtends: 'Item'
+- The default library provides Button, Avatar, Field, Modal, etc. — use them via extends
 
 Provide the {source_framework} code to convert and I will output clean DOMQL v3."""
 
@@ -336,16 +613,22 @@ def symbols_project_prompt(description: str) -> str:
 
 Project Description: {description}
 
-Required structure (smbls/ folder):
-- index.js (root export)
-- config.js (platform config)
-- vars.js (global constants)
+Required structure (symbols/ folder):
+- index.js (entry: import create from 'smbls', import context, create(app, context))
+- app.js (root app with routes: (pages) => pages)
+- config.js ({{ globalTheme: 'dark' }})
+- context.js (re-exports: state, pages, designSystem, components, functions, snippets)
+- state.js (app state)
 - dependencies.js (external packages)
 - components/ (PascalCase files, named exports)
 - pages/ (dash-case files, camelCase exports, route mapping in index.js)
 - functions/ (camelCase, called via el.call())
-- designSystem/ (color, spacing, typography, theme, icons)
-- state/ (default exports)
+- designSystem/ (COLOR, THEME, TYPOGRAPHY, SPACING, FONT, ICONS)
+- snippets/ (reusable snippets)
+
+The project uses the default library (default.symbo.ls) which provides:
+Button, Avatar, Icon, Field, Modal, Badge, Progress, TabSet, and 120+ more components.
+Reference these by PascalCase key name — no imports needed.
 
 Rules:
 - v3 syntax only — extends, childExtends, flattened props, onX events
@@ -368,8 +651,10 @@ Check for these violations:
 3. Function-based components (must be plain objects)
 4. Subfolders (must be flat)
 5. Hardcoded pixels instead of design tokens
-6. Wrong event handler signatures
+6. Wrong event handler signatures (lifecycle: (el, s), DOM: (event, el, s))
 7. Default exports for components (should be named)
+8. Dynamic attrs at component level (must use attr: {} block)
+9. props block CSS trying to override component-level CSS (can't)
 
 Provide:
 - Issues found with line references
@@ -378,6 +663,52 @@ Provide:
 - Improvement suggestions
 
 Paste your code below:"""
+
+
+@mcp.prompt()
+def symbols_convert_html_prompt() -> str:
+    """Prompt template for converting HTML to Symbols.app components."""
+    return """Convert the provided HTML/CSS to Symbols.app DOMQL v3 components.
+
+Conversion rules:
+- <div> → Box, Flex, or Grid (based on layout)
+- <span>/<p>/<h1>-<h6> → Text/P/H with tag property
+- <a> → Link (built-in SPA router, use e.preventDefault() + el.router())
+- <button> → Button
+- <input> → Input, Radio, Checkbox
+- <img> → Img
+- <form> → Form
+- <ul>/<ol> + <li> → children array with childExtends
+- CSS px → design tokens (16px→'A', 26px→'B', 42px→'C')
+- CSS colors → theme tokens
+- media queries → @tabletS, @mobileL breakpoints
+- CSS classes → flatten as component properties
+- id/class attrs → not needed
+
+Output clean DOMQL v3 with named exports.
+
+Paste the HTML below:"""
+
+
+@mcp.prompt()
+def symbols_design_review_prompt() -> str:
+    """Prompt template for visual/design audit against the design system."""
+    return """Review this Symbols component for design system compliance.
+
+Check:
+1. Spacing uses tokens (A, B, C...) not pixels
+2. Colors come from theme, not hardcoded hex/rgb
+3. Typography uses design system scale (fontSize tokens)
+4. Responsive breakpoints present (@tabletS, @mobileL)
+5. Visual hierarchy is clear (heading sizes, spacing rhythm)
+6. Interactive elements have hover/focus/active states
+7. Accessibility: focus-visible, ARIA attributes where needed
+8. Consistent use of theme variants (primary, secondary, card, dialog)
+9. Layout uses Flex/Grid with proper alignment tokens
+
+Provide design improvement suggestions with corrected code.
+
+Paste your component code below:"""
 
 
 # ---------------------------------------------------------------------------
