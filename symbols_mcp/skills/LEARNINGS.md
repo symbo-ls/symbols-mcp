@@ -176,7 +176,7 @@ onClick: (e, el, s) => {
 
 ## SPA Navigation — preventDefault Required
 
-When using `tag: 'a'` with `attr: { href: '/' }` AND an `onClick` handler, both the handler and the browser's default navigation fire. Always call `e.preventDefault()`.
+When using `tag: 'a'` with `href: '/'` AND an `onClick` handler, both the handler and the browser's default navigation fire. Always call `e.preventDefault()`.
 
 ```js
 export const NavLink = {

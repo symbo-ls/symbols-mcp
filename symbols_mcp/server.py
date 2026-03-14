@@ -965,7 +965,7 @@ Check for these violations:
 5. Hardcoded pixels instead of design tokens
 6. Wrong event handler signatures (lifecycle: (el, s), DOM: (event, el, s))
 7. Default exports for components (should be named)
-8. Dynamic attrs at component level (must use attr: {} block)
+8. Standard HTML attrs in attr: {} (should be at root; attr: {} only for data-*/aria-*/custom)
 9. props block CSS trying to override component-level CSS (can't)
 
 Provide:

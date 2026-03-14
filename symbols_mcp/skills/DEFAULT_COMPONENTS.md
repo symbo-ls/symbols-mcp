@@ -1341,17 +1341,9 @@ export const CircleButton = {
 ```js
 export const CircleProgress = {
   tag: 'progress',
-  attr: {
-    max: ({
-      props
-    }) => props.max,
-    progress: ({
-      props
-    }) => props.progress,
-    value: ({
-      props
-    }) => props.value,
-  },
+  max: ({ props }) => props.max,
+  progress: ({ props }) => props.progress,
+  value: ({ props }) => props.value,
     boxSize: 'D D',
   value: 0.73,
   round: '100%',
@@ -2655,17 +2647,9 @@ export const Pills = {
 ```js
 export const Progress = {
   tag: 'progress',
-  attr: {
-    max: ({
-      props
-    }) => props.max,
-    progress: ({
-      props
-    }) => props.progress,
-    value: ({
-      props
-    }) => props.value,
-  },
+  max: ({ props }) => props.max,
+  progress: ({ props }) => props.progress,
+  value: ({ props }) => props.value,
     height: 'X',
   minWidth: 'F3',
   round: 'Y',

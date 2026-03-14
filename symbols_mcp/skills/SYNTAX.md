@@ -19,8 +19,9 @@ export const MyCard = {
   theme: 'dialog',
   round: 'C',
 
-  // HTML attributes
-  attr: { role: 'region', 'aria-label': ({ props }) => props.label },
+  // HTML attributes (standard attrs are auto-detected by attrs-in-props)
+  role: 'region',
+  attr: { 'aria-label': ({ props }) => props.label },
 
   // State
   state: { open: false },
@@ -130,7 +131,7 @@ export const Card = {
   transitionProperty: 'opacity, transform',
   zIndex: 10,
   tag: 'section',        // stays at root (REGISTRY)
-  attr: { href: '...' }  // stays at root (REGISTRY)
+  href: '...',           // auto-detected as HTML attribute
 }
 ```
 
@@ -367,25 +368,29 @@ state: 'userProfile'  // child inherits parent's userProfile key
 
 ## `attr` (HTML Attributes)
 
+Standard HTML attributes (600+ recognized per tag) are auto-detected by the `attrs-in-props` module and can be placed directly at the element root or in props. Use `attr: {}` ONLY for `data-*`, `aria-*`, and custom non-standard attributes.
+
 ```js
 export const Input = {
   tag: 'input',
+  // Standard HTML attributes — placed directly (auto-detected)
+  type: 'text',
+  autocomplete: 'off',
+  placeholder: ({ props }) => props.placeholder,
+  name:        ({ props }) => props.name,
+  disabled:    ({ props }) => props.disabled || null,  // null removes attr
+  value: (el) => el.call('exec', el.props.value, el),
+  required: ({ props }) => props.required,
+  role:       'button',
+  tabIndex:   ({ props }) => props.tabIndex,
+  // Non-standard / ARIA — use attr: {}
   attr: {
-    type: 'text',
-    autocomplete: 'off',
-    placeholder: ({ props }) => props.placeholder,
-    name:        ({ props }) => props.name,
-    disabled:    ({ props }) => props.disabled || null,  // null removes attr
-    value: (el) => el.call('exec', el.props.value, el),
-    required: ({ props }) => props.required,
-    role:       'button',
     'aria-label': ({ props }) => props.aria?.label || props.text,
-    tabIndex:   ({ props }) => props.tabIndex
   }
 }
 ```
 
-Return `null` or `undefined` from an attr function to remove the attribute.
+Return `null` or `undefined` from a prop function to remove the attribute.
 
 ---
 
@@ -505,12 +510,10 @@ export const Page = { content: ({ props }) => props.page }
 // Pass (consumer side)
 { extends: 'Button', props: { text: 'Submit', href: '/dashboard', disabled: false } }
 
-// Access (definition side)
-attr: {
-  placeholder: ({ props }) => props.placeholder,
-  value: (el) => el.props.value,
-  disabled: ({ props }) => props.disabled || null
-}
+// Access (definition side) — standard attrs auto-detected
+placeholder: ({ props }) => props.placeholder,
+value: (el) => el.props.value,
+disabled: ({ props }) => props.disabled || null,
 text: ({ props }) => props.label
 ```
 

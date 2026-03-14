@@ -238,20 +238,38 @@ export const MyLink = {
 
 ---
 
-## Rule 14 — Dynamic HTML attributes go in `attr: {}`, not at root
+## Rule 14 — Standard HTML attributes go at root, `attr: {}` is for non-standard only
+
+The `attrs-in-props` module auto-detects 600+ standard HTML attributes per tag. Place them directly at the element root — both static and dynamic values work.
+
+Use `attr: {}` ONLY for: `data-*`, `aria-*`, and custom non-standard attributes.
 
 ```js
-// ✅
+// ✅ — standard attrs at root (auto-detected)
 export const Input = {
-  type: 'text',
+  tag: 'input',
+  type: ({ props }) => props.type,
+  placeholder: ({ props }) => props.placeholder,
+  required: ({ props }) => props.required,
+  disabled: ({ props }) => props.disabled || null,
+}
+
+// ✅ — non-standard / ARIA in attr: {}
+export const Widget = {
+  role: 'button',
+  tabindex: '0',
   attr: {
-    type: ({ props }) => props.type   // dynamic resolution
+    'aria-label': ({ props }) => props.label,
+    'data-testid': 'widget',
   }
 }
 
-// ❌ — function at root gets stringified: type="(el)=>el.props.type"
+// ❌ — don't use attr: {} for standard HTML attributes
 export const Input = {
-  type: ({ props }) => props.type
+  attr: {
+    type: 'text',
+    placeholder: 'Enter...',
+  }
 }
 ```
 
@@ -400,12 +418,14 @@ Use semantic components for meaningful content. NEVER use generic divs.
 
 ## Rule 22 — ARIA and accessibility attributes
 
-Place ARIA attributes in `attr: {}`. Use native elements instead of role overrides wherever possible.
+Standard HTML attributes (`role`, `tabindex`) go at root. Place `aria-*` attributes in `attr: {}`. Use native elements instead of role overrides wherever possible.
 
 ```js
+// Standard attrs at root
+role: 'button',
+tabindex: '0',
+// ARIA in attr: {}
 attr: {
-  role: 'button',
-  tabindex: '0',
   'aria-label': ({ props }) => props.label,
   'aria-busy': ({ state }) => state.loading,
   'aria-live': 'polite'
@@ -516,7 +536,7 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] State updated via `s.update()`, never direct mutation (Rule 7)
 - [ ] `childExtends` references named component strings only (Rule 10)
 - [ ] Color uses dot-notation: `'white.7'` not `'white .7'` (Rule 11)
-- [ ] Dynamic HTML attributes are in `attr: {}` block (Rule 14)
+- [ ] Standard HTML attributes at root; only `data-*`/`aria-*`/custom in `attr: {}` (Rule 14)
 - [ ] `onRender` guards against double-init (Rule 15)
 - [ ] Conditional props use `isX` / `'.isX'` pattern (Rule 19)
 - [ ] One H1 per page; logical heading hierarchy H1 > H2 > H3

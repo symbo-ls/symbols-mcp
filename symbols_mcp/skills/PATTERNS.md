@@ -17,7 +17,7 @@ export const DataList = {
   Loader: { if: ({ state }) => state.loading, extends: 'Spinner' },
   Error: {
     if: ({ state }) => Boolean(state.error),
-    attr: { role: 'alert' },
+    role: 'alert',
     text: ({ state }) => state.error
   },
   Items: {
@@ -96,7 +96,8 @@ export const ModalCard = {
   childProps: { onClick: (ev) => { ev.stopPropagation() } },
 
   // ARIA
-  attr: { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Dialog' },
+  role: 'dialog',
+  attr: { 'aria-modal': 'true', 'aria-label': 'Dialog' },
 
   // Trap focus
   onRender: (el) => {
@@ -193,11 +194,11 @@ export const LoginForm = {
   },
 
   Field: {
-    Input: { type: 'email', name: 'email', attr: { required: 'true' } }
+    Input: { type: 'email', name: 'email', required: 'true' }
   },
   Error: {
     if: ({ state }) => Boolean(state.error),
-    attr: { role: 'alert' },
+    role: 'alert',
     text: ({ state }) => state.error,
     color: 'red'
   },
@@ -249,8 +250,8 @@ Box: { tag: 'div', text: 'Submit', onClick: fn }    // div is not a button
 
 ```js
 // Landmark roles
-Box: { attr: { role: 'alert' }, text: 'Error occurred' }
-Box: { attr: { role: 'status', 'aria-live': 'polite' }, text: '3 results found' }
+Box: { role: 'alert', text: 'Error occurred' }
+Box: { role: 'status', attr: { 'aria-live': 'polite' }, text: '3 results found' }
 
 // Labels
 Input: { attr: { 'aria-label': 'Search networks' } }
@@ -272,7 +273,8 @@ When to use: Custom interactive widgets (listbox, dropdown, menu).
 // Custom keyboard interaction (listbox pattern)
 {
   flow: 'y',
-  attr: { role: 'listbox', tabindex: '0', 'aria-label': 'Select option' },
+  role: 'listbox', tabindex: '0',
+  attr: { 'aria-label': 'Select option' },
   onKeydown: (e, el, s) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -312,8 +314,8 @@ Button: {
 
 ```js
 // Visible label association
-Label: { text: 'Email', attr: { for: 'email-input' } }
-Input: { id: 'email-input', type: 'email', attr: { required: 'true', 'aria-required': 'true' } }
+Label: { text: 'Email', for: 'email-input' }
+Input: { id: 'email-input', type: 'email', required: 'true', attr: { 'aria-required': 'true' } }
 
 // Described by helper text
 Input: { id: 'password', type: 'password', attr: { 'aria-describedby': 'password-hint' } }
@@ -326,7 +328,7 @@ Input: {
     'aria-describedby': s.hasError ? 'error-msg' : undefined
   })
 }
-P: { id: 'error-msg', attr: { role: 'alert' }, color: 'red', text: (el, s) => s.errorMessage }
+P: { id: 'error-msg', role: 'alert', color: 'red', text: (el, s) => s.errorMessage }
 ```
 
 ### Images and Icons
@@ -405,7 +407,7 @@ When to use: Entity representation for AI agents and search engines.
 ```js
 export const StructuredData = {
   tag: 'script',
-  attr: { type: 'application/ld+json' },
+  type: 'application/ld+json',
   html: (el, s) => JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -441,7 +443,7 @@ export const CheckOrderTool = {
     'data-mcp-tool': 'checkOrderStatus',
     'data-mcp-description': 'Check the status of an order by ID'
   },
-  Input: { attr: { type: 'text', name: 'orderId', placeholder: 'Order ID' } },
+  Input: { type: 'text', name: 'orderId', placeholder: 'Order ID' },
   Button: { type: 'submit', text: 'Check' }
 }
 ```
