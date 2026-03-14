@@ -17,7 +17,7 @@ These rules are absolute. Violations cause silent failures (black page, nothing 
 | `align: 'center center'`      | ~~`flexAlign: 'center center'`~~        |
 | `children` + `childExtends`   | ~~`$collection`, `$propsCollection`~~   |
 | `children` + `childrenAs: 'state'` | ~~`$stateCollection`~~              |
-| No `extends` needed for Text/Box/Flex | ~~`extends: 'Text'`~~, ~~`extends: 'Box'`~~, ~~`extends: 'Flex'`~~ |
+| No `extends` needed for Text/Box/Flex; replace `extends: 'Flex'` with `flow: 'x'` or `flow: 'y'` | ~~`extends: 'Text'`~~, ~~`extends: 'Box'`~~, ~~`extends: 'Flex'`~~ |
 
 ---
 
@@ -454,20 +454,29 @@ Paths like `/files/logo.png` reference the framework's embedded file system via 
 
 ## Rule 26 — NEVER extend `'Text'`, `'Box'`, or `'Flex'` — they are implicit defaults
 
-`Text`, `Box`, and `Flex` are built-in base primitives. Every element is already a Box; any element with `text:` already behaves as Text; any element with `flow:`, `align:`, or `gap:` already behaves as Flex. Extending them explicitly causes an unnecessary merge step at runtime.
+`Text`, `Box`, and `Flex` are built-in base primitives. Every element is already a Box; any element with `text:` already behaves as Text; any element with `flow:` or `align:` already behaves as Flex. Extending them explicitly causes an unnecessary merge step at runtime.
+
+**When removing `extends: 'Flex'`:** if the element has no `flow:` or `align:` property, you MUST add `flow: 'x'` (or `flow: 'y'` for vertical layout) to preserve flex behavior. Without these, the element becomes a regular block div.
 
 ```js
-// ✅ CORRECT — no extends needed
+// ✅ CORRECT — use flow/align instead of extends
+Row: { flow: 'x', gap: 'A', align: 'center center' }
+Stack: { flow: 'y', gap: 'B', padding: 'C' }
 Tag: { tag: 'span', text: 'NEW', padding: 'X A', fontSize: 'Y' }
 Card: { tag: 'div', padding: 'B', background: 'white' }
 
-// ❌ WRONG — unnecessary merge overhead
+// ❌ WRONG — unnecessary extends
 Tag: { extends: 'Text', text: 'NEW', padding: 'X A' }
 Card: { extends: 'Box', padding: 'B', background: 'white' }
 Row: { extends: 'Flex', gap: 'A', align: 'center' }
+
+// ❌ WRONG — removed extends: 'Flex' but forgot to add flow
+Container: { padding: 'C', maxWidth: 'K' }  // now block, not flex!
+// ✅ FIX
+Container: { flow: 'y', padding: 'C', maxWidth: 'K' }
 ```
 
-Use a semantic or functional component instead: `Link`, `Button`, `Header`, `Section`, etc. For flex layout, use `flow:`, `align:`, or `gap:` props directly.
+Use a semantic or functional component instead: `Link`, `Button`, `Header`, `Section`, etc. For flex layout, use `flow:` or `align:` props directly.
 
 ---
 
@@ -516,4 +525,4 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] Picture `src` is on the Img child (Rule 23)
 - [ ] `Map` component key has `tag: 'div'` (Rule 24)
 - [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern (CRITICAL table)
-- [ ] No `extends: 'Text'`, `extends: 'Box'`, or `extends: 'Flex'` — they are implicit defaults (Rule 26)
+- [ ] No `extends: 'Text'`, `extends: 'Box'`, or `extends: 'Flex'` — use `flow:`/`align:`/`gap:` instead (Rule 26)
