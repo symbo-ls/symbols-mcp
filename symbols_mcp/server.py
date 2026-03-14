@@ -8,6 +8,7 @@ import logging
 import re
 from pathlib import Path
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 # ---------------------------------------------------------------------------
@@ -27,7 +28,8 @@ mcp = FastMCP(
         "Reference assistant for the Symbols.app design-system framework. "
         "Searches Symbols documentation, exposes framework rules, and provides "
         "comprehensive syntax and API reference. Includes tools for generating "
-        "components, converting code from React/HTML, and auditing DOMQL v3 compliance."
+        "components, converting code from React/HTML, auditing DOMQL v3 compliance, "
+        "and publishing/deploying projects to the Symbols platform."
     ),
 )
 
@@ -468,6 +470,190 @@ def detect_environment(
         output += f"### All 4 Ways to Run Symbols Apps\n\n{full_guide}"
 
     return output
+
+
+# ---------------------------------------------------------------------------
+# API helpers
+# ---------------------------------------------------------------------------
+
+API_BASE = os.getenv("SYMBOLS_API_URL", "https://api.symbols.app")
+
+_AUTH_HELP = """To authenticate, provide one of:
+- **token**: JWT from `smbls login` (stored in ~/.smblsrc) or env var SYMBOLS_TOKEN
+- **api_key**: API key (sk_live_...) from your project's integration settings
+
+To get a token:
+1. Run `smbls login` in your terminal, or
+2. Use the `login` tool with your email and password
+
+Your project can be identified by either:
+- **project_id**: MongoDB ObjectId (from project settings or symbols.json)
+- **project_key**: Project key (pr_xxxx, found in symbols.json or project URL)"""
+
+
+def _auth_header(token: str = "", api_key: str = "") -> dict:
+    """Build Authorization header from token or API key."""
+    if api_key:
+        return {"Authorization": f"ApiKey {api_key}", "Content-Type": "application/json"}
+    if token:
+        return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    return {}
+
+
+async def _api_request(method: str, path: str, token: str = "", api_key: str = "", body: dict | None = None) -> dict:
+    """Make an authenticated request to the Symbols API."""
+    headers = _auth_header(token, api_key)
+    if not headers:
+        return {"success": False, "error": "No credentials provided", "message": _AUTH_HELP}
+    async with httpx.AsyncClient(timeout=30) as client:
+        if method == "POST":
+            resp = await client.post(f"{API_BASE}{path}", headers=headers, json=body or {})
+        elif method == "GET":
+            resp = await client.get(f"{API_BASE}{path}", headers=headers)
+        else:
+            raise ValueError(f"Unsupported method: {method}")
+    try:
+        return resp.json()
+    except Exception:
+        return {"success": False, "error": f"HTTP {resp.status_code}", "message": resp.text}
+
+
+# ---------------------------------------------------------------------------
+# TOOLS — Auth, Publish & Push
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def login(
+    email: str,
+    password: str,
+) -> str:
+    """Log in to the Symbols platform and get an access token.
+
+    Use this when the user needs to authenticate before publishing or pushing.
+    Returns a JWT token that can be used with the publish and push tools.
+
+    Args:
+        email: Symbols account email address.
+        password: Symbols account password.
+    """
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{API_BASE}/core/auth/login",
+            headers={"Content-Type": "application/json"},
+            json={"email": email, "password": password},
+        )
+    try:
+        result = resp.json()
+    except Exception:
+        return f"Login failed: HTTP {resp.status_code}"
+
+    if result.get("success"):
+        data = result.get("data", {})
+        tokens = data.get("tokens", {})
+        user = data.get("user", {})
+        token = tokens.get("accessToken", "")
+        return (
+            f"Logged in as {user.get('name', user.get('email', 'unknown'))}.\n"
+            f"Token: {token}\n"
+            f"Expires: {tokens.get('accessTokenExp', {}).get('expiresAt', 'unknown')}\n\n"
+            f"Use this token with the `publish` and `push` tools."
+        )
+    else:
+        error = result.get("error", result.get("message", "Unknown error"))
+        return f"Login failed: {error}"
+
+
+@mcp.tool()
+async def publish(
+    project: str,
+    token: str = "",
+    api_key: str = "",
+    version: str = "",
+    branch: str = "main",
+) -> str:
+    """Publish a version of a Symbols project to the platform.
+
+    Makes the specified version (or latest) the published/live version.
+    Auto-bumps patch versions to next minor (e.g. 1.0.1 → 1.1.0).
+
+    Requires authentication — provide either token or api_key.
+
+    Args:
+        project: Project ID (MongoDB ObjectId) or project key (pr_xxxx).
+        token: JWT access token from login or ~/.smblsrc.
+        api_key: API key (sk_live_...) from project integration settings. Alternative to token.
+        version: Version string or version ID to publish. Leave empty for latest.
+        branch: Branch to publish from (default: "main").
+    """
+    if not token and not api_key:
+        return f"Authentication required.\n\n{_AUTH_HELP}"
+
+    body = {"branch": branch}
+    if version:
+        body["version"] = version
+
+    result = await _api_request("POST", f"/{project}/publish", token=token, api_key=api_key, body=body)
+
+    if result.get("success"):
+        data = result.get("data", {})
+        return f"Published successfully.\nVersion: {data.get('value', data.get('id', 'unknown'))}"
+    else:
+        error = result.get("error", "Unknown error")
+        message = result.get("message", "")
+        return f"Publish failed: {error}\n{message}"
+
+
+@mcp.tool()
+async def push(
+    project: str,
+    token: str = "",
+    api_key: str = "",
+    environment: str = "production",
+    mode: str = "published",
+    version: str = "",
+    branch: str = "main",
+) -> str:
+    """Push/deploy a Symbols project to a specific environment.
+
+    Deploys the project to a target environment (production, staging, dev).
+
+    Requires authentication — provide either token or api_key.
+
+    Args:
+        project: Project ID (MongoDB ObjectId) or project key (pr_xxxx).
+        token: JWT access token from login or ~/.smblsrc.
+        api_key: API key (sk_live_...) from project integration settings. Alternative to token.
+        environment: Target environment key (e.g. "production", "staging", "dev").
+        mode: Deploy mode — "latest" (newest from branch), "published" (current published version), "version" (specific version), or "branch" (track a branch).
+        version: Required when mode is "version" — the version string or ID to deploy.
+        branch: Branch to deploy from when mode is "latest" or "branch" (default: "main").
+    """
+    if not token and not api_key:
+        return f"Authentication required.\n\n{_AUTH_HELP}"
+
+    body: dict = {"mode": mode, "branch": branch}
+    if version:
+        body["version"] = version
+
+    result = await _api_request(
+        "POST", f"/{project}/environments/{environment}/publish",
+        token=token, api_key=api_key, body=body,
+    )
+
+    if result.get("success"):
+        data = result.get("data", {})
+        config = data.get("config", {})
+        return (
+            f"Pushed to {data.get('key', environment)} successfully.\n"
+            f"Mode: {config.get('mode', mode)}\n"
+            f"Version: {config.get('version', 'latest')}\n"
+            f"Branch: {config.get('branch', branch)}"
+        )
+    else:
+        error = result.get("error", "Unknown error")
+        message = result.get("message", "")
+        return f"Push failed: {error}\n{message}"
 
 
 # ---------------------------------------------------------------------------
