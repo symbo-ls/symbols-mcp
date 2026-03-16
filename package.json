@@ -1,7 +1,7 @@
 {
   "name": "@symbo.ls/mcp",
-  "version": "1.0.14",
-  "description": "MCP server for Symbols.app — documentation search and framework reference",
+  "version": "1.0.15",
+  "description": "MCP server for Symbols.app — documentation search, code generation, project management, publishing, CLI/SDK reference",
   "mcpName": "io.github.symbo-ls/symbols-mcp",
   "files": [
     "bin/",

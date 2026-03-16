@@ -259,3 +259,5 @@ Produce the following deliverables:
    - Project issues (implementation-level) in project-feedback.md
 
 Enforce full DOMQL v3 purity across the entire codebase. No exceptions.
+
+**CRITICAL: There is NO concept of "known debt", "accepted violations", or "technical debt exceptions" in Symbols audits. Every violation MUST be fixed. Never label a violation as "known debt" or suggest it can be deferred. If the audit finds a Rule 30 violation (direct DOM manipulation), it must be rewritten using DOMQL declarative syntax — not acknowledged and kept. The same applies to ALL rules (27-33). Zero tolerance.**

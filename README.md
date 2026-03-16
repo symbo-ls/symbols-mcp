@@ -2,13 +2,15 @@
 
 mcp-name: io.github.symbo-ls/symbols-mcp
 
-MCP server for [Symbols.app](https://symbols.app) — provides documentation search, code generation, conversion, auditing, and framework reference tools for AI coding assistants (Cursor, Claude Code, Windsurf, etc.).
+MCP server for [Symbols.app](https://symbols.app) — provides documentation search, code generation, conversion, auditing, project management, publishing/deployment, and CLI/SDK reference tools for AI coding assistants (Cursor, Claude Code, Windsurf, claude.ai, etc.).
 
-No API keys required. All tools work fully offline using bundled documentation.
+No API keys required for documentation tools. Project management tools require a Symbols account (login or API key).
 
 ---
 
 ## Tools
+
+### Documentation & Generation
 
 | Tool | Description |
 |------|-------------|
@@ -18,11 +20,36 @@ No API keys required. All tools work fully offline using bundled documentation.
 | `generate_page` | Generate a full page with routing integration. |
 | `convert_react` | Convert React/JSX code to Symbols DOMQL v3. |
 | `convert_html` | Convert raw HTML/CSS to Symbols DOMQL v3 components. |
+| `convert_to_json` | Convert DOMQL v3 JS source code to platform JSON (mirrors frank's toJSON pipeline). |
 | `audit_component` | Audit component code for v3 compliance — returns violations, warnings, and a score. |
-| `login` | Log in to Symbols platform with email/password — returns a JWT token for publish/push. |
-| `publish` | Publish a version of a Symbols project. Accepts JWT token or API key (`sk_live_...`). |
-| `push` | Deploy a project to an environment (production, staging, dev). Accepts JWT token or API key. |
 | `detect_environment` | Detect whether the project is local, CDN, JSON runtime, or remote server. |
+| `get_cli_reference` | Returns the complete Symbols CLI (`@symbo.ls/cli`) command reference. |
+| `get_sdk_reference` | Returns the complete Symbols SDK (`@symbo.ls/sdk`) API reference. |
+
+### Project Management & Publishing
+
+| Tool | Description |
+|------|-------------|
+| `login` | Log in to Symbols platform — returns a JWT token. |
+| `list_projects` | List the user's projects (names, keys, IDs) to choose from. |
+| `create_project` | Create a new Symbols project on the platform. |
+| `get_project` | Get a project's current data (components, pages, design system, state). |
+| `save_to_project` | Save components/pages/data to a project — creates a new version with change tuples, granular changes, orders, and auto-generated schema entries. |
+| `publish` | Publish a version (make it live). |
+| `push` | Deploy a project to an environment (production, staging, dev). |
+
+### End-to-End Flow (from claude.ai or any MCP client)
+
+```
+1. generate_component  → JS source code
+2. convert_to_json     → platform JSON
+3. login               → get token
+4. create_project      → (if new project needed)
+   list_projects       → (or pick existing)
+5. save_to_project     → push JSON to platform (creates version)
+6. publish             → make version live
+7. push                → deploy to environment
+```
 
 ## Resources
 
@@ -48,6 +75,8 @@ No API keys required. All tools work fully offline using bundled documentation.
 | `symbols://skills/default-components` | Complete source code of 130+ default template components |
 | `symbols://skills/learnings` | Framework internals, technical gotchas, deep runtime knowledge |
 | `symbols://skills/running-apps` | 4 ways to run Symbols apps (local, CDN, JSON, remote) |
+| `symbols://skills/cli` | Symbols CLI (`@symbo.ls/cli`) complete command reference |
+| `symbols://skills/sdk` | Symbols SDK (`@symbo.ls/sdk`) complete API reference |
 
 ### Reference (inline)
 

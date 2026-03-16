@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "symbols-mcp",
   "display_name": "Symbols MCP",
-  "version": "1.0.14",
-  "description": "MCP server for Symbols.app — documentation search, code generation, conversion, and audit tools",
+  "version": "1.0.15",
+  "description": "MCP server for Symbols.app — documentation search, code generation, conversion, audit, project management, and publishing tools with CLI/SDK reference",
   "author": {
     "name": "Symbols",
     "url": "https://symbols.app"
@@ -15,7 +15,7 @@
   "homepage": "https://symbols.app",
   "documentation": "https://github.com/symbo-ls/symbols-mcp",
   "support": "https://github.com/symbo-ls/symbols-mcp/issues",
-  "keywords": ["symbols", "domql", "mcp", "design-system", "ai", "code-generation", "migration"],
+  "keywords": ["symbols", "domql", "mcp", "design-system", "ai", "code-generation", "migration", "cli", "sdk", "publish", "deploy"],
   "license": "MIT",
   "server": {
     "type": "node",
@@ -51,8 +51,52 @@
       "description": "Convert raw HTML/CSS to Symbols.app DOMQL v3 components with full context."
     },
     {
+      "name": "convert_to_json",
+      "description": "Convert DOMQL v3 JavaScript source code to platform JSON format for save_to_project."
+    },
+    {
       "name": "audit_component",
       "description": "Audit a Symbols/DOMQL component for v3 compliance with deterministic rule checking."
+    },
+    {
+      "name": "detect_environment",
+      "description": "Detect project type: local, CDN, JSON runtime, or remote server."
+    },
+    {
+      "name": "get_cli_reference",
+      "description": "Returns the complete Symbols CLI (@symbo.ls/cli) command reference."
+    },
+    {
+      "name": "get_sdk_reference",
+      "description": "Returns the complete Symbols SDK (@symbo.ls/sdk) API reference."
+    },
+    {
+      "name": "login",
+      "description": "Log in to Symbols platform and get an access token."
+    },
+    {
+      "name": "list_projects",
+      "description": "List the user's Symbols projects (names, keys, IDs)."
+    },
+    {
+      "name": "create_project",
+      "description": "Create a new Symbols project on the platform."
+    },
+    {
+      "name": "get_project",
+      "description": "Get a project's current data (components, pages, design system)."
+    },
+    {
+      "name": "save_to_project",
+      "description": "Save components/pages/data to a project — creates a new version with changes, schema, and orders."
+    },
+    {
+      "name": "publish",
+      "description": "Publish a version of a Symbols project (make it live)."
+    },
+    {
+      "name": "push",
+      "description": "Deploy a project to an environment (production, staging, dev)."
     }
   ],
   "prompts": [

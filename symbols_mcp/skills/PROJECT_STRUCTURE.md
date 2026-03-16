@@ -13,38 +13,49 @@ Do NOT use JavaScript imports/exports for component usage. Register components o
 ## Full Project Layout
 
 ```
-smbls/
-├── index.js                  # Root entry: exports components, pages, state, designSystem, functions
-├── state.js                  # export default { key: initialValue, ... }
-├── dependencies.js           # export default { 'pkg': 'exact-version' }
-├── config.js                 # export default { useReset: true, useVariable: true, ... }
-├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
+project-root/
+├── supabase/                     # Supabase backend (server-side)
+│   ├── config.toml               # Supabase local dev config
+│   ├── seed.sql                  # Database seeding
+│   ├── migrations/               # SQL migration files
+│   │   └── 001_create_tables.sql
+│   └── functions/                # Supabase Edge Functions (Deno, server-side)
+│       └── send-email/
+│           └── index.ts
 │
-├── components/
-│   ├── index.js              # export * from './Foo.js'  — FLAT re-exports only
-│   └── Navbar.js             # export const Navbar = { ... }
-│
-├── pages/
-│   ├── index.js              # Import-based registry — ONLY file with imports allowed
-│   └── main.js               # export const main = { extends: 'Page', ... }
-│
-├── functions/
-│   ├── index.js              # export * from './switchView.js'
-│   └── switchView.js         # export const switchView = function(...) {}
-│
-├── methods/
-│   ├── index.js              # export * from './formatDate.js'
-│   └── formatDate.js         # export const formatDate = function(date) { ... }
-│
-├── designSystem/
-│   ├── index.js              # export default { color, theme, font, ... }
-│   ├── color.js              # export default { blue: '#0474f2', ... }
-│   ├── theme.js              # export default { dialog: { ... }, ... }
-│   └── typography.js         # export default { base: 16, ratio: 1.25, ... }
-│
-└── state/                    # (alternative to state.js)
-    ├── index.js              # export default { user: {}, metrics: [], ... }
-    └── metrics.js            # export default [{ title: 'Status', ... }]
+└── symbols/                      # Symbols frontend (client-side)
+    ├── index.js                  # Root entry: exports components, pages, state, designSystem, functions
+    ├── state.js                  # export default { key: initialValue, ... }
+    ├── lang.js                   # Translations — root level, NOT in designSystem
+    ├── dependencies.js           # export default { 'pkg': 'exact-version' }
+    ├── config.js                 # export default { useReset: true, fetch: { adapter: 'supabase', ... }, ... }
+    ├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
+    │
+    ├── components/
+    │   ├── index.js              # export * from './Foo.js'  — FLAT re-exports only
+    │   └── Navbar.js             # export const Navbar = { ... }
+    │
+    ├── pages/
+    │   ├── index.js              # Import-based registry — ONLY file with imports allowed
+    │   └── main.js               # export const main = { extends: 'Page', ... }
+    │
+    ├── functions/                # Frontend functions ONLY (called via el.call())
+    │   ├── index.js              # export * from './switchView.js'
+    │   └── switchView.js         # export const switchView = function(...) {}
+    │
+    ├── methods/
+    │   ├── index.js              # export * from './formatDate.js'
+    │   └── formatDate.js         # export const formatDate = function(date) { ... }
+    │
+    ├── designSystem/             # Visual tokens ONLY — NO translations, NO logic
+    │   ├── index.js              # export default { color, theme, font, ... }
+    │   ├── color.js              # export default { blue: '#0474f2', ... }
+    │   ├── theme.js              # export default { dialog: { ... }, ... }
+    │   └── typography.js         # export default { base: 16, ratio: 1.25, ... }
+    │
+    └── state/                    # (alternative to state.js)
+        ├── index.js              # export default { user: {}, metrics: [], ... }
+        └── metrics.js            # export default [{ title: 'Status', ... }]
 ```
 
 Each folder is described below. Follow these rules strictly when creating or modifying files.
@@ -124,14 +135,29 @@ export default {
 
 ---
 
-## Functions (`functions/`)
+## Functions (`symbols/functions/`) — Frontend Only
 
-Create pure, standalone utilities with a named export matching the filename (camelCase). Do not import other project files.
+`symbols/functions/` contains **client-side frontend functions** that run in the browser. They are called via `el.call()` from components, and `this` is bound to the DOMQL element.
+
+**Do NOT place server-side/backend functions here.** Supabase Edge Functions (Deno) go in `supabase/functions/`.
 
 ```js
-// functions/parseNetworkRow.js
+// symbols/functions/parseNetworkRow.js
 export const parseNetworkRow = function parseNetworkRow(data) {
   return processedData
+}
+```
+
+Frontend functions may call external APIs (including Supabase) via the client SDK:
+
+```js
+// symbols/functions/fetchItems.js
+export const fetchItems = async function fetchItems(category) {
+  const el = this
+  const s = el.state.root || el.getRootState()
+  // Use Supabase client configured in config.js fetch adapter
+  const { data } = await el.call('getSupabaseClient').from('items').select('*')
+  s.update({ items: data || [] })
 }
 ```
 
@@ -143,6 +169,28 @@ Button: { onClick: (e, el) => el.call('parseNetworkRow', data) }
 ```
 
 `el.call()` binds the DOMQL element as `this` inside the function.
+
+---
+
+## Supabase Backend (`supabase/`)
+
+Server-side resources live outside the `symbols/` directory:
+
+- `supabase/migrations/` — SQL migration files for schema changes
+- `supabase/functions/` — Supabase Edge Functions (Deno, server-side)
+- `supabase/config.toml` — Local dev configuration
+- `supabase/seed.sql` — Database seeding
+
+```ts
+// supabase/functions/send-email/index.ts — server-side Edge Function
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
+serve(async (req) => {
+  const { to, subject, body } = await req.json()
+  // server-side email logic
+  return new Response(JSON.stringify({ success: true }))
+})
+```
 
 ---
 
@@ -159,9 +207,9 @@ export const formatDate = function(date) {
 
 ---
 
-## Design System (`designSystem/`)
+## Design System (`designSystem/`) — Visual Tokens Only
 
-Define tokens in separate files. Aggregate them in `index.js`.
+Define **visual design tokens only** — colors, typography, spacing, icons, themes. Do NOT store translations, application logic, or data here.
 
 ```js
 // designSystem/color.js
@@ -180,7 +228,47 @@ import theme from './theme.js'
 export default { color, theme }
 ```
 
+**What belongs here:** color, gradient, theme, font, typography, spacing, timing, grid, icons, shape, reset, animation, media, cases.
+
+**What does NOT belong here:** translations/lang (use root-level `lang.js`), application state, API config, business logic.
+
 See `DESIGN_SYSTEM.md` for the full token reference.
+
+---
+
+## Translations (`lang.js`) — Root Level
+
+Translations live at root level (`symbols/lang.js`), NOT inside `designSystem/`. Export them in `context.js` at root level alongside other top-level modules.
+
+```js
+// symbols/lang.js
+export default {
+  en: { welcome: 'Welcome', search: 'Search' },
+  ka: { welcome: 'მოგესალმებით', search: 'ძებნა' },
+}
+
+// symbols/context.js
+import lang from './lang.js'
+export default { lang, state, components, designSystem, ...config }
+```
+
+For Supabase-backed translations, configure the `polyglot` key in `config.js`:
+
+```js
+// config.js
+export default {
+  polyglot: {
+    defaultLang: 'en',
+    languages: ['en', 'ka', 'ru'],
+    storageLangKey: 'app_lang',
+    storagePrefix: 'app_t_',
+    fetch: {
+      rpc: 'get_translations_if_changed',
+      table: 'translations'
+    }
+  }
+}
+```
 
 ---
 
@@ -227,9 +315,11 @@ onClick: async (e, el) => {
 
 ## Config (`config.js`)
 
-Control runtime behavior and rendering flags:
+Control runtime behavior, rendering flags, and backend integration:
 
 ```js
+import { createClient } from '@supabase/supabase-js'
+
 export default {
   useReset: true,
   useVariable: true,
@@ -239,6 +329,27 @@ export default {
   useDefaultConfig: true,
   useDocumentTheme: true,
   verbose: false,
+
+  // Supabase fetch adapter — declarative data fetching
+  fetch: {
+    adapter: 'supabase',
+    createClient,
+    url: 'https://your-project.supabase.co',
+    key: 'your-anon-key',
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  },
+
+  // Polyglot i18n configuration
+  polyglot: {
+    defaultLang: 'en',
+    languages: ['en', 'ka'],
+    storageLangKey: 'app_lang',
+    storagePrefix: 'app_t_'
+  }
 }
 ```
 
