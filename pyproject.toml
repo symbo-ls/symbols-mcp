@@ -1,7 +1,7 @@
 [project]
 name = "symbols-mcp"
-version = "1.0.17"
-description = "MCP server for Symbols.app — documentation search, code generation, project management, publishing, CLI/SDK reference"
+version = "1.0.18"
+description = "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
