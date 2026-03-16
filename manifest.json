@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "symbols-mcp",
   "display_name": "Symbols MCP",
-  "version": "1.0.15",
-  "description": "MCP server for Symbols.app — documentation search, code generation, conversion, audit, project management, and publishing tools with CLI/SDK reference",
+  "version": "1.0.17",
+  "description": "MCP server for Symbols.app — code generation, project management, and publishing",
   "author": {
     "name": "Symbols",
     "url": "https://symbols.app"
