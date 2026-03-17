@@ -1105,6 +1105,48 @@ if (cell) cell.node.focus()
 
 ---
 
+## Rule 41 — STRICTLY use `Link` component with `href` as a direct property — NEVER use `<a>` tags or put `href` in `attrs`
+
+**IMPORTANT:** All links MUST use the `Link` component with `extends: 'Link'`. The `href` property MUST be placed at the root level of the component, NOT inside `attrs: {}`. This is critical for proper routing and navigation.
+
+```js
+// ✅ CORRECT — Link component with href at root
+Nav: {
+  extends: 'Link',
+  href: '/about',
+  text: 'About'
+}
+
+// ✅ CORRECT — dynamic href at root
+ProfileLink: {
+  extends: 'Link',
+  href: (el, s) => `/user/${s.userId}`,
+  text: 'View Profile'
+}
+
+// ❌ WRONG — href inside attrs
+Nav: {
+  extends: 'Link',
+  attrs: { href: '/about' },   // NEVER put href in attrs
+  text: 'About'
+}
+
+// ❌ WRONG — using tag 'a' instead of Link component
+Nav: {
+  tag: 'a',
+  href: '/about',
+  text: 'About'
+}
+
+// ❌ WRONG — no extends: 'Link' for navigation
+Nav: {
+  href: '/about',              // href without Link component won't route properly
+  text: 'About'
+}
+```
+
+---
+
 ## Project Structure Quick Reference
 
 ```
@@ -1167,6 +1209,7 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] No `el.context` reads in props — use token strings directly (Rule 38)
 - [ ] `el.node` reads are fine, `el.node.x = ...` writes are forbidden (Rule 39)
 - [ ] No `document.getElementById`/`querySelector` — use `el.lookdown()`, `el.lookup()`, etc. (Rule 40)
+- [ ] All links use `extends: 'Link'` with `href` at root — never in `attrs`, never `tag: 'a'` (Rule 41)
 - [ ] Translations (`lang.js`) at root level, NOT inside `designSystem/`
 - [ ] `designSystem/` contains only visual tokens — no translations, no logic
 - [ ] `symbols/functions/` contains only frontend functions (called via `el.call()`)
