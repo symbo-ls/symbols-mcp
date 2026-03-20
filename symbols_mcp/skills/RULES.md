@@ -375,22 +375,39 @@ export const switchView = function switchView(view) {
 
 ---
 
-## Rule 19 — Conditional props: use `isX` + `'.isX'`
+## Rule 19 — Conditional props: use `isX` + `'.isX'` — STRICTLY enforce when multiple properties share the same condition
+
+**IMPORTANT:** When two or more properties depend on the same condition, you MUST use the `isX` / `'.isX'` pattern. NEVER repeat the same condition across multiple property functions — this is redundant, harder to read, and violates DOMQL v3 conventions.
 
 ```js
-// ✅ — v3 conditional props
-export const ModalCard = {
+// ✅ CORRECT — conditional props with isX pattern
+export const MapPanel = {
+  width: '0',
+  height: '0',
   opacity: '0',
-  visibility: 'hidden',
+  '@tabletS': { width: '0' },
+  '@mobileL': { width: '0' },
 
-  isActive: (el, s) => s.root.activeModal,
-  '.isActive': {
+  isMapView: (el, s) => s.root.showMapView,
+  '.isMapView': {
+    width: '50%',
+    height: 'calc(100vh - 130px)',
     opacity: '1',
-    visibility: 'visible',
+    '@tabletS': { width: '55%' },
+    '@mobileL': { width: '100%' },
   },
 }
 
-// ❌ — deprecated props function with conditional spread
+// ❌ WRONG — same condition repeated across multiple properties
+export const MapPanel = {
+  width: (el, s) => s.root.showMapView ? '50%' : '0',
+  height: (el, s) => s.root.showMapView ? 'calc(100vh - 130px)' : '0',
+  opacity: (el, s) => s.root.showMapView ? '1' : '0',
+  '@tabletS': { width: (el, s) => s.root.showMapView ? '55%' : '0' },
+  '@mobileL': { width: (el, s) => s.root.showMapView ? '100%' : '0' },
+}
+
+// ❌ WRONG — deprecated props function with conditional spread
 export const ModalCard = {
   props: (el, s) => ({
     ...(s.root.activeModal ? { opacity: '1' } : { opacity: '0' })
@@ -1185,7 +1202,7 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] Color uses dot-notation: `'white.7'` not `'white .7'` (Rule 11)
 - [ ] Standard HTML attributes at root; only `data-*`/`aria-*`/custom in `attr: {}` (Rule 14)
 - [ ] `onRender` guards against double-init (Rule 15)
-- [ ] Conditional props use `isX` / `'.isX'` pattern (Rule 19)
+- [ ] Conditional props use `isX` / `'.isX'` pattern — never repeat the same condition across multiple property functions (Rule 19)
 - [ ] One H1 per page; logical heading hierarchy H1 > H2 > H3
 - [ ] Buttons for actions, Links for navigation (Rule 21)
 - [ ] Forms have labeled inputs with `name` and `type` attributes
