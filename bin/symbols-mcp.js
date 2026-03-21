@@ -662,7 +662,7 @@ async function handleTool(name, args) {
   // generate_page
   if (name === 'generate_page') {
     const pageName = args.page_name || 'home'
-    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'PATTERNS.md', 'SNIPPETS.md', 'DEFAULT_LIBRARY.md', 'COMPONENTS.md')
+    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'PATTERNS.md', 'SNIPPETS.md', 'DEFAULT_LIBRARY.md', 'COMPONENTS.md')
     return `# Generate Page: ${pageName}\n\n## Description\n${args.description}\n\n## Requirements\n- Export as: \`export const ${pageName} = { ... }\`\n- Page is a plain object composing components\n- Add to pages/index.js route map: \`'/${pageName}': ${pageName}\`\n- Use components by PascalCase key (Header, Footer, Hero, etc.)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Include responsive layout adjustments\n\n## Context — Rules, Structure, Patterns & Snippets\n\n${context}`
   }
 
@@ -692,7 +692,8 @@ async function handleTool(name, args) {
       if (files.includes('index.html') && !files.includes('package.json') && !files.includes('symbols.json')) { envType = 'cdn'; confidence = 'medium' }
     }
     const guide = readSkill('RUNNING_APPS.md')
-    return `# Environment Detection\n\n**Detected: ${envType}** (confidence: ${confidence})\n\n${guide}`
+    const sharedLibsGuide = envType === 'local_project' ? '\n\n## Shared Libraries\n\n' + readSkill('SHARED_LIBRARIES.md') : ''
+    return `# Environment Detection\n\n**Detected: ${envType}** (confidence: ${confidence})\n\n${guide}${sharedLibsGuide}`
   }
 
   // audit_component (sync)

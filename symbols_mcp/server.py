@@ -617,8 +617,8 @@ def generate_page(
         page_name: camelCase name for the page (used in route map).
     """
     context = _read_skills(
-        "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "PATTERNS.md",
-        "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md",
+        "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md",
+        "PATTERNS.md", "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md",
     )
     return f"""# Generate Page: {page_name}
 
@@ -929,6 +929,7 @@ def detect_environment(
 
     if env_type == "local_project":
         structure_guide = _read_skill("PROJECT_STRUCTURE.md")
+        shared_libs_guide = _read_skill("SHARED_LIBRARIES.md")
         output += "## Your Environment: Local Project\n\n"
         output += "You're working in a standard Symbols project with file-based structure.\n\n"
         output += "### Code Format\n"
@@ -940,6 +941,7 @@ def detect_environment(
         output += "### Commands\n"
         output += "```bash\nnpm start          # dev server\nsmbls build        # production build\nsmbls push         # deploy to platform\nsmbls deploy       # deploy to provider\n```\n\n"
         output += f"### Full Project Structure Reference\n\n{structure_guide}"
+        output += f"\n\n### Shared Libraries Reference\n\n{shared_libs_guide}"
     elif env_type == "cdn":
         cdn_guide = _read_skill("RUNNING_APPS.md")
         output += "## Your Environment: CDN (Browser-Only)\n\n"
@@ -1566,6 +1568,12 @@ def get_cli() -> str:
 def get_sdk() -> str:
     """Symbols SDK (@symbo.ls/sdk) — complete API reference for all SDK services and methods."""
     return _read_skill("SDK.md")
+
+
+@mcp.resource("symbols://skills/shared-libraries")
+def get_shared_libraries() -> str:
+    """sharedLibraries — how shared libraries work in Symbols: configuration, runtime merge, precedence, CLI integration."""
+    return _read_skill("SHARED_LIBRARIES.md")
 
 
 @mcp.resource("symbols://skills/common-mistakes")

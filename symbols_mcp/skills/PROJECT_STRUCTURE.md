@@ -26,6 +26,7 @@ project-root/
 └── symbols/                      # Symbols frontend (client-side)
     ├── index.js                  # Root entry: exports components, pages, state, designSystem, functions
     ├── state.js                  # export default { key: initialValue, ... }
+    ├── cases.js                  # export default { isSafari: () => {}, ... } — conditional cases
     ├── lang.js                   # Translations — root level, NOT in designSystem
     ├── dependencies.js           # export default { 'pkg': 'exact-version' }
     ├── config.js                 # export default { useReset: true, fetch: { adapter: 'supabase', ... }, ... }
@@ -228,9 +229,9 @@ import theme from './theme.js'
 export default { color, theme }
 ```
 
-**What belongs here:** color, gradient, theme, font, typography, spacing, timing, grid, icons, shape, reset, animation, media, cases.
+**What belongs here:** color, gradient, theme, font, typography, spacing, timing, grid, icons, shape, reset, animation, media, vars.
 
-**What does NOT belong here:** translations/lang (use root-level `lang.js`), application state, API config, business logic.
+**What does NOT belong here:** translations/lang (use root-level `lang.js`), cases (use root-level `cases.js`), application state, API config, business logic.
 
 See `DESIGN_SYSTEM.md` for the full token reference.
 
@@ -249,7 +250,7 @@ export default {
 
 // symbols/context.js
 import lang from './lang.js'
-export default { lang, state, components, designSystem, ...config }
+export default { lang, cases, state, components, designSystem, ...config }
 ```
 
 For Supabase-backed translations, configure the `polyglot` key in `config.js`:

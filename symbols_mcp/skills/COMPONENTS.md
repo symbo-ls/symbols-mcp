@@ -65,7 +65,8 @@ All atoms support these additional features:
 |---------|--------|
 | Media queries | `@mobile`, `@tablet`, `@tabletSm`, `@dark`, `@light` |
 | Pseudo selectors | `:hover`, `:active`, `:focus-visible` |
-| Conditional cases | `.isActive`, `.disabled`, `.hidden`, `!isActive` |
+| Conditional cases | `.isActive`, `!isActive`, `$isSafari` (global from `context.cases`) |
+| ARIA attributes | `ariaLabel`, `aria: { expanded: true }`, `'aria-label': 'Close'` |
 | Child overrides | `childProps` — one-level child overrides |
 | Children | `children` — arrays or nested object trees |
 | Lifecycle events | `onInit`, `onRender`, `onUpdate`, `onStateUpdate` |

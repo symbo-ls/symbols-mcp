@@ -18,6 +18,27 @@ These rules are absolute. Violations cause silent failures (black page, nothing 
 | `children` + `childExtends`   | ~~`$collection`, `$propsCollection`~~   |
 | `children` + `childrenAs: 'state'` | ~~`$stateCollection`~~              |
 | No `extends` needed for Text/Box/Flex; replace `extends: 'Flex'` with `flow: 'x'` or `flow: 'y'` | ~~`extends: 'Text'`~~, ~~`extends: 'Box'`~~, ~~`extends: 'Flex'`~~ |
+| `color: {}`, `theme: {}`, `typography: {}` (lowercase) | ~~`COLOR: {}`, `THEME: {}`, `TYPOGRAPHY: {}`~~ (UPPERCASE) |
+| `context.designSystem.color` | ~~`context.designSystem.COLOR`~~ |
+| `import { typography } from '@symbo.ls/scratch'` | ~~`import { TYPOGRAPHY } from '@symbo.ls/scratch'`~~ |
+
+---
+
+## Rule 0 — Design system keys are ALWAYS lowercase
+
+UPPERCASE design system keys (`COLOR`, `THEME`, `TYPOGRAPHY`, `SPACING`, `TIMING`, `FONT`, `FONT_FAMILY`, `ICONS`, `SHADOW`, `MEDIA`, `GRID`, `ANIMATION`, `RESET`, `SVG`, `GRADIENT`, `SEMANTIC_ICONS`, `CASES`) are **deprecated and strictly banned**.
+
+Always use lowercase: `color`, `theme`, `typography`, `spacing`, `timing`, `font`, `font_family`, `icons`, `shadow`, `media`, `grid`, `animation`, `reset`, `svg`, `gradient`, `vars`.
+
+```js
+// ❌ BANNED
+import { TYPOGRAPHY } from '@symbo.ls/scratch'
+const { COLOR } = context.designSystem
+
+// ✅ CORRECT
+import { typography } from '@symbo.ls/scratch'
+const { color } = context.designSystem
+```
 
 ---
 

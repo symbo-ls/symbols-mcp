@@ -23,7 +23,7 @@ Provide one or more of: design description, wireframe, screenshot, or component 
 
 - Complete, copy-paste ready Symbols component objects
 - Responsive implementation using Symbols breakpoint syntax (`@tabletS`, `@mobileL`, etc.)
-- Accessibility: semantic `tag` values, ARIA attributes where needed
+- Accessibility: semantic `tag` values, ARIA attributes via `aria: {}` shorthand / camelCase (`ariaLabel`) / kebab-case (`aria-label`)
 - Loading states via `if` conditionals and state flags
 - Animation via CSS transition properties on the component object
 

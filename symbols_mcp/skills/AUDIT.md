@@ -202,6 +202,7 @@ Generate or update two files. Keep their scopes strictly separated.
 Include only framework-level findings:
 
 - DOMQL v3 violations
+- UPPERCASE design system keys (COLOR, THEME, etc. — must be lowercase)
 - Event handler misuse
 - Atom/state mispatterns
 - Shorthand inconsistencies

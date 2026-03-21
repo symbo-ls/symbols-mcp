@@ -251,16 +251,23 @@ Box: { tag: 'div', text: 'Submit', onClick: fn }    // div is not a button
 ```js
 // Landmark roles
 Box: { role: 'alert', text: 'Error occurred' }
-Box: { role: 'status', attr: { 'aria-live': 'polite' }, text: '3 results found' }
+Box: { role: 'status', aria: { live: 'polite' }, text: '3 results found' }
 
-// Labels
-Input: { attr: { 'aria-label': 'Search networks' } }
-Button: { icon: 'x', attr: { 'aria-label': 'Close dialog' } }
-Icon: { name: 'settings', attr: { 'aria-hidden': 'true' } }
+// Labels — three equivalent forms:
+Input: { ariaLabel: 'Search networks' }                    // camelCase
+Button: { icon: 'x', aria: { label: 'Close dialog' } }    // object shorthand
+Icon: { name: 'settings', 'aria-hidden': 'true' }         // kebab-case
 
-// Dynamic state
+// Dynamic state via attr block (functions)
 Button: {
   attr: (el, s) => ({ 'aria-expanded': s.isOpen, 'aria-controls': 'dropdown-menu' }),
+  onClick: (e, el, s) => s.update({ isOpen: !s.isOpen })
+}
+
+// Dynamic state via conditional cases
+Button: {
+  '.isOpen': { aria: { expanded: true } },
+  '!isOpen': { ariaHidden: true },
   onClick: (e, el, s) => s.update({ isOpen: !s.isOpen })
 }
 ```

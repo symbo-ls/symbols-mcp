@@ -17,8 +17,8 @@ Design system config lives in `designSystem/`. All tokens resolve to CSS via DOM
 | `class.js` | Utility CSS class overrides |
 | `animation.js` | Named keyframe animations |
 | `media.js` | Custom media query breakpoints |
-| `cases.js` | Conditional environment flags |
 | `reset.js` | Global CSS reset overrides |
+| `vars.js` | Custom CSS properties (custom vars) |
 
 ## How Tokens Are Used in Props
 
@@ -488,15 +488,55 @@ Box: {
 
 ---
 
-## CASES
+## Cases
 
-| Case | Condition |
-|---|---|
-| `isSafari` | `true` when browser is Safari |
+Cases are defined in `symbols/cases.js` (not in designSystem) and added to `context.cases`. They are functions that evaluate conditions globally or per-element.
+
+### Defining cases
 
 ```js
-Element: { $isSafari: { top: 'Z2', right: 'Z2' } }
+// symbols/cases.js
+export default {
+  isSafari: () => /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent),
+  isGeorgian () { return this?.state?.root?.language === 'ka' },
+  isMobile: () => window.innerWidth < 768
+}
+
+// symbols/context.js
+import cases from './cases.js'
+export default { cases, /* ...other context */ }
 ```
+
+Case functions receive `element` as `this` (and first arg), but must work without it (for global detection like `isSafari`).
+
+### Using cases in components
+
+```js
+// $ prefix — global case from context.cases
+Element: { $isSafari: { top: 'Z2', right: 'Z2' } }
+
+// . prefix — props/state first, then context.cases
+Button: { '.isActive': { background: 'blue', aria: { expanded: true } } }
+
+// ! prefix — inverted
+Card: { '!isMobile': { maxWidth: '1200px' } }
+```
+
+Cases work in both CSS props (css-in-props) and HTML attributes (attrs-in-props).
+
+## CSS Custom Properties (vars)
+
+Define initial CSS custom properties in designSystem:
+
+```js
+vars: {
+  '--header-height': '60px',
+  'sidebar-width': '280px',   // auto-prefixed to --sidebar-width
+  gap: '1rem'                  // becomes --gap
+}
+```
+
+Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. Any `--` prefixed value is auto-wrapped in `var()`.
 
 ---
 
@@ -566,7 +606,7 @@ const designSystemConfig = {
 ```
 color, gradient, theme, typography, spacing, timing,
 font, font_family, icons, semantic_icons, svg, svg_data,
-shadow, media, grid, class, reset, unit, animation, cases
+shadow, media, grid, class, reset, unit, animation, vars
 ```
 
 Do NOT wrap these under `props` or other wrappers.
@@ -599,12 +639,29 @@ font: {
 
 ```js
 font: {
-  inter: {
-    400: { url: '/fonts/Inter-Regular.woff2', fontWeight: 400 },
-    700: { url: '/fonts/Inter-Bold.woff2', fontWeight: 700 }
-  }
+  inter: [
+    { url: '/fonts/Inter-Regular.woff2', fontWeight: 400 },
+    { url: '/fonts/Inter-Bold.woff2', fontWeight: 700 }
+  ]
 }
 ```
+
+### Multiple format fallbacks (array URL)
+
+```js
+font: {
+  Exo2: [
+    {
+      url: ['Exo2-Medium.woff2', 'Exo2-Medium.woff'],
+      fontWeight: '500',
+      fontStyle: 'normal',
+      fontDisplay: 'swap'
+    }
+  ]
+}
+```
+
+Generates comma-separated `src` with auto-detected formats per URL.
 
 ---
 
@@ -709,6 +766,7 @@ updateVars({ color: { primary: '#ff0000' } })  // Update CSS variables only
 
 ## Common Mistakes
 
+- **NEVER use UPPERCASE keys** (`COLOR`, `THEME`, `TYPOGRAPHY`, etc.) — always use lowercase (`color`, `theme`, `typography`). UPPERCASE is deprecated and banned.
 - Do NOT nest config under `props` or other wrappers
 - Use `font_family` not `fontFamily` in config
 - Define `typography` and `spacing` if you use tokens like `A`, `B2`, or `C+Z`

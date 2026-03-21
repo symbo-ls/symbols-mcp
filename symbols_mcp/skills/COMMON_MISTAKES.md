@@ -223,3 +223,19 @@ SpreadsheetCell: { fontSize: 'Z1', width: 'E', ... }
 RowNumberCell:   { fontSize: 'Z1', width: 'C', ... }
 CornerCell:      { fontSize: 'Z1', width: 'C', ... }
 ```
+
+---
+
+## 13. Design system keys — ALWAYS lowercase, never UPPERCASE
+
+```js
+// ❌ WRONG — UPPERCASE keys are deprecated and banned
+import { TYPOGRAPHY, SPACING } from '@symbo.ls/scratch'
+const { COLOR, THEME } = context.designSystem
+set({ COLOR: { blue: '#00f' }, TYPOGRAPHY: { base: 16 } })
+
+// ✅ CORRECT — lowercase keys only
+import { typography, spacing } from '@symbo.ls/scratch'
+const { color, theme } = context.designSystem
+set({ color: { blue: '#00f' }, typography: { base: 16 } })
+```

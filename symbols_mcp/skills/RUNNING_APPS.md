@@ -55,6 +55,7 @@ my-app/
     ├── pages/
     │   ├── index.js          # import-based route map (only file with imports)
     │   └── main.js           # export const main = { extends: 'Page', ... }
+    ├── cases.js              # export default { isSafari: () => {}, ... }
     ├── functions/
     │   ├── index.js          # export * from './myFn.js'
     │   └── myFn.js           # export const myFn = function() {}

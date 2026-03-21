@@ -19,9 +19,11 @@ export const MyCard = {
   theme: 'dialog',
   round: 'C',
 
-  // HTML attributes (standard attrs are auto-detected by attrs-in-props)
+  // HTML attributes (auto-detected by attrs-in-props)
   role: 'region',
-  attr: { 'aria-label': ({ props }) => props.label },
+  ariaLabel: 'My card',                                // camelCase → aria-label
+  aria: { describedby: 'desc' },                       // object shorthand → aria-describedby
+  attr: { 'aria-label': ({ props }) => props.label },  // explicit attr block
 
   // State
   state: { open: false },
@@ -150,14 +152,25 @@ export const Hoverable = {
 }
 ```
 
-### CSS Class State Modifiers (Emotion `.className`)
+### Conditional Props (Cases)
+
+Three prefix types for conditional CSS and attributes:
+
+| Prefix | Resolution | Example |
+|---|---|---|
+| `$` | Global case from `context.cases` | `$isSafari: { padding: 'B' }` |
+| `.` | Props/state first, then `context.cases` | `.isActive: { opacity: 1 }` |
+| `!` | Inverted — applies when falsy | `!isActive: { opacity: 0 }` |
+
+Cases are defined in `symbols/cases.js` and added to `context.cases`. Both CSS props and HTML attributes inside conditional blocks are applied.
 
 ```js
 export const Item = {
   opacity: 0.6,
-  '.active':   { opacity: 1, fontWeight: '600' },
-  '.disabled': { opacity: 0.3, pointerEvents: 'none' },
-  '.hidden':   { transform: 'translate3d(0,10%,0)', opacity: 0, visibility: 'hidden' }
+  '.active':   { opacity: 1, fontWeight: '600', aria: { selected: true } },
+  '.disabled': { opacity: 0.3, pointerEvents: 'none', disabled: true },
+  '!active':   { ariaHidden: true },
+  '$isSafari': { padding: 'B' }
 }
 ```
 
