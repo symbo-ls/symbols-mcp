@@ -105,16 +105,50 @@ No API keys required for documentation tools. Project management tools require a
 pip install symbols-mcp
 ```
 
-Or with `uv`:
+Or with `uv` (no install needed):
 
 ```bash
 uvx symbols-mcp
 ```
 
+Or via npm:
+
+```bash
+npx @symbo.ls/mcp
+```
+
 ## Configuration
 
-Add to your MCP client config (e.g. `mcp.json`):
+### Recommended (auto-updates on every launch)
 
+```json
+{
+  "mcpServers": {
+    "symbols": {
+      "command": "uvx",
+      "args": ["--refresh", "symbols-mcp"]
+    }
+  }
+}
+```
+
+The `--refresh` flag checks PyPI for a newer version each time the server starts. Adds ~1-2s to startup but ensures you always have the latest rules and documentation.
+
+### Alternative configs
+
+**npm (also auto-updates):**
+```json
+{
+  "mcpServers": {
+    "symbols": {
+      "command": "npx",
+      "args": ["-y", "@symbo.ls/mcp"]
+    }
+  }
+}
+```
+
+**Pinned version (manual updates):**
 ```json
 {
   "mcpServers": {
@@ -124,6 +158,19 @@ Add to your MCP client config (e.g. `mcp.json`):
     }
   }
 }
+```
+
+### Manual update
+
+```bash
+# pip
+pip install --upgrade symbols-mcp
+
+# uv (clear cache and re-run)
+uv cache clean symbols-mcp && uvx symbols-mcp
+
+# npm
+npm update -g @symbo.ls/mcp
 ```
 
 ### Transport modes

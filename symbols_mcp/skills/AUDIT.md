@@ -6,8 +6,6 @@ Follow this protocol exactly. Execute each phase in order. Do not skip steps.
 
 ## 1. Install the MCP Server
 
-Run the following command to install:
-
 ```bash
 pip install symbols-mcp
 ```
@@ -16,14 +14,14 @@ pip install symbols-mcp
 
 ## 2. Configure the MCP Server
 
-Add this configuration to your MCP settings:
+Add this configuration to your MCP settings (uses `--refresh` to auto-update on every launch):
 
 ```json
 {
   "mcpServers": {
     "symbols": {
       "command": "uvx",
-      "args": ["symbols-mcp"]
+      "args": ["--refresh", "symbols-mcp"]
     }
   }
 }

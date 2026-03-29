@@ -285,18 +285,32 @@ Title: { fontWeight: 700 }
 
 Golden Ratio scale (1.618 default). Applies to `padding`, `margin`, `gap`, `width`, `height`, `boxSize`, `borderRadius`/`round`, `inset`, `top`, `left`, `right`, `bottom`, etc.
 
-| Token | Approx value | Use |
-|---|---|---|
-| `W`-`W2` | 2-4 px | Micro gaps, offsets |
-| `X`-`X2` | 4-6 px | Icon padding, tight gaps |
-| `Z`-`Z2` | 10-16 px | Compact padding |
-| `A`-`A2` | 16-26 px | Default padding, gutters |
-| `B`-`B2` | 26-42 px | Section padding |
-| `C`-`C2` | 42-68 px | Container padding, avatar sizes |
-| `D`-`D2` | 68-110 px | Large sections |
-| `E`-`F` | 110-178 px | Hero padding, max-widths |
+### Token stepping system
 
-Sub-sequence rules: `W` and `X` only have `W`, `W1`, `W2` and `X`, `X1`, `X2`. Sub-tokens like `W4`, `X4` do NOT exist. Sub-steps `3` and `4` (e.g. `A3`, `A4`, `B3`, `B4`) only appear from `A` and above.
+Each letter is a major step. Sub-numbers are minor increments between letters. The sequence flows continuously — each sub-step is one tone increase:
+
+```
+... X < X1 < X2 < Z < Z1 < Z2 < A < A1 < A2 < A3 < B < B1 < B2 < B3 < C ...
+```
+
+How many sub-steps exist between letters depends on the range — smaller ranges (W, X) have only 1-2 sub-steps, larger ranges (A, B, C) have up to 3.
+
+**To increase slightly:** go up one sub-step (e.g. `A` → `A1`, or `B2` → `B3`)
+**To increase moderately:** go up one letter (e.g. `A` → `B`)
+**To decrease:** reverse direction (e.g. `B` → `A3`, or `A` → `Z2`)
+
+| Token range | Approx px | Use |
+|---|---|---|
+| `W`-`W2` | 2-4 | Micro gaps, offsets |
+| `X`-`X2` | 4-6 | Icon padding, tight gaps |
+| `Z`-`Z2` | 10-16 | Compact padding |
+| `A`-`A3` | 16-26 | Default padding, gutters |
+| `B`-`B3` | 26-42 | Section padding |
+| `C`-`C3` | 42-68 | Container padding, avatar sizes |
+| `D`-`D3` | 68-110 | Large sections |
+| `E`-`F` | 110-178 | Hero padding, max-widths |
+
+Typography tokens use the same letter system for `fontSize`.
 
 ### Shorthand spacing
 

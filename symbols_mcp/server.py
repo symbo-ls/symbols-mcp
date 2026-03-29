@@ -1608,24 +1608,28 @@ def get_spacing_tokens() -> str:
     """Spacing token reference for the Symbols design system."""
     return """# Symbols Spacing Tokens
 
-Ratio-based system (base 16px, ratio 1.618 golden ratio):
+Ratio-based system (base 16px, ratio 1.618 golden ratio).
+
+Each sub-step (A → A1 → A2 → A3 → B) is one smooth tone increase.
+To increase slightly: go up one sub-step. To increase moderately: go up one letter.
+
+Scale: ... X < X1 < X2 < Z < Z1 < Z2 < A < A1 < A2 < A3 < B < B1 < B2 < B3 < C ...
 
 | Token | ~px  | Token | ~px  | Token | ~px  |
 |-------|------|-------|------|-------|------|
-| X     | 3    | A     | 16   | D     | 67   |
-| Y     | 6    | A1    | 20   | E     | 109  |
-| Z     | 10   | A2    | 22   | F     | 177  |
-| Z1    | 12   | B     | 26   |       |      |
-| Z2    | 14   | B1    | 32   |       |      |
+| X     | 3    | A     | 16   | C     | 42   |
+| X1    | 4    | A1    | 20   | C1    | 52   |
+| X2    | 5    | A2    | 22   | C2    | 55   |
+| Z     | 10   | A3    | 24   | D     | 67   |
+| Z1    | 12   | B     | 26   | E     | 109  |
+| Z2    | 14   | B1    | 32   | F     | 177  |
 |       |      | B2    | 36   |       |      |
-|       |      | C     | 42   |       |      |
-|       |      | C1    | 52   |       |      |
-|       |      | C2    | 55   |       |      |
+|       |      | B3    | 39   |       |      |
 
 Usage: padding: 'A B', gap: 'C', borderRadius: 'Z', fontSize: 'B1'
 Tokens work with padding, margin, gap, width, height, borderRadius, position, and any spacing property.
 Negative values: margin: '-Y1 -Z2 - auto'
-Math: padding: 'A+V2'
+Math: padding: 'A+Z2'
 """
 
 
