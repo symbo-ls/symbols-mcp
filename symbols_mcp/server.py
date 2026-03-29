@@ -524,7 +524,9 @@ def get_project_rules() -> str:
     Call this before: generate_component, generate_page, convert_react,
     convert_html, or any code generation task.
     """
-    return _load_agent_instructions()
+    rules = _load_agent_instructions()
+    default_styles = _read_skill("DEFAULT_STYLES.md")
+    return f"{rules}\n\n{default_styles}"
 
 
 @mcp.tool()
@@ -580,7 +582,7 @@ def generate_component(
         description: What the component should do and look like.
         component_name: PascalCase name for the component.
     """
-    context = _read_skills("RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "COOKBOOK.md", "DEFAULT_LIBRARY.md")
+    context = _read_skills("RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "COOKBOOK.md", "DEFAULT_LIBRARY.md", "DEFAULT_STYLES.md")
     return f"""# Generate Component: {component_name}
 
 ## Description
@@ -618,7 +620,7 @@ def generate_page(
     """
     context = _read_skills(
         "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md",
-        "PATTERNS.md", "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md",
+        "PATTERNS.md", "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md", "DEFAULT_STYLES.md",
     )
     return f"""# Generate Page: {page_name}
 
@@ -650,7 +652,7 @@ def convert_react(source_code: str) -> str:
     Args:
         source_code: The React/JSX source code to convert.
     """
-    context = _read_skills("RULES.md", "MIGRATION.md", "SYNTAX.md", "COMPONENTS.md", "LEARNINGS.md")
+    context = _read_skills("RULES.md", "MIGRATION.md", "SYNTAX.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_STYLES.md")
     return f"""# Convert React → Symbols DOMQL v3
 
 ## Source Code to Convert
@@ -690,7 +692,7 @@ def convert_html(source_code: str) -> str:
     Args:
         source_code: The HTML/CSS source code to convert.
     """
-    context = _read_skills("RULES.md", "SYNTAX.md", "COMPONENTS.md", "DESIGN_SYSTEM.md", "SNIPPETS.md", "LEARNINGS.md")
+    context = _read_skills("RULES.md", "SYNTAX.md", "COMPONENTS.md", "DESIGN_SYSTEM.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_STYLES.md")
     return f"""# Convert HTML → Symbols DOMQL v3
 
 ## Source Code to Convert
@@ -1520,6 +1522,12 @@ def get_seo_metadata() -> str:
 def get_ssr_brender() -> str:
     """Server-side rendering with brender — SSR/SSG for Symbols apps."""
     return _read_skill("SSR-BRENDER.md")
+
+
+@mcp.resource("symbols://skills/default-styles")
+def get_default_styles() -> str:
+    """Default template design system values — typography, spacing, colors, themes, fonts, animations."""
+    return _read_skill("DEFAULT_STYLES.md")
 
 
 @mcp.resource("symbols://skills/cookbook")
