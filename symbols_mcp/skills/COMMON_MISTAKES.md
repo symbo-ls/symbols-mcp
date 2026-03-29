@@ -239,3 +239,32 @@ import { typography, spacing } from '@symbo.ls/scratch'
 const { color, theme } = context.designSystem
 set({ color: { blue: '#00f' }, typography: { base: 16 } })
 ```
+
+---
+
+## 14. Navigation — use `el.router()`, never `window.location`
+
+```js
+// ❌ WRONG — bypasses SPA routing
+onClick: () => { window.location.href = '/' }
+onClick: () => { window.location.assign('/dashboard') }
+
+// ✅ CORRECT — framework routing
+onClick: (e, el) => el.router('/', el.getRoot())
+onClick: (e, el) => el.router('/dashboard', el.getRoot())
+```
+
+---
+
+## 15. Links — use `extends: 'Link'` with `href` as prop, never `attr: { href }`
+
+```js
+// ❌ WRONG — href in attrs
+Nav: { extends: 'Link', attr: { href: '/about' } }
+
+// ❌ WRONG — no Link component
+Nav: { tag: 'a', attr: { href: '/about' } }
+
+// ✅ CORRECT — Link component with href as prop
+Nav: { extends: 'Link', href: '/about', text: 'About' }
+```

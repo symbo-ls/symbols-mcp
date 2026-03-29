@@ -1185,6 +1185,30 @@ Nav: {
 
 ---
 
+## Rule 42 — NEVER use `window.location` for navigation — use `el.router()`
+
+All navigation MUST use `el.router()`. Never use `window.location.href`, `window.location.assign()`, `window.location.replace()`, or any `window.location` assignment. These bypass SPA routing and break the framework's navigation model.
+
+```js
+// ✅ CORRECT — SPA navigation via el.router
+onClick: (e, el) => el.router('/', el.getRoot())
+onClick: (e, el, s) => el.router('/profile/' + s.userId, el.getRoot())
+
+// ❌ WRONG — bypasses framework routing
+onClick: () => { window.location.href = '/' }
+onClick: () => { window.location.assign('/profile') }
+```
+
+---
+
+## Rule 43 — Use default template styles for new apps — no tiny fonts
+
+When creating new apps, always base the design system on the default template at `templates/templates/default/designSystem/`. This includes typography, font sizes, spacing, colors, shapes, grid, and media breakpoints.
+
+Never use font sizes smaller than what the default template defines. The default template enforces recommended, readable sizing for all new projects.
+
+---
+
 ## Project Structure Quick Reference
 
 ```
@@ -1248,6 +1272,8 @@ Before finalizing generated code, verify ALL of the following:
 - [ ] `el.node` reads are fine, `el.node.x = ...` writes are forbidden (Rule 39)
 - [ ] No `document.getElementById`/`querySelector` — use `el.lookdown()`, `el.lookup()`, etc. (Rule 40)
 - [ ] All links use `extends: 'Link'` with `href` at root — never in `attrs`, never `tag: 'a'` (Rule 41)
+- [ ] No `window.location` for navigation — use `el.router()` (Rule 42)
+- [ ] Font sizes and spacing follow default template minimums — no tiny fonts (Rule 43)
 - [ ] Translations (`lang.js`) at root level, NOT inside `designSystem/`
 - [ ] `designSystem/` contains only visual tokens — no translations, no logic
 - [ ] `symbols/functions/` contains only frontend functions (called via `el.call()`)
