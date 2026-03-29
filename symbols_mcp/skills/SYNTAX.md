@@ -643,8 +643,7 @@ export const Chart = {
 | **DOM** | `el.setNodeStyles({ key: value })` | Apply inline styles |
 | | `el.remove()` | Remove from tree and DOM |
 | **Context** | `el.call('fnKey', ...args)` | Lookup: `context.utils -> functions -> methods -> snippets` |
-| **Router** | `el.router(path, root)` | SPA navigation |
-| **Dependencies** | `el.require('moduleName')` | Cross-environment dependency loading |
+| **Router** | `el.router(path, root)` | SPA navigation — `root` must be the element with routes (use `el.getRoot()`) |
 | **Debug** | `el.parse(exclude)` | One-level purified plain object |
 | | `el.parseDeep(exclude)` | Deep purified plain object |
 | | `el.keys()` | List element's own keys |
@@ -670,7 +669,7 @@ Pass as second argument to `el.update(value, options)`:
 Lookup order: `context.utils -> context.functions -> context.methods -> context.snippets`
 
 ```js
-el.call('router', href, root, {}, options)
+el.router(href, el.getRoot(), {}, options)  // router is also available as el.router()
 el.call('exec', value, el)
 el.call('isString', value)
 el.call('fetchData', id)
@@ -708,7 +707,7 @@ Call `event.preventDefault()` BEFORE the router call:
 ```js
 onClick: (event, el) => {
   event.preventDefault()
-  el.call('router', '/dashboard', el.__ref.root, {}, {
+  el.router('/dashboard', el.getRoot(), {}, {
     scrollToTop: true,
     scrollToOptions: { behavior: 'instant' }
   })
@@ -820,8 +819,11 @@ export const ModalCard = {
 These keys are handled by the DOMQL engine and are NOT CSS props or child components:
 
 ```
-key, extends, childExtends, childExtendsRecursive, childProps, props,
-state, tag, query, data, scope, children, childrenAs, context
+key, extends, extend, childExtends, childExtend, childExtendsRecursive,
+childProps, props, state, tag, query, data, scope, children, childrenAs,
+context, attr, style, text, html, content, classlist, root, deps,
+if, define, on, fetch, component, routes, $router, variables,
+__name, __ref, __hash, __text, parent, node
 ```
 
 All other keys: lowercase/camelCase = CSS props, PascalCase = child components.

@@ -344,7 +344,7 @@ AFTER:
 | `className="flex gap-4"`              | `flow: 'x', gap: 'A'` (design tokens)                                    |
 | `style={{ padding: '16px' }}`         | `padding: 'A'`                                                            |
 | `<Link to="/page">`                   | `Link: { href: '/page', text: '...' }`                                    |
-| `useNavigate()` / `history.push`      | `el.call('router', '/path', el.getRoot())`                                |
+| `useNavigate()` / `history.push`      | `el.router('/path', el.getRoot())`                                |
 | Redux / Zustand store                 | `state/` folder + `s.root` access                                         |
 | `useMemo` / `useCallback`             | Dynamic prop function: `text: (el, s) => s.a + s.b`                      |
 | CSS Modules / styled-components       | Flatten styles as props with design tokens                                |
@@ -370,7 +370,7 @@ AFTER:
 | Services / DI                      | `functions/` folder + `el.call('serviceFn', args)`                     |
 | `RouterModule` routes              | `pages/index.js` route mapping                                         |
 | `routerLink="/path"`               | `Link: { href: '/path' }`                                              |
-| `Router.navigate(['/path'])`       | `el.call('router', '/path', el.getRoot())`                             |
+| `Router.navigate(['/path'])`       | `el.router('/path', el.getRoot())`                             |
 | NgRx / BehaviorSubject store       | `state/` folder + `s.root` access                                      |
 | SCSS / component styles            | Flatten to props with design tokens                                    |
 | Reactive Forms                     | `tag: 'form'`, `Input` children with `name`, `onSubmit` handler        |
@@ -394,7 +394,7 @@ AFTER:
 | `created()` / `setup()`           | `onInit: (el, s) => {}`                                                           |
 | Vuex / Pinia store                | `state/` folder + `s.root` access                                                 |
 | `<router-link to="/path">`        | `Link: { href: '/path' }`                                                         |
-| `$router.push('/path')`           | `el.call('router', '/path', el.getRoot())`                                        |
+| `$router.push('/path')`           | `el.router('/path', el.getRoot())`                                        |
 | `<slot>`                          | PascalCase child keys or `content` property                                       |
 | `<slot name="header">`            | Named child key: `Header: {}`                                                     |
 | Mixins / Composables              | `extends` for shared logic; `functions/` for shared utilities                     |

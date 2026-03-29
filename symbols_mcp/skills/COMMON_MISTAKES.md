@@ -242,17 +242,23 @@ set({ color: { blue: '#00f' }, typography: { base: 16 } })
 
 ---
 
-## 14. Navigation — use `el.router()`, never `window.location`
+## 14. Navigation — use `el.router()` with root element, never `window.location`
 
 ```js
 // ❌ WRONG — bypasses SPA routing
 onClick: () => { window.location.href = '/' }
 onClick: () => { window.location.assign('/dashboard') }
 
-// ✅ CORRECT — framework routing
+// ❌ WRONG — el is a leaf/button, has no routes — throws "Cannot read properties of undefined"
+onClick: (e, el) => el.router('/')
+onClick: (e, el) => el.router('/', el)
+
+// ✅ CORRECT — pass root element that holds route map
 onClick: (e, el) => el.router('/', el.getRoot())
 onClick: (e, el) => el.router('/dashboard', el.getRoot())
 ```
+
+`el.getRoot()` returns the DOMQL root element which holds the `routes` map. Passing any other element causes a runtime error.
 
 ---
 
@@ -268,3 +274,27 @@ Nav: { tag: 'a', attr: { href: '/about' } }
 // ✅ CORRECT — Link component with href as prop
 Nav: { extends: 'Link', href: '/about', text: 'About' }
 ```
+
+---
+
+## 16. Animated elements — use `opacity + pointerEvents`, never `show` for transitions
+
+`show: false` sets `display: none`, which cuts CSS transitions instantly. Elements that animate in/out must stay in the DOM.
+
+```js
+// ❌ WRONG — show removes element from layout, transitions never fire
+Dropdown: {
+  show: (el, s) => s.root.open,
+  transition: 'opacity 0.2s ease',  // Ignored — element is display:none when closed
+}
+
+// ✅ CORRECT — element stays in DOM, transitions work
+Dropdown: {
+  opacity: (el, s) => s.root.open ? '1' : '0',
+  pointerEvents: (el, s) => s.root.open ? 'auto' : 'none',
+  transition: 'opacity 0.2s ease, transform 0.2s ease',
+  transform: (el, s) => s.root.open ? 'translateY(0)' : 'translateY(-6px)',
+}
+```
+
+Use `show` only for elements that should be fully removed from layout with no animation. For modals, dropdowns, tooltips, drawers — always use the opacity pattern.

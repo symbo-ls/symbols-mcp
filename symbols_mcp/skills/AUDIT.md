@@ -59,25 +59,18 @@ Before auditing, confirm that every skill below has been consulted. Do not proce
 
 ### Design System
 - DESIGN_SYSTEM
-- DESIGN_SYSTEM_ARCHITECT
 - DEFAULT_LIBRARY
+- DEFAULT_STYLES
 
 ### UI / UX / Direction
 - PATTERNS
 - DESIGN_DIRECTION
-- DESIGN_CRITIQUE
-- DESIGN_TREND
 - DESIGN_TO_CODE
-- FIGMA_MATCHING
+- DESIGN_PERSONAS (includes: Brand Identity, Design Critique, Design Trend, Design System Architect, Figma Matching, Marketing Assets, Presentation)
 
 ### Components
 - COMPONENTS
 - DEFAULT_COMPONENTS
-
-### Brand / Presentation
-- BRAND_IDENTITY
-- MARKETING_ASSETS
-- PRESENTATION
 
 ### SEO
 - SEO-METADATA
@@ -155,7 +148,7 @@ Complete each phase fully before moving to the next.
 1. Align all layouts and flows with DESIGN_DIRECTION.md.
 2. Enforce visual hierarchy discipline.
 3. Fix all layout inconsistencies.
-4. Validate Figma-to-code fidelity per FIGMA_MATCHING.
+4. Validate Figma-to-code fidelity per DESIGN_PERSONAS (Figma Matching section).
 5. Remove all visual noise.
 
 ---

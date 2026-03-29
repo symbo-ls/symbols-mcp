@@ -265,30 +265,36 @@ export const MyLink = {
 
 ---
 
-## Rule 14 — Standard HTML attributes go at root, `attr: {}` is for non-standard only
+## Rule 14 — HTML attributes go at root level — `attr: {}` is rarely needed
 
-The `attrs-in-props` module auto-detects 600+ standard HTML attributes per tag. Place them directly at the element root — both static and dynamic values work.
+The `attrs-in-props` module auto-detects 600+ standard HTML attributes per tag AND handles `data-*`/`aria-*` attributes. Place them directly at the element root — both static and dynamic (function) values work.
 
-Use `attr: {}` ONLY for: `data-*`, `aria-*`, and custom non-standard attributes.
+`data-*` and `aria-*` support camelCase (`ariaLabel` → `aria-label`, `dataTestId` → `data-test-id`) and shorthand objects (`aria: { label: 'foo' }`, `data: { testId: 'bar' }`).
+
+Use `attr: {}` only for truly custom attributes not in the attrs-in-props database.
 
 ```js
 // ✅ — standard attrs at root (auto-detected)
 export const Input = {
   tag: 'input',
-  type: ({ props }) => props.type,
-  placeholder: ({ props }) => props.placeholder,
-  required: ({ props }) => props.required,
-  disabled: ({ props }) => props.disabled || null,
+  type: (el, s) => s.inputType,
+  placeholder: 'Enter text...',
+  required: true,
+  disabled: (el, s) => s.isDisabled,
 }
 
-// ✅ — non-standard / ARIA in attr: {}
+// ✅ — aria/data also at root (auto-detected, camelCase converted)
 export const Widget = {
   role: 'button',
   tabindex: '0',
-  attr: {
-    'aria-label': ({ props }) => props.label,
-    'data-testid': 'widget',
-  }
+  ariaLabel: (el, s) => s.label,
+  dataTestId: 'widget',
+}
+
+// ✅ — shorthand objects for aria/data
+export const Nav = {
+  aria: { label: 'Main navigation', expanded: true },
+  data: { section: 'header' },
 }
 
 // ❌ — don't use attr: {} for standard HTML attributes
@@ -1207,74 +1213,3 @@ When creating new apps, always base the design system on the default template at
 
 Never use font sizes smaller than what the default template defines. The default template enforces recommended, readable sizing for all new projects.
 
----
-
-## Project Structure Quick Reference
-
-```
-smbls/
-├── index.js                  # export * as components, export default pages, etc.
-├── state.js                  # export default { ... }
-├── dependencies.js           # export default { 'pkg': 'version' }
-├── components/
-│   ├── index.js              # export * from './Foo.js'  — flat re-exports ONLY
-│   └── Navbar.js             # export const Navbar = { ... }
-├── pages/
-│   ├── index.js              # import + export default { '/': main }
-│   └── main.js               # export const main = { extends: 'Page', ... }
-├── functions/
-│   ├── index.js              # export * from './switchView.js'
-│   └── switchView.js         # export const switchView = function(...) {}
-└── designSystem/
-    └── index.js              # export default { color, theme, ... }
-```
-
----
-
-## Output Verification Checklist
-
-Before finalizing generated code, verify ALL of the following:
-
-- [ ] Components are objects, not functions (Rule 1)
-- [ ] No cross-file imports except `pages/index.js` (Rule 2)
-- [ ] `components/index.js` uses `export *`, not `export * as` (Rule 3)
-- [ ] Pages extend `'Page'` (Rule 4)
-- [ ] All folders are flat — no subfolders (Rule 5)
-- [ ] v3 event syntax: `onClick`, `onRender`, not `on: { click: ... }` (CRITICAL table)
-- [ ] `align` not `flexAlign` for flex alignment shorthand (CRITICAL table)
-- [ ] State updated via `s.update()`, never direct mutation (Rule 7)
-- [ ] `extends` and `childExtends` are always quoted strings, never variable refs or inline objects (Rule 10)
-- [ ] Color uses dot-notation: `'white.7'` not `'white .7'` (Rule 11)
-- [ ] Standard HTML attributes at root; only `data-*`/`aria-*`/custom in `attr: {}` (Rule 14)
-- [ ] `onRender` guards against double-init (Rule 15)
-- [ ] Conditional props use `isX` / `'.isX'` pattern — never repeat the same condition across multiple property functions (Rule 19)
-- [ ] One H1 per page; logical heading hierarchy H1 > H2 > H3
-- [ ] Buttons for actions, Links for navigation (Rule 21)
-- [ ] Forms have labeled inputs with `name` and `type` attributes
-- [ ] Picture `src` is on the Img child (Rule 23)
-- [ ] `Map` component key has `tag: 'div'` (Rule 24)
-- [ ] `$propsCollection` / `$stateCollection` replaced with `children` pattern (CRITICAL table)
-- [ ] No `extends: 'Text'`, `extends: 'Box'`, or `extends: 'Flex'` — if removing Flex, MUST add `flow: 'x'` or `flow: 'y'` (Rule 26)
-- [ ] ALL props use design system tokens — no hardcoded colors, spacing, or typography (Rule 27)
-- [ ] ZERO raw px values — every dimension uses a spacing token (Rule 28)
-- [ ] All SVG icons use `Icon` component + `designSystem/icons` — no inline SVG, no `extends: 'Svg'` for icons (Rule 29)
-- [ ] ZERO direct DOM manipulation — no createElement, querySelector, appendChild, classList, innerHTML, style.x (Rule 30)
-- [ ] No `html:` functions returning template strings — use DOMQL children, text:, if:, breakpoints (Rule 31)
-- [ ] No `window.innerWidth` — use @mobileL, @tabletS responsive breakpoints (Rule 31)
-- [ ] No DOM traversal for filtering — no parentNode, children iteration, style.display, textContent, remove(), el.node.x = (Rule 32)
-- [ ] Search/filter uses state + reactive `show:` / `if:` and `text:` props — not imperative DOM manipulation (Rule 32)
-- [ ] ZERO variables outside component scope — use `el.call('fn')` for functions/, `el.scope` for local vars (Rule 33)
-- [ ] Aligned siblings share the same `fontSize` token so spacing tokens resolve to equal px (Rule 34)
-- [ ] All child keys are PascalCase — use distinctive names to avoid accidental auto-extend (Rule 35)
-- [ ] With `childrenAs: 'state'`, use `s.field` directly — no `el.parent.state` traversal (Rule 36)
-- [ ] `designSystem.color` contains only color values — no dimensions, fonts, or sizes (Rule 37)
-- [ ] No `el.context` reads in props — use token strings directly (Rule 38)
-- [ ] `el.node` reads are fine, `el.node.x = ...` writes are forbidden (Rule 39)
-- [ ] No `document.getElementById`/`querySelector` — use `el.lookdown()`, `el.lookup()`, etc. (Rule 40)
-- [ ] All links use `extends: 'Link'` with `href` at root — never in `attrs`, never `tag: 'a'` (Rule 41)
-- [ ] No `window.location` for navigation — use `el.router()` (Rule 42)
-- [ ] Font sizes and spacing follow default template minimums — no tiny fonts (Rule 43)
-- [ ] Translations (`lang.js`) at root level, NOT inside `designSystem/`
-- [ ] `designSystem/` contains only visual tokens — no translations, no logic
-- [ ] `symbols/functions/` contains only frontend functions (called via `el.call()`)
-- [ ] Server-side functions go in `supabase/functions/` (Deno Edge Functions), NOT `symbols/functions/`

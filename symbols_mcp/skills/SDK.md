@@ -356,6 +356,22 @@ Analytics via Grafana Faro.
 
 ---
 
+## Additional Services
+
+These services are also available but have more specialized use cases:
+
+| Service | Purpose |
+|---------|---------|
+| `AdminService` | Admin-level operations |
+| `KvService` | Key-value storage operations |
+| `OrganizationService` | Organization management |
+| `PaymentService` | Payment processing |
+| `PlanService` | Subscription plan management |
+| `SubscriptionService` | User subscription management |
+| `WaitlistService` | Waitlist management |
+
+---
+
 ## BaseService (Foundation)
 
 All services extend BaseService:

@@ -137,27 +137,39 @@ export const closeModal = function closeModal() {
 }
 ```
 
-### Tab Switching (DOM ID pattern)
+### Tab Switching
 
-When to use: Multi-view tab interfaces. Use DOM IDs for view switching -- NOT reactive `display` bindings (causes rendering failures).
+When to use: Multi-view tab interfaces. Use state to track active view — never DOM manipulation.
 
 ```js
-// Page definition
-HomeView: { id: 'view-home', flow: 'column', ... },
-ExploreView: { id: 'view-explore', flow: 'column', display: 'none', ... },
+// Page with tabs
+export const dashboard = {
+  extends: 'Page',
+  state: { activeTab: 'home' },
 
-// Navbar
-Navbar: {
-  childExtends: 'Button',
-  childProps: { onClick: (e, el) => { el.call('switchView', el.key.toLowerCase()) } }
-}
+  Navbar: {
+    flow: 'x',
+    gap: 'A',
+    HomeBtn: {
+      extends: 'Button',
+      text: 'Home',
+      onClick: (e, el, s) => s.update({ activeTab: 'home' })
+    },
+    ExploreBtn: {
+      extends: 'Button',
+      text: 'Explore',
+      onClick: (e, el, s) => s.update({ activeTab: 'explore' })
+    },
+  },
 
-// functions/switchView.js
-export const switchView = function switchView(view) {
-  ['home', 'explore', 'profile'].forEach(v => {
-    const el = document.getElementById('view-' + v)
-    if (el) el.style.display = v === view ? 'flex' : 'none'
-  })
+  HomeView: {
+    flow: 'y',
+    if: (el, s) => s.activeTab === 'home',
+  },
+  ExploreView: {
+    flow: 'y',
+    if: (el, s) => s.activeTab === 'explore',
+  },
 }
 ```
 
@@ -187,7 +199,7 @@ export const LoginForm = {
     state.update({ loading: true, error: null })
     try {
       await el.call('login', new FormData(el.node))
-      el.call('router', '/dashboard', el.__ref.root)
+      el.router('/dashboard', el.getRoot())
     } catch (e) {
       state.update({ loading: false, error: e.message })
     }
@@ -497,12 +509,6 @@ Avoid these -- they break AI comprehension:
 
 ## Design Principles
 
-### Visual Hierarchy
-
-- Lead with the most important content (F-pattern, Z-pattern).
-- Use typographic scale (`H1` through `H6`, `P`, `Caption`) to create hierarchy.
-- Adequate whitespace -- breathing room improves comprehension.
-
 ### Component Button Hierarchy
 
 | Level | Component | Use |
@@ -543,3 +549,75 @@ Button: {
 Easing: `defaultBezier` = `cubic-bezier(.29, .67, .51, .97)` (smooth ease-out).
 
 Do NOT animate layout properties (`width`, `height`, `top`, `left`) -- they force reflow. Animate `transform` and `opacity` instead.
+
+---
+
+### Page Entry Animation
+
+When to use: Any page or main content area that should fade in when navigated to.
+
+Define a custom keyframe in `designSystem/animation.js`, then apply it via `style.animation` on the layout container:
+
+```js
+// designSystem/animation.js
+export default {
+  fadeInPage: {
+    keyframes: {
+      '0%': { opacity: '0', transform: 'translateY(10px)' },
+      '100%': { opacity: '1', transform: 'translateY(0)' },
+    },
+  },
+}
+
+// pages/dashboard.js
+export const dashboard = {
+  extends: 'Page',
+
+  Layout: {
+    flow: 'y',
+    flex: '1',
+    style: { animation: 'fadeInPage 0.3s ease' },
+    // ... rest of layout
+  },
+}
+```
+
+Apply on the outermost content container (not the page root or nav) so the nav stays stable during the transition.
+
+---
+
+### Inline Dot Separator
+
+When to use: Horizontal meta rows (e.g. "Category · City · $$$") where items are conditionally shown.
+
+Use explicit sibling separator elements rather than embedding dots in text strings. This keeps each item independently reactive:
+
+```js
+MetaRow: {
+  flow: 'x', gap: 'X', align: 'center', flexWrap: 'wrap',
+
+  TypeTag: {
+    text: (el, s) => s.type || '',
+    fontSize: 'Z', color: 'accent', fontWeight: '600',
+  },
+  Sep1: {
+    show: (el, s) => !!(s.city),
+    text: '·', fontSize: 'Z', color: 'neutral400',
+  },
+  CityTag: {
+    text: (el, s) => s.city || '',
+    fontSize: 'Z', color: 'neutral400',
+  },
+  Sep2: {
+    show: (el, s) => !!(s.price),
+    text: '·', fontSize: 'Z', color: 'neutral400',
+  },
+  PriceTag: {
+    show: (el, s) => !!(s.price),
+    text: (el, s) => s.price || '',
+    fontSize: 'Z', color: 'neutral400',
+  },
+}
+```
+
+Each separator's `show` mirrors the adjacent item's condition so dots never appear orphaned.

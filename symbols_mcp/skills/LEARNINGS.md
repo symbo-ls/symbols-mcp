@@ -103,60 +103,6 @@ Anything matching none of the three paths stays as a component-level property in
 
 ---
 
-## Component Key Auto-Extending
-
-A child key that matches a registered component name automatically extends that component. No explicit `extends` is needed.
-
-```js
-export const MyPage = {
-  Hgroup: { gap: '0' },       // auto-extends registered Hgroup
-  Avatar: { boxSize: 'C' },   // auto-extends registered Avatar
-  Button: { text: 'Click' },  // auto-extends registered Button
-}
-```
-
-Use explicit `extends` only when:
-- The key casing differs from the component name
-- You want to extend a different component than the key name suggests
-
----
-
-## Conditional Props Pattern
-
-Use `isActive` boolean with `.isActive` / `!isActive` blocks. Do NOT use dynamic props spread.
-
-```js
-// CORRECT — conditional style blocks
-export const NavItem = {
-  isActive: (el, s) => s.root.currentPath === s.path,
-  padding: 'Z A',
-  opacity: '.6',
-
-  '.isActive': {
-    opacity: '1',
-    fontWeight: '700',
-    borderBottom: '2px solid',
-    borderBottomColor: 'primary',
-  },
-
-  '!isActive': {
-    ':hover': { opacity: '.8' },
-  },
-}
-
-// WRONG — dynamic props spread
-export const NavItem = {
-  props: (el, s) => ({
-    opacity: s.root.currentPath === s.path ? '1' : '.6',
-    fontWeight: s.root.currentPath === s.path ? '700' : '400',
-  }),
-}
-```
-
-Default styles go at component level; active overrides go in `.isActive`. Inactive overrides go in `!isActive`.
-
----
-
 ## state.root.update() with onlyUpdate
 
 To limit re-rendering to a specific component subtree, pass `onlyUpdate` as the second argument:
@@ -171,22 +117,6 @@ onClick: (e, el, s) => {
 ```
 
 **Why:** Without `onlyUpdate`, the entire component tree re-renders on root state change. Use this for performance.
-
----
-
-## SPA Navigation — preventDefault Required
-
-When using `tag: 'a'` with `href: '/'` AND an `onClick` handler, both the handler and the browser's default navigation fire. Always call `e.preventDefault()`.
-
-```js
-export const NavLink = {
-  extends: 'Link',
-  onClick: (e, el) => {
-    e.preventDefault()
-    el.router('/', el.getRoot())
-  },
-}
-```
 
 ---
 
@@ -235,6 +165,46 @@ state.update()
                 -> clean stale classNames
                   -> applyClassListOnNode -> node.setAttribute('class', ...)
 ```
+
+---
+
+## preventFetch Option in state.update()
+
+When a `fetch` plugin is configured on the root state, **every** `state.root.update()` call re-triggers the fetch unless you opt out. For UI-only state changes (opening modals, toggling menus, changing language, etc.) always pass `{ preventFetch: true }`:
+
+```js
+// ❌ Re-triggers data fetch — wrong for UI-only changes
+onClick: (e, el, s) => s.root.update({ activeModal: true })
+
+// ✅ UI-only — fetch plugin skipped
+onClick: (e, el, s) => s.root.update({ activeModal: true }, { preventFetch: true })
+```
+
+**When to omit `preventFetch`:** Only when the state change should re-fetch data (e.g., changing a filter, page number, or search query).
+
+---
+
+## Animated Show/Hide — opacity vs show
+
+`show: false` sets `display: none`, which **prevents CSS transitions**. For any element that needs to animate in or out, use `opacity + pointerEvents + transition + transform` instead:
+
+```js
+// ❌ Instant — no transition possible
+Dropdown: {
+  show: (el, s) => s.root.dropdownOpen,
+  ...
+}
+
+// ✅ Smooth fade + slide
+Dropdown: {
+  opacity: (el, s) => s.root.dropdownOpen ? '1' : '0',
+  pointerEvents: (el, s) => s.root.dropdownOpen ? 'auto' : 'none',
+  transition: 'opacity 0.2s ease, transform 0.2s ease',
+  transform: (el, s) => s.root.dropdownOpen ? 'translateY(0)' : 'translateY(-6px)',
+}
+```
+
+Use `show` only for elements that should be completely removed from layout (no animation needed). For modals, dropdowns, tooltips, and any element with a visible open/close state — use the opacity pattern.
 
 ---
 
@@ -372,3 +342,54 @@ __name, __ref, __hash, __text, key, parent, node
 ```
 
 Any property NOT in this registry, NOT a CSS property, and NOT a valid HTML attribute for the tag stays as a component-level property in DOMQL's internal element tree.
+
+---
+
+## Dynamic HTML Attributes — Three Equivalent Paths
+
+Dynamic (function) attribute values work at root level, inside `props:`, and inside `attr: {}`. All three paths call `exec()` on function values — they are executed, not stringified:
+
+```js
+// All three are equivalent — all work correctly:
+Input: { type: (el, s) => s.inputType }                    // root level
+Input: { props: { type: (el, s) => s.inputType } }         // inside props
+Input: { attr: { type: (el, s) => s.inputType } }          // inside attr
+
+// Flow: root/props → filterAttributesByTagName → element.attr → exec() → setAttribute
+```
+
+`data-*` and `aria-*` are also auto-detected at root/props level via attrs-in-props:
+- camelCase conversion: `ariaLabel` → `aria-label`, `dataTestId` → `data-test-id`
+- Shorthand objects: `aria: { label: 'foo', expanded: true }`, `data: { testId: 'bar' }`
+
+Use `attr: {}` only for truly custom attributes not recognized by the attrs-in-props database.
+
+---
+
+## Polyglot Translation Patterns
+
+Use `{{ key | polyglot }}` template syntax for static text. When template strings don't work (inside children state data or function returns), use `el.call('polyglot', key)`:
+
+```js
+// ✅ Template syntax (static text)
+Button: { text: '{{ submit | polyglot }}' }
+
+// ✅ Dynamic context (children, functions)
+text: (el, s) => el.call('polyglot', 'itemCount') + ': ' + s.items.length
+```
+
+---
+
+## hide vs display: 'none'
+
+Use `hide:` to conditionally hide elements, never `display: 'none'`. The `display` property gets overridden by CSS classes from component extends (e.g. Flex sets `display: flex`). The `hide` property generates `display: none !important` which takes priority:
+
+```js
+// ❌ Gets overridden by extends CSS
+Sidebar: { display: (el, s) => s.open ? 'flex' : 'none' }
+
+// ✅ Correct — hide generates display:none !important
+Sidebar: { hide: (el, s) => !s.open }
+```
+
+Use `hide` for toggling visibility. Use `if` for removing from DOM entirely. For animated show/hide, use the opacity pattern (see COMMON_MISTAKES #16).

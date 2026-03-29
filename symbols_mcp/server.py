@@ -122,6 +122,11 @@ _RULE_CHECKS = [
     (r"^const\s+\w+\s*=\s*(?:\(|function)", "FORBIDDEN: No module-level helper functions — move to functions/ and call via el.call('fnName') (Rule 33)"),
     (r"^let\s+\w+\s*=", "FORBIDDEN: No module-level variables — use el.scope for local state, functions/ for helpers (Rule 33)"),
     (r"^var\s+\w+\s*=", "FORBIDDEN: No module-level variables — use el.scope for local state, functions/ for helpers (Rule 33)"),
+    (r"window\.location\.href\s*=", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
+    (r"window\.location\.assign\b", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
+    (r"window\.location\.replace\b", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
+    (r"attr\s*:\s*\{\s*href\s*:", "FORBIDDEN: Never put href in attr — use extends: 'Link' with href as a direct prop (Rule 41)"),
+    (r"\b(?:COLOR|THEME|TYPOGRAPHY|SPACING|TIMING|FONT_FAMILY|ICONS|SHADOW|MEDIA|GRID|ANIMATION|RESET|GRADIENT)\s*[=:{]", "FORBIDDEN: UPPERCASE design system keys are banned — use lowercase (color, theme, typography, spacing, etc.) (Rule 0)"),
 ]
 
 
@@ -794,8 +799,9 @@ def get_sdk_reference() -> str:
     Covers all SDK services: AuthService, ProjectService, BranchService,
     PullRequestService, CollabService, FileService, DnsService,
     IntegrationService, FeatureFlagService, MetricsService,
-    ScreenshotService, and TrackingService — with method signatures
-    and usage examples.
+    ScreenshotService, TrackingService, AdminService, KvService,
+    OrganizationService, PaymentService, PlanService, SubscriptionService,
+    and WaitlistService — with method signatures and usage examples.
     """
     return _read_skill("SDK.md")
 
@@ -1586,8 +1592,14 @@ def get_shared_libraries() -> str:
 
 @mcp.resource("symbols://skills/common-mistakes")
 def get_common_mistakes() -> str:
-    """Common mistakes reference — 12 wrong vs correct DOMQL v3 patterns with zero tolerance."""
+    """Common mistakes reference — 16 wrong vs correct DOMQL v3 patterns with zero tolerance."""
     return _read_skill("COMMON_MISTAKES.md")
+
+
+@mcp.resource("symbols://skills/design-personas")
+def get_design_personas() -> str:
+    """7 design persona prompt templates — Brand Identity, Design Critique, Design Trend, Design System Architect, Figma Matching, Marketing Assets, Presentation."""
+    return _read_skill("DESIGN_PERSONAS.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")
@@ -1756,7 +1768,7 @@ Required structure (symbols/ folder):
 - components/ (PascalCase files, named exports)
 - pages/ (dash-case files, camelCase exports, route mapping in index.js)
 - functions/ (camelCase, called via el.call())
-- designSystem/ (COLOR, THEME, TYPOGRAPHY, SPACING, FONT, ICONS)
+- designSystem/ (color, theme, typography, spacing, font, icons — ALWAYS lowercase)
 - snippets/ (reusable snippets)
 
 The project uses the default library (default.symbo.ls) which provides:
@@ -1806,7 +1818,7 @@ def symbols_convert_html_prompt() -> str:
 Conversion rules:
 - <div> → Box, Flex, or Grid (based on layout)
 - <span>/<p>/<h1>-<h6> → Text/P/H with tag property
-- <a> → Link (built-in SPA router, use e.preventDefault() + el.router())
+- <a> → Link (extends: 'Link', href as prop — never attr: { href })
 - <button> → Button
 - <input> → Input, Radio, Checkbox
 - <img> → Img

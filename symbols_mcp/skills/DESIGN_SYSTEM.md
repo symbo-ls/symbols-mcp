@@ -371,7 +371,7 @@ spacing: { ratio: 1.618, subSequence: true }
 
 ---
 
-## TIMING
+## timing
 
 | Token | Value | Use |
 |---|---|---|
@@ -385,13 +385,9 @@ Box: { transition: 'B defaultBezier', transitionProperty: 'opacity, transform' }
 
 ---
 
-## ANIMATION
+## animation
 
-Built-in:
-
-| Name | Effect |
-|---|---|
-| `fadeIn` | Opacity 0 -> 1 |
+The scratch default animation config is empty — define your own in `designSystem/animation.js`. The default template includes `fadeInUp`, `fadeOutDown`, and `marquee` (see DEFAULT_STYLES.md).
 
 ### CSS shorthand syntax
 
@@ -455,9 +451,21 @@ animation: {
 
 ## media
 
+The scratch default config includes only 4 media tokens. The responsive breakpoints are added by the framework automatically from the `breakpoints` system.
+
+### Default media tokens (from scratch)
+
+| Token | Query |
+|---|---|
+| `tv` | `min-width: 2780px` |
+| `light` | `prefers-color-scheme: light` |
+| `dark` | `prefers-color-scheme: dark` |
+| `print` | `print` |
+
+### Responsive breakpoints (auto-generated)
+
 | Token | Query | Direction |
 |---|---|---|
-| `tv` | `min-width: 2780px` | up |
 | `screenL` | `max-width: 1920px` | down |
 | `screenM` | `max-width: 1680px` | down |
 | `screenS` | `max-width: 1440px` | down |
@@ -468,11 +476,10 @@ animation: {
 | `mobileM` | `max-width: 560px` | down |
 | `mobileS` | `max-width: 480px` | down |
 | `mobileXS` | `max-width: 375px` | down |
-| `light` | `prefers-color-scheme: light` | -- |
-| `dark` | `prefers-color-scheme: dark` | -- |
-| `print` | `print` | -- |
 
 `<` suffix = min-width (upward): `tabletL<` = `min-width: 1366px`. All breakpoints have both `max-width` and `min-width` (`<`) variants.
+
+Custom media tokens can be added in `designSystem/media.js`.
 
 ```js
 Grid: {

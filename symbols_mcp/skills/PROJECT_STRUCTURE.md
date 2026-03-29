@@ -155,7 +155,7 @@ Frontend functions may call external APIs (including Supabase) via the client SD
 // symbols/functions/fetchItems.js
 export const fetchItems = async function fetchItems(category) {
   const el = this
-  const s = el.state.root || el.getRootState()
+  const s = el.getRootState()
   // Use Supabase client configured in config.js fetch adapter
   const { data } = await el.call('getSupabaseClient').from('items').select('*')
   s.update({ items: data || [] })

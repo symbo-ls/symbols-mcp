@@ -70,14 +70,5 @@ Provide one or more of: design description, wireframe, screenshot, or component 
 - Provide 3 usage variations showing different state/prop configurations
 - List do's and don'ts specific to the component
 
----
 
-## Rules
-
-- All components are plain objects with `export const ComponentName = { ... }`
-- Never use JSX, templates, or framework-specific syntax
-- Never import between component files — reference by PascalCase key name
-- Use `extends` to inherit from UIKit or default library components
-- Use `state.update()` for state changes, never direct mutation (except `state.toggle()`)
-- Use Symbols spacing/sizing tokens, not raw pixel values
-- Place CSS properties directly on the component object (CSS-in-props)
+All DOMQL v3 rules from RULES.md apply. Follow them strictly.
