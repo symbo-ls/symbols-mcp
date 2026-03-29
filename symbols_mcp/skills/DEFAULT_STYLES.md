@@ -8,12 +8,9 @@ These are the **recommended default design system values** for all newly created
 
 ```js
 export default {
-  '@default': {
-    base: 16,
-    ratio: 1.25,
-    range: [-5, 12],
-    subSequence: true,
-  },
+  base: 16,
+  ratio: 1.25,
+  subSequence: true,
 }
 ```
 
@@ -25,16 +22,13 @@ export default {
 
 ```js
 export default {
-  '@default': {
-    base: 16,
-    ratio: 1.25,
-    range: [-5, 12],
-    subSequence: true,
-  },
+  base: 16,
+  ratio: 1.618,
+  subSequence: true,
 }
 ```
 
-Uses the same scale as typography. Tokens: `A` = 20px, `B` = 25px, `Z` = 16px, etc.
+Golden ratio (1.618) for spacing. Tokens: `A` = 16px, `B` = 26px, `C` = 42px, etc.
 
 ---
 

@@ -402,7 +402,8 @@ npm i -g @symbo.ls/cli
 
 | Goal | Command |
 |------|---------|
-| Local-only (fastest) | `smbls create <project-name> && cd <project-name> && npm start` |
+| Default (with `system/default` library) | `smbls create <project-name> && cd <project-name> && npm start` |
+| Blank (no shared libraries) | `smbls create <project-name> --blank-shared-libraries && cd <project-name> && npm start` |
 | Platform-linked (collaboration + remote preview) | `smbls project create <project-name> --create-new && cd <project-name> && npm start` |
 
 ### Authentication

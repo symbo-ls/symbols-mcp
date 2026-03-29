@@ -1230,6 +1230,24 @@ color: { blue50: '#eff6ff', blue100: '#dbeafe', blue200: '#bfdbfe', blue300: '#9
 
 ---
 
+## Rule 46 — Fetched shared libraries are READONLY — override locally instead
+
+When shared libraries are fetched from the platform (`smbls fetch`/`smbls sync`), both `sharedLibraries.js` and the `.symbols_local/libs/` folders are strictly **readonly** — they are overwritten on every fetch/sync. Never edit fetched library files. To override shared library components, define them in your local project files — the app always wins at runtime.
+
+`sharedLibraries.js` can be manually edited when custom-linking to local folders (advanced use case). But fetched libraries must never be modified.
+
+```js
+// ❌ WRONG — editing fetched .symbols_local/libs/ files
+// These are overwritten on every fetch/sync
+
+// ✅ CORRECT — override in local components/
+// If shared library has Button with theme: 'primary',
+// define your own Button in components/Button.js to override it
+export const Button = { theme: 'dialog', padding: 'Z A' }
+```
+
+---
+
 ## Rule 44 — Never chain CSS selectors — use nesting instead
 
 Media queries (`@dark`, `@mobileL`) and pseudo-classes (`:hover`, `:active`) must be nested as separate objects, never chained into a single key string.
