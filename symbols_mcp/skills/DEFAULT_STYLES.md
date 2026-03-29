@@ -64,7 +64,7 @@ export default {
 }
 ```
 
-**Note:** Array values like `['--gray 1 -168', '--gray 1 +168']` are `[@dark, @light]` theme pairs. Use semantic names (`title`, `caption`, `paragraph`, `disabled`, `line`) for text colors.
+**Note:** Array values are `[@dark, @light]` theme pairs. Format: `'--colorName opacity tone'` where `--` is the color reference prefix, opacity is 0-1, and tone is `+N`/`-N` (RGB delta) or `=N` (HSL lightness %). Use semantic names (`title`, `caption`, `paragraph`, `disabled`, `line`) for text colors.
 
 ---
 

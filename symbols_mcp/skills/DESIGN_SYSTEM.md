@@ -53,28 +53,63 @@ Card: {
 
 ### Adaptive semantic colors
 
-Array syntax `[darkValue, lightValue]` with relative tone shifts from gray:
+Array syntax `[darkValue, lightValue]` — values prefixed with `--` are resolved as color references using space-separated format: `'--colorName opacity tone'`.
+
+The `--` prefix tells the parser to resolve the value as a color reference (strip `--`, split by space, look up the color, apply opacity and tone). This is NOT a CSS variable — it's the Symbols color reference syntax.
+
+```js
+title: ['--gray 1 -168', '--gray 1 +168'],
+//       ↑name  ↑alpha ↑tone
+// Dark: gray at full opacity, darkened 168 RGB
+// Light: gray at full opacity, lightened 168 RGB
+```
 
 | Token | Dark | Light | Use |
 |---|---|---|---|
-| `title` | near-white (+168) | near-black (-168) | Primary text |
-| `caption` | mid-gray (+68) | mid-gray (-68) | Secondary/meta |
-| `paragraph` | lighter-gray (+42) | darker-gray (-42) | Body copy |
-| `disabled` | dimmer-gray (+26) | dimmer-gray (-26) | Disabled state |
-| `line` | subtle-gray (+16) | subtle-gray (-16) | Borders/dividers |
+| `title` | `'--gray 1 -168'` | `'--gray 1 +168'` | Primary text |
+| `caption` | `'--gray 1 -68'` | `'--gray 1 +68'` | Secondary/meta |
+| `paragraph` | `'--gray 1 -42'` | `'--gray 1 +42'` | Body copy |
+| `disabled` | `'--gray 1 -26'` | `'--gray 1 +26'` | Disabled state |
+| `line` | `'--gray 1 -16'` | `'--gray 1 +16'` | Borders/dividers |
 
-### Color modifier syntax (dot-notation)
+### Color modifier syntax — the Symbols shading system
 
-Dot = opacity. `+`/`-` = relative tone shift. `=` = absolute lightness.
+**Define each color ONCE as a single base value.** Generate all shades dynamically using modifiers — never define multiple shade variants of the same color (no `blue100`, `blue200`, `blue300` etc.).
 
-```
-'gray.95-68'      // 95% opacity, darkened 68 steps
-'gray+168'        // full opacity, lightened 168 steps
-'white-78'        // white darkened 78 steps
-'primary.5'       // primary at 50% opacity
-'primary+5'       // shifted tone
-'gray=90'         // absolute 90% lightness
-'gray.5+15'       // 50% opacity + 15 lighter
+| Modifier | Syntax | Example | Effect |
+|----------|--------|---------|--------|
+| Opacity | `.XX` | `'blue.7'` | 70% opacity (0.7) |
+| Lighten | `+N` | `'gray+50'` | Add N to each RGB channel (0-255) |
+| Darken | `-N` | `'gray-68'` | Subtract N from each RGB channel |
+| Absolute | `=N` | `'gray=90'` | Set HSL lightness to N% |
+| Combined | `.XX+N` | `'gray.85+8'` | 85% opacity + lighten by 8 RGB |
+
+```js
+// ✅ CORRECT — one base color, shades via modifiers
+color: {
+  blue: '#0474f2',
+  gray: '#4e4e50',
+}
+
+// Use in components:
+background: 'blue'       // base
+background: 'blue.8'     // 80% opacity
+background: 'blue+20'    // lightened
+background: 'blue-30'    // darkened
+color: 'gray.5+15'       // 50% opacity + 15 lighter
+borderColor: 'gray+100'  // light gray border
+
+// ❌ WRONG — Tailwind-style shade palette (DO NOT DO THIS)
+color: {
+  blue50: '#eff6ff',
+  blue100: '#dbeafe',
+  blue200: '#bfdbfe',
+  blue300: '#93c5fd',
+  blue400: '#60a5fa',
+  blue500: '#3b82f6',
+  blue600: '#2563eb',
+  // ... redundant — just use 'blue+N' / 'blue-N' modifiers
+}
 ```
 
 Opacity rules:

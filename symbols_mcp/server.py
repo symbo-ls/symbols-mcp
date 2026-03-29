@@ -127,6 +127,7 @@ _RULE_CHECKS = [
     (r"window\.location\.replace\b", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
     (r"attr\s*:\s*\{\s*href\s*:", "FORBIDDEN: Never put href in attr — use extends: 'Link' with href as a direct prop (Rule 41)"),
     (r"\b(?:COLOR|THEME|TYPOGRAPHY|SPACING|TIMING|FONT_FAMILY|ICONS|SHADOW|MEDIA|GRID|ANIMATION|RESET|GRADIENT)\s*[=:{]", "FORBIDDEN: UPPERCASE design system keys are banned — use lowercase (color, theme, typography, spacing, etc.) (Rule 0)"),
+    (r"'@\w+\s+[:.]", "FORBIDDEN: Never chain CSS selectors — use nesting: '@dark': { ':hover': {} } not '@dark :hover' (Rule 44)"),
 ]
 
 
@@ -1592,7 +1593,7 @@ def get_shared_libraries() -> str:
 
 @mcp.resource("symbols://skills/common-mistakes")
 def get_common_mistakes() -> str:
-    """Common mistakes reference — 16 wrong vs correct DOMQL v3 patterns with zero tolerance."""
+    """Common mistakes reference — 17 wrong vs correct DOMQL v3 patterns with zero tolerance."""
     return _read_skill("COMMON_MISTAKES.md")
 
 

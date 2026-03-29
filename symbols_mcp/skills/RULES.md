@@ -1213,3 +1213,42 @@ When creating new apps, always base the design system on the default template at
 
 Never use font sizes smaller than what the default template defines. The default template enforces recommended, readable sizing for all new projects.
 
+---
+
+## Rule 45 — Define each color ONCE — use modifier syntax for shades, not Tailwind-style palettes
+
+Never define multiple shade variants of the same color (`blue100`, `blue200`, `blue300`). Define one base value and use the Symbols shading system: `.XX` (opacity), `+N` (lighten), `-N` (darken), `=N` (absolute lightness).
+
+```js
+// ✅ CORRECT — single base, shades via modifiers in components
+color: { blue: '#0474f2' }
+// → 'blue', 'blue.7', 'blue+20', 'blue-30', 'blue.5+15'
+
+// ❌ WRONG — Tailwind-style shade palette
+color: { blue50: '#eff6ff', blue100: '#dbeafe', blue200: '#bfdbfe', blue300: '#93c5fd' }
+```
+
+---
+
+## Rule 44 — Never chain CSS selectors — use nesting instead
+
+Media queries (`@dark`, `@mobileL`) and pseudo-classes (`:hover`, `:active`) must be nested as separate objects, never chained into a single key string.
+
+```js
+// ❌ WRONG — chained selector string
+Button: {
+  '@dark :hover': { background: 'blue' },
+  '@mobileL :active': { opacity: '0.5' },
+}
+
+// ✅ CORRECT — nested objects
+Button: {
+  '@dark': {
+    ':hover': { background: 'blue' },
+  },
+  '@mobileL': {
+    ':active': { opacity: '0.5' },
+  },
+}
+```
+

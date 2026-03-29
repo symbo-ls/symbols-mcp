@@ -298,3 +298,33 @@ Dropdown: {
 ```
 
 Use `show` only for elements that should be fully removed from layout with no animation. For modals, dropdowns, tooltips, drawers — always use the opacity pattern.
+
+---
+
+## 17. CSS selectors — nest media and pseudo, never chain into one string
+
+```js
+// ❌ WRONG — chained selector string
+'@dark :hover': { background: 'blue' }
+'@mobileL :focus': { outline: 'none' }
+
+// ✅ CORRECT — nested objects
+'@dark': { ':hover': { background: 'blue' } }
+'@mobileL': { ':focus': { outline: 'none' } }
+```
+
+---
+
+## 18. Colors — define once, shade with modifiers, not Tailwind-style palettes
+
+```js
+// ❌ WRONG — multiple shade definitions
+color: {
+  blue50: '#eff6ff', blue100: '#dbeafe', blue200: '#bfdbfe',
+  blue300: '#93c5fd', blue400: '#60a5fa', blue500: '#3b82f6',
+}
+
+// ✅ CORRECT — single base, use modifiers in components
+color: { blue: '#0474f2' }
+// Then: 'blue.7' (opacity), 'blue+20' (lighten), 'blue-30' (darken)
+```
