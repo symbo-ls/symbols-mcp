@@ -29,7 +29,7 @@ export const Header = {
     onClick: (e, el) => {
       e.preventDefault()
       el.router('/', el.getRoot())
-    },
+    }
   },
 
   Nav: {
@@ -47,18 +47,18 @@ export const Header = {
       onClick: (e, el, s) => {
         e.preventDefault()
         el.router('/' + s.value.toLowerCase(), el.getRoot())
-      },
+      }
     },
 
-    '@tabletS': { display: 'none' },
+    '@tabletS': { display: 'none' }
   },
 
   MenuButton: {
     extends: 'IconButton',
     icon: 'menu',
     display: 'none',
-    '@tabletS': { display: 'flex' },
-  },
+    '@tabletS': { display: 'flex' }
+  }
 }
 ```
 
@@ -80,11 +80,11 @@ export const Hero = {
     tag: 'span',
     text: 'NEW',
     padding: 'X A',
-    round: 'Z',
+    round: 'Z2',
     theme: 'primary',
     fontSize: 'Y',
     fontWeight: '600',
-    letterSpacing: '1px',
+    letterSpacing: '1px'
   },
 
   H: {
@@ -95,7 +95,7 @@ export const Hero = {
     fontWeight: '800',
     lineHeight: '1.1',
     '@tabletS': { fontSize: 'D' },
-    '@mobileL': { fontSize: 'C2' },
+    '@mobileL': { fontSize: 'C2' }
   },
 
   P: {
@@ -103,7 +103,7 @@ export const Hero = {
     maxWidth: 'G',
     fontSize: 'A2',
     opacity: '.7',
-    lineHeight: '1.6',
+    lineHeight: '1.6'
   },
 
   Actions: {
@@ -112,14 +112,14 @@ export const Hero = {
     Button_Primary: {
       text: 'Get Started',
       theme: 'primary',
-      padding: 'Z2 B',
+      padding: 'Z2 B'
     },
     Button_Secondary: {
       text: 'Learn More',
       theme: 'secondary',
-      padding: 'Z2 B',
-    },
-  },
+      padding: 'Z2 B'
+    }
+  }
 }
 ```
 
@@ -140,21 +140,21 @@ export const FeatureCard = {
   Icon: {
     name: 'star',
     boxSize: 'B',
-    color: 'primary',
+    color: 'primary'
   },
 
   H: {
     tag: 'h3',
     text: 'Feature Title',
     fontSize: 'A2',
-    fontWeight: '600',
+    fontWeight: '600'
   },
 
   P: {
     text: 'Description of the feature goes here.',
     opacity: '.7',
-    lineHeight: '1.5',
-  },
+    lineHeight: '1.5'
+  }
 }
 ```
 
@@ -176,16 +176,20 @@ export const FeatureGrid = {
 
   children: [
     { icon: 'zap', title: 'Fast', description: 'Lightning fast rendering' },
-    { icon: 'shield', title: 'Secure', description: 'Built-in security features' },
-    { icon: 'code', title: 'Clean', description: 'No-import architecture' },
+    {
+      icon: 'shield',
+      title: 'Secure',
+      description: 'Built-in security features'
+    },
+    { icon: 'code', title: 'Clean', description: 'No-import architecture' }
   ],
   childrenAs: 'state',
   childExtends: 'FeatureCard',
   childProps: {
     Icon: { name: '{{ icon }}' },
     H: { text: '{{ title }}' },
-    P: { text: '{{ description }}' },
-  },
+    P: { text: '{{ description }}' }
+  }
 }
 ```
 
@@ -210,7 +214,7 @@ export const PriceCard = {
     H: {
       tag: 'h3',
       text: 'Pro Plan',
-      fontSize: 'A2',
+      fontSize: 'A2'
     },
     Price: {
       align: 'end',
@@ -219,14 +223,14 @@ export const PriceCard = {
         tag: 'span',
         text: '$29',
         fontSize: 'D',
-        fontWeight: '800',
+        fontWeight: '800'
       },
       P: {
         text: '/month',
         opacity: '.5',
-        marginBottom: 'X2',
-      },
-    },
+        marginBottom: 'X2'
+      }
+    }
   },
 
   Features: {
@@ -236,7 +240,7 @@ export const PriceCard = {
       'Unlimited projects',
       'Priority support',
       'Custom themes',
-      'Team collaboration',
+      'Team collaboration'
     ],
     childrenAs: 'state',
     childExtends: 'Flex',
@@ -244,16 +248,16 @@ export const PriceCard = {
       align: 'center',
       gap: 'Z',
       Icon: { name: 'check', color: 'green', boxSize: 'Z2' },
-      Text: { text: '{{ value }}' },
-    },
+      Text: { text: '{{ value }}' }
+    }
   },
 
   Button: {
     text: 'Get Started',
     theme: 'primary',
     width: '100%',
-    padding: 'Z2',
-  },
+    padding: 'Z2'
+  }
 }
 ```
 
@@ -277,7 +281,7 @@ export const TestimonialCard = {
     fontSize: 'A1',
     lineHeight: '1.6',
     fontStyle: 'italic',
-    opacity: '.85',
+    opacity: '.85'
   },
 
   Author: {
@@ -286,15 +290,15 @@ export const TestimonialCard = {
     Avatar: {
       extends: 'Img',
       round: '100%',
-      boxSize: 'B2 B2',
+      boxSize: 'B2 B2'
     },
     Info: {
       flow: 'y',
       gap: '0',
       Name: { text: 'Jane Doe', fontWeight: '600', fontSize: 'Z2' },
-      Role: { text: 'CTO at Acme', opacity: '.6', fontSize: 'Y' },
-    },
-  },
+      Role: { text: 'CTO at Acme', opacity: '.6', fontSize: 'Y' }
+    }
+  }
 }
 ```
 
@@ -308,7 +312,7 @@ Search input with filtered results dropdown.
 export const SearchDropdown = {
   state: {
     query: '',
-    items: ['Dashboard', 'Settings', 'Profile', 'Analytics', 'Reports'],
+    items: ['Dashboard', 'Settings', 'Profile', 'Analytics', 'Reports']
   },
   position: 'relative',
 
@@ -316,7 +320,7 @@ export const SearchDropdown = {
     placeholder: 'Search...',
     padding: 'Z2 A',
     width: '100%',
-    onInput: (e, el, s) => s.update({ query: el.node.value }),
+    onInput: (e, el, s) => s.update({ query: el.node.value })
   },
 
   Results: {
@@ -332,7 +336,7 @@ export const SearchDropdown = {
     zIndex: '10',
 
     children: (el, s) =>
-      s.items.filter(i => i.toLowerCase().includes(s.query.toLowerCase())),
+      s.items.filter((i) => i.toLowerCase().includes(s.query.toLowerCase())),
     childrenAs: 'state',
     childExtends: 'Box',
     childProps: {
@@ -342,9 +346,9 @@ export const SearchDropdown = {
       ':hover': { background: 'hover' },
       onClick: (e, el, s) => {
         s.root.update({ query: s.value })
-      },
-    },
-  },
+      }
+    }
+  }
 }
 ```
 
@@ -375,7 +379,7 @@ export const Footer = {
       H: { tag: 'h4', text: 'Product', fontSize: 'Z2', fontWeight: '600' },
       Link_1: { text: 'Features', href: '/features' },
       Link_2: { text: 'Pricing', href: '/pricing' },
-      Link_3: { text: 'Docs', href: '/docs' },
+      Link_3: { text: 'Docs', href: '/docs' }
     },
 
     Column_Company: {
@@ -384,8 +388,8 @@ export const Footer = {
       H: { tag: 'h4', text: 'Company', fontSize: 'Z2', fontWeight: '600' },
       Link_1: { text: 'About', href: '/about' },
       Link_2: { text: 'Blog', href: '/blog' },
-      Link_3: { text: 'Careers', href: '/careers' },
-    },
+      Link_3: { text: 'Careers', href: '/careers' }
+    }
   },
 
   Bottom: {
@@ -393,8 +397,12 @@ export const Footer = {
     borderTop: '1px solid',
     borderTopColor: 'gray3',
     paddingTop: 'A',
-    P: { text: '© 2025 Brand. All rights reserved.', opacity: '.5', fontSize: 'Y' },
-  },
+    P: {
+      text: '© 2025 Brand. All rights reserved.',
+      opacity: '.5',
+      fontSize: 'Y'
+    }
+  }
 }
 ```
 
@@ -410,8 +418,8 @@ export const DataTable = {
     rows: [
       { name: 'Alice', role: 'Engineer', status: 'Active' },
       { name: 'Bob', role: 'Designer', status: 'Away' },
-      { name: 'Carol', role: 'Manager', status: 'Active' },
-    ],
+      { name: 'Carol', role: 'Manager', status: 'Active' }
+    ]
   },
 
   tag: 'table',
@@ -424,8 +432,13 @@ export const DataTable = {
       tag: 'tr',
       Th_Name: { tag: 'th', text: 'Name', padding: 'Z A', textAlign: 'left' },
       Th_Role: { tag: 'th', text: 'Role', padding: 'Z A', textAlign: 'left' },
-      Th_Status: { tag: 'th', text: 'Status', padding: 'Z A', textAlign: 'left' },
-    },
+      Th_Status: {
+        tag: 'th',
+        text: 'Status',
+        padding: 'Z A',
+        textAlign: 'left'
+      }
+    }
   },
 
   Tbody: {
@@ -435,14 +448,14 @@ export const DataTable = {
     childExtends: {
       tag: 'tr',
       borderBottom: '1px solid',
-      borderBottomColor: 'gray2',
+      borderBottomColor: 'gray2'
     },
     childProps: {
       Td_Name: { tag: 'td', text: '{{ name }}', padding: 'Z A' },
       Td_Role: { tag: 'td', text: '{{ role }}', padding: 'Z A' },
-      Td_Status: { tag: 'td', text: '{{ status }}', padding: 'Z A' },
-    },
-  },
+      Td_Status: { tag: 'td', text: '{{ status }}', padding: 'Z A' }
+    }
+  }
 }
 ```
 
@@ -469,7 +482,7 @@ export const AppLayout = {
     children: [
       { label: 'Dashboard', icon: 'home', path: '/' },
       { label: 'Projects', icon: 'folder', path: '/projects' },
-      { label: 'Settings', icon: 'settings', path: '/settings' },
+      { label: 'Settings', icon: 'settings', path: '/settings' }
     ],
     childrenAs: 'state',
     childExtends: 'Flex',
@@ -477,21 +490,21 @@ export const AppLayout = {
       align: 'center',
       gap: 'Z',
       padding: 'Z A',
-      round: 'Z',
+      round: 'Z2',
       cursor: 'pointer',
       ':hover': { background: 'hover' },
       Icon: { name: '{{ icon }}', boxSize: 'Z2' },
       Text: { text: '{{ label }}' },
-      onClick: (e, el, s) => el.router(s.path, el.getRoot()),
-    },
+      onClick: (e, el, s) => el.router(s.path, el.getRoot())
+    }
   },
 
   Main: {
     flow: 'y',
     flex: '1',
     padding: 'B',
-    overflow: 'auto',
-  },
+    overflow: 'auto'
+  }
 }
 ```
 
@@ -506,7 +519,7 @@ export const Toast = {
   align: 'center',
   gap: 'A',
   padding: 'A B',
-  round: 'Z',
+  round: 'Z2',
   position: 'fixed',
   bottom: 'B',
   right: 'B',
@@ -516,12 +529,12 @@ export const Toast = {
 
   Icon: {
     name: 'check',
-    boxSize: 'A',
+    boxSize: 'A'
   },
 
   Text: {
     text: 'Operation successful',
-    fontSize: 'Z2',
+    fontSize: 'Z2'
   },
 
   CloseButton: {
@@ -530,9 +543,9 @@ export const Toast = {
     boxSize: 'A',
     onClick: (e, el) => {
       el.parent.node.style.opacity = '0'
-      setTimeout(() => el.parent.setProps({ if: false }), 300)
-    },
-  },
+      setTimeout(() => el.parent.update({ if: false }), 300)
+    }
+  }
 }
 ```
 
@@ -553,7 +566,7 @@ export const ContactForm = {
     name: '',
     email: '',
     message: '',
-    submitted: false,
+    submitted: false
   },
 
   Field_Name: {
@@ -561,8 +574,8 @@ export const ContactForm = {
     label: 'Name',
     Input: {
       placeholder: 'Your name',
-      onInput: (e, el, s) => s.update({ name: el.node.value }),
-    },
+      onInput: (e, el, s) => s.update({ name: el.node.value })
+    }
   },
 
   Field_Email: {
@@ -571,8 +584,8 @@ export const ContactForm = {
     Input: {
       type: 'email',
       placeholder: 'you@example.com',
-      onInput: (e, el, s) => s.update({ email: el.node.value }),
-    },
+      onInput: (e, el, s) => s.update({ email: el.node.value })
+    }
   },
 
   Field_Message: {
@@ -581,18 +594,18 @@ export const ContactForm = {
     Textarea: {
       placeholder: 'Your message...',
       rows: 4,
-      onInput: (e, el, s) => s.update({ message: el.node.value }),
-    },
+      onInput: (e, el, s) => s.update({ message: el.node.value })
+    }
   },
 
   Button: {
-    text: (el, s) => s.submitted ? 'Sent!' : 'Send Message',
+    text: (el, s) => (s.submitted ? 'Sent!' : 'Send Message'),
     theme: 'primary',
     width: '100%',
     onClick: async (e, el, s) => {
       e.preventDefault()
       s.update({ submitted: true })
-    },
-  },
+    }
+  }
 }
 ```

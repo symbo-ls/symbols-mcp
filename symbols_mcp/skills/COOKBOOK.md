@@ -13,12 +13,12 @@ export const StateToggle = {
   flexFlow: 'y',
   gap: 'A',
   state: {
-    isOn: false,
+    isOn: false
   },
   Button: {
     tag: 'button',
-    text: (element, state) => state.isOn ? 'Turn Off' : 'Turn On',
-    onClick: (event, element, state) => state.toggle('isOn'),
+    text: (element, state) => (state.isOn ? 'Turn Off' : 'Turn On'),
+    onClick: (event, element, state) => state.toggle('isOn')
   },
   LabelTag: {
     align: 'center',
@@ -28,16 +28,16 @@ export const StateToggle = {
       isActive: (element, state) => state.isOn,
       round: 'C1',
       '.isActive': {
-        background: 'green',
+        background: 'green'
       },
       '!isActive': {
-        background: 'gray',
-      },
+        background: 'gray'
+      }
     },
     P: {
-      text: (element, state) => state.isOn ? 'ON' : 'OFF',
-    },
-  },
+      text: (element, state) => (state.isOn ? 'ON' : 'OFF')
+    }
+  }
 }
 ```
 
@@ -50,21 +50,22 @@ Increment and decrement a number.
 ```js
 export const Counter = {
   state: {
-    count: 0,
+    count: 0
   },
   Flex: {
     align: 'center',
     gap: 'A',
     Button: {
       text: '+',
-      onClick: (event, element, state) => state.update({
-        count: state.count + 1
-      }),
+      onClick: (event, element, state) =>
+        state.update({
+          count: state.count + 1
+        })
     },
     P: {
-      text: (element, state) => 'Count: ' + state.count,
-    },
-  },
+      text: (element, state) => 'Count: ' + state.count
+    }
+  }
 }
 ```
 
@@ -77,21 +78,22 @@ Show or hide content based on state.
 ```js
 export const ConditionalRender = {
   state: {
-    show: false,
+    show: false
   },
   Button: {
     tag: 'button',
     text: 'Toggle Secret',
-    onClick: (event, element, state) => state.update({
-      show: !state.show
-    }),
+    onClick: (event, element, state) =>
+      state.update({
+        show: !state.show
+      })
   },
   Secret: {
     if: (element, state) => state.show,
     P: {
-      text: 'The secret content is now visible!',
-    },
-  },
+      text: 'The secret content is now visible!'
+    }
+  }
 }
 ```
 
@@ -104,30 +106,32 @@ Fetch data from an API and update state.
 ```js
 export const AsyncFetch = {
   state: {
-    buttonText: 'Load Data',
+    buttonText: 'Load Data'
   },
   P: {
     width: 'G',
-    text: '{{ setup }}',
+    text: '{{ setup }}'
   },
   P_2: {
     fontWeight: 'bold',
     width: 'G',
     margin: '0 0 C',
-    text: '{{ punchline }}',
+    text: '{{ punchline }}'
   },
   Button: {
     text: '{{ buttonText }}',
     onClick: async (event, element, state) => {
       state.update({ buttonText: 'loading...' })
-      const res = await fetch('https://official-joke-api.appspot.com/jokes/programming/random')
+      const res = await fetch(
+        'https://official-joke-api.appspot.com/jokes/programming/random'
+      )
       const data = await res.json()
       state.update({
         ...data[0],
         buttonText: 'Load Data'
       })
-    },
-  },
+    }
+  }
 }
 ```
 
@@ -140,18 +144,19 @@ Capture input and reflect in UI.
 ```js
 export const FormInput = {
   state: {
-    name: '',
+    name: ''
   },
   Input: {
     placeholder: 'Enter your name',
-    onInput: (event, element, state) => state.update({
-      name: element.node.value
-    }),
+    onInput: (event, element, state) =>
+      state.update({
+        name: element.node.value
+      })
   },
   P: {
-    text: (element, state) => state.name ?
-      'Hello, ' + state.name + '!' : 'Waiting for input...',
-  },
+    text: (element, state) =>
+      state.name ? 'Hello, ' + state.name + '!' : 'Waiting for input...'
+  }
 }
 ```
 
@@ -165,7 +170,7 @@ Validation with visual feedback.
 export const FormValidation = {
   state: {
     email: '',
-    isValid: true,
+    isValid: true
   },
   Input: {
     type: 'email',
@@ -174,13 +179,13 @@ export const FormValidation = {
       const val = el.node.value
       const isValid = /^[^@]+@[^@]+\.[^@]+$/.test(val)
       s.update({ email: val, isValid })
-    },
+    }
   },
   P: {
-    text: (el, s) => s.isValid ? 'Valid email' : 'Invalid email',
+    text: (el, s) => (s.isValid ? 'Valid email' : 'Invalid email'),
     '.isValid': { color: 'green' },
-    '!isValid': { color: 'red' },
-  },
+    '!isValid': { color: 'red' }
+  }
 }
 ```
 
@@ -193,24 +198,24 @@ Sync multiple inputs with shared state.
 ```js
 export const TwoWayBinding = {
   state: {
-    text: '',
+    text: ''
   },
   Flex: {
     gap: 'A',
     Input_1: {
       placeholder: 'Type here...',
       value: '{{ text }}',
-      onInput: (e, el, s) => s.update({ text: el.node.value }),
+      onInput: (e, el, s) => s.update({ text: el.node.value })
     },
     Input_2: {
       placeholder: 'Mirrors input 1',
       value: '{{ text }}',
-      onInput: (e, el, s) => s.update({ text: el.node.value }),
-    },
+      onInput: (e, el, s) => s.update({ text: el.node.value })
+    }
   },
   P: {
-    text: (el, s) => 'Shared: ' + s.text,
-  },
+    text: (el, s) => 'Shared: ' + s.text
+  }
 }
 ```
 
@@ -223,7 +228,7 @@ Auto-update every second using setInterval.
 ```js
 export const Clock = {
   state: {
-    time: '',
+    time: ''
   },
   onRender: (el, s) => {
     const int = setInterval(() => {
@@ -232,8 +237,8 @@ export const Clock = {
     return () => clearInterval(int)
   },
   P: {
-    text: (el, s) => 'Time: ' + s.time,
-  },
+    text: (el, s) => 'Time: ' + s.time
+  }
 }
 ```
 
@@ -246,7 +251,7 @@ Switch content via active state using children array.
 ```js
 export const Tabs = {
   state: {
-    active: 'Home',
+    active: 'Home'
   },
   Flex: {
     gap: 'A2',
@@ -255,14 +260,15 @@ export const Tabs = {
     childExtends: 'Button',
     childProps: {
       text: '{{ value }}',
-      onClick: (event, element, state) => state.parent.update({
-        active: state.value
-      }),
-    },
+      onClick: (event, element, state) =>
+        state.parent.update({
+          active: state.value
+        })
+    }
   },
   P: {
-    text: 'Tab: {{ active }}',
-  },
+    text: 'Tab: {{ active }}'
+  }
 }
 ```
 
@@ -275,13 +281,13 @@ Expand and collapse sections.
 ```js
 export const Accordion = {
   state: {
-    open: null,
+    open: null
   },
   Ul: {
     children: [
       { title: 'Intro', text: 'Welcome!' },
       { title: 'Details', text: 'Here is more.' },
-      { title: 'Summary', text: 'Done reading.' },
+      { title: 'Summary', text: 'Done reading.' }
     ],
     childrenAs: 'state',
     childExtends: 'Li',
@@ -289,17 +295,18 @@ export const Accordion = {
       H6: {
         text: '{{ title }}',
         margin: '0',
-        onClick: (event, element, state) => state.parent.update({
-          open: state.parent.open === state.title ? null : state.title
-        }),
+        onClick: (event, element, state) =>
+          state.parent.update({
+            open: state.parent.open === state.title ? null : state.title
+          })
       },
       P: {
         if: (element, state) => state.parent.open === state.title,
         margin: 'X 0 C1',
-        text: '{{ text }}',
-      },
-    },
-  },
+        text: '{{ text }}'
+      }
+    }
+  }
 }
 ```
 
@@ -312,7 +319,7 @@ Add and toggle tasks with keyboard input.
 ```js
 export const TodoApp = {
   state: {
-    tasks: [],
+    tasks: []
   },
   Input: {
     placeholder: 'New task...',
@@ -326,7 +333,7 @@ export const TodoApp = {
           el.node.value = ''
         }
       }
-    },
+    }
   },
   Ul: {
     children: (el, s) => s.tasks,
@@ -336,14 +343,14 @@ export const TodoApp = {
       text: '{{ text }}',
       onClick: (e, el, s) =>
         s.parent.update({
-          tasks: s.parent.tasks.map(t =>
+          tasks: s.parent.tasks.map((t) =>
             t.text === s.text ? { ...t, isDone: !t.isDone } : t
-          ),
+          )
         }),
       '.isDone': { textDecoration: 'line-through' },
-      '!isDone': { textDecoration: 'none' },
-    },
-  },
+      '!isDone': { textDecoration: 'none' }
+    }
+  }
 }
 ```
 
@@ -356,29 +363,31 @@ Add and remove list items dynamically.
 ```js
 export const DynamicList = {
   state: {
-    items: ['Apples', 'Oranges'],
+    items: ['Apples', 'Oranges']
   },
   Flex: {
     gap: 'A',
     Button_Add: {
       text: 'Add Item',
-      onClick: (e, el, s) => s.replace({
-        items: [...s.items, 'Item ' + (s.items.length + 1)]
-      }),
+      onClick: (e, el, s) =>
+        s.replace({
+          items: [...s.items, 'Item ' + (s.items.length + 1)]
+        })
     },
     Button_Remove: {
       text: 'Remove Last',
-      onClick: (e, el, s) => s.replace({
-        items: s.items.slice(0, -1)
-      }),
-    },
+      onClick: (e, el, s) =>
+        s.replace({
+          items: s.items.slice(0, -1)
+        })
+    }
   },
   Ul: {
     children: (el, s) => s.items,
     childrenAs: 'state',
     childExtends: 'Li',
-    childProps: { text: '{{ value }}' },
-  },
+    childProps: { text: '{{ value }}' }
+  }
 }
 ```
 
@@ -392,14 +401,16 @@ Fetch paginated data with prev/next buttons.
 export const ApiPagination = {
   state: {
     page: 1,
-    data: [],
+    data: []
   },
   scope: {
     load: async (el, s) => {
-      const res = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=3&_page=' + s.page)
+      const res = await fetch(
+        'https://jsonplaceholder.typicode.com/posts?_limit=3&_page=' + s.page
+      )
       const json = await res.json()
       s.replace({ data: json })
-    },
+    }
   },
   onRender: (el, s) => {
     el.scope.load(el, s)
@@ -413,22 +424,22 @@ export const ApiPagination = {
           s.update({ page: s.page - 1, data: [{ title: 'loading' }] })
           el.scope.load(el, s)
         }
-      },
+      }
     },
     Button_Next: {
       text: 'Next',
       onClick: (e, el, s) => {
         s.update({ page: s.page + 1, data: [{ title: 'loading' }] })
         el.scope.load(el, s)
-      },
-    },
+      }
+    }
   },
   Ul: {
     children: (el, s) => s.data,
     childrenAs: 'state',
     childExtends: 'Li',
-    childProps: { text: '{{ title }}' },
-  },
+    childProps: { text: '{{ title }}' }
+  }
 }
 ```
 
@@ -441,11 +452,11 @@ Open and close a modal overlay.
 ```js
 export const ModalExample = {
   state: {
-    open: false,
+    open: false
   },
   Button: {
     text: 'Open Modal',
-    onClick: (e, el, s) => s.update({ open: true }),
+    onClick: (e, el, s) => s.update({ open: true })
   },
   Modal: {
     if: (el, s) => s.open,
@@ -458,9 +469,9 @@ export const ModalExample = {
     P: { text: 'This is a modal window.' },
     Button: {
       text: 'Close',
-      onClick: (e, el, s) => s.update({ open: false }),
-    },
-  },
+      onClick: (e, el, s) => s.update({ open: false })
+    }
+  }
 }
 ```
 
@@ -473,7 +484,7 @@ Receive live messages via WebSocket.
 ```js
 export const WebSocketDemo = {
   state: {
-    msgs: [],
+    msgs: []
   },
   scope: {},
   onRender: (el, s) => {
@@ -488,14 +499,14 @@ export const WebSocketDemo = {
     children: (el, s) => s.msgs,
     childrenAs: 'state',
     childExtends: 'Li',
-    childProps: { text: '{{ value }}' },
+    childProps: { text: '{{ value }}' }
   },
   Button: {
     text: 'Send new message',
     onClick: (event, element, state) => {
       element.scope.ws.send('Message at ' + new Date().toLocaleTimeString())
-    },
-  },
+    }
+  }
 }
 ```
 
@@ -508,20 +519,22 @@ Toggle light/dark theme dynamically.
 ```js
 export const ThemeSwitcher = {
   state: {
-    theme: 'light',
+    theme: 'light'
   },
   Button: {
-    text: (element, state) => state.theme === 'light' ? 'Go Dark' : 'Go Light',
-    onClick: (event, element, state) => state.update({
-      theme: state.theme === 'light' ? 'dark' : 'light'
-    }),
+    text: (element, state) =>
+      state.theme === 'light' ? 'Go Dark' : 'Go Light',
+    onClick: (event, element, state) =>
+      state.update({
+        theme: state.theme === 'light' ? 'dark' : 'light'
+      })
   },
   Box: {
     theme: (el, s) => 'document @' + s.theme,
     P: {
-      text: (el, s) => 'Theme: ' + s.theme,
-    },
-  },
+      text: (el, s) => 'Theme: ' + s.theme
+    }
+  }
 }
 ```
 
@@ -534,12 +547,12 @@ Animate opacity on toggle with CSS transitions.
 ```js
 export const FadeAnimation = {
   state: {
-    isVisible: true,
+    isVisible: true
   },
   IconButton: {
     margin: '- B2 C1',
-    icon: (el, s) => s.isVisible ? 'eye' : 'eyeOff',
-    onClick: (e, el, s) => s.toggle('isVisible'),
+    icon: (el, s) => (s.isVisible ? 'eye' : 'eyeOff'),
+    onClick: (e, el, s) => s.toggle('isVisible')
   },
   Flex: {
     '.isVisible': { opacity: '1' },
@@ -548,8 +561,8 @@ export const FadeAnimation = {
     theme: 'dialog',
     boxSize: 'E',
     marginTop: 'A',
-    Box: { margin: 'auto', text: 'Content' },
-  },
+    Box: { margin: 'auto', text: 'Content' }
+  }
 }
 ```
 
@@ -563,7 +576,7 @@ Start, stop, and reset timer.
 export const Stopwatch = {
   state: {
     running: false,
-    time: 0,
+    time: 0
   },
   onRender: (el, s) => {
     setInterval(() => {
@@ -573,17 +586,17 @@ export const Stopwatch = {
   Flex: {
     gap: 'A',
     Button_Start: {
-      text: (el, s) => s.running ? 'Pause' : 'Start',
-      onClick: (e, el, s) => s.update({ running: !s.running }),
+      text: (el, s) => (s.running ? 'Pause' : 'Start'),
+      onClick: (e, el, s) => s.update({ running: !s.running })
     },
     Button_Reset: {
       text: 'Reset',
-      onClick: (e, el, s) => s.update({ time: 0 }),
-    },
+      onClick: (e, el, s) => s.update({ time: 0 })
+    }
   },
   P: {
-    text: (el, s) => 'Elapsed: ' + s.time + 's',
-  },
+    text: (el, s) => 'Elapsed: ' + s.time + 's'
+  }
 }
 ```
 
@@ -596,21 +609,21 @@ Fill dynamically with state.
 ```js
 export const ProgressBar = {
   state: {
-    progress: 0,
+    progress: 0
   },
   Button: {
     text: 'Increase',
     onClick: (event, element, state) =>
-      state.update({ progress: Math.min(state.progress + 10, 100) }),
+      state.update({ progress: Math.min(state.progress + 10, 100) })
   },
   Bar: {
     width: (el, s) => s.progress + '%',
     height: '20px',
-    background: 'green',
+    background: 'green'
   },
   P: {
-    text: (element, state) => 'Progress: ' + state.progress + '%',
-  },
+    text: (element, state) => 'Progress: ' + state.progress + '%'
+  }
 }
 ```
 
@@ -623,7 +636,7 @@ Drag an element using mouse events.
 ```js
 export const DragBox = {
   state: {
-    dragging: false,
+    dragging: false
   },
   Box: {
     boxSize: '90px',
@@ -632,12 +645,13 @@ export const DragBox = {
     onMousedown: (e, el, s) => (s.dragging = true),
     onMouseup: (e, el, s) => (s.dragging = false),
     onMousemove: (e, el, s) => {
-      if (s.dragging) el.setProps({
-        left: (e.clientX - 45) + 'px',
-        top: (e.clientY - 45) + 'px'
-      })
-    },
-  },
+      if (s.dragging)
+        el.update({
+          left: e.clientX - 45 + 'px',
+          top: e.clientY - 45 + 'px'
+        })
+    }
+  }
 }
 ```
 
@@ -650,18 +664,18 @@ Load image on intersection using IntersectionObserver.
 ```js
 export const LazyImage = {
   state: {
-    loaded: false,
+    loaded: false
   },
   onRender: (el, s) => {
-    const observer = new IntersectionObserver(entries => {
+    const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) s.update({ loaded: true })
     })
     observer.observe(el.Img.node)
   },
   Img: {
-    src: (el, s) => s.loaded ? 'https://picsum.photos/300/200' : '',
-    alt: 'Lazy loaded image',
-  },
+    src: (el, s) => (s.loaded ? 'https://picsum.photos/300/200' : ''),
+    alt: 'Lazy loaded image'
+  }
 }
 ```
 
@@ -675,7 +689,7 @@ Animate text one character at a time.
 export const TextTyper = {
   state: {
     text: '',
-    full: 'Welcome to Symbols!',
+    full: 'Welcome to Symbols!'
   },
   scope: {
     type: (el, s) => {
@@ -685,7 +699,7 @@ export const TextTyper = {
           s.update({ text: s.text + s.full[i++] })
         } else clearInterval(int)
       }, 75)
-    },
+    }
   },
   onRender: (el, s) => el.scope.type(el, s),
   P: {
@@ -693,8 +707,8 @@ export const TextTyper = {
     onClick: (ev, el, s) => {
       s.text = ''
       el.scope.type(el, s)
-    },
-  },
+    }
+  }
 }
 ```
 
@@ -712,20 +726,20 @@ export const TempConverter = {
     value: '{{ c }}',
     onInput: (e, el, s) => {
       const c = parseFloat(el.node.value)
-      s.update({ c, f: (c * 9 / 5) + 32 })
-    },
+      s.update({ c, f: (c * 9) / 5 + 32 })
+    }
   },
   Input_F: {
     type: 'number',
     value: '{{ f }}',
     onInput: (e, el, s) => {
       const f = parseFloat(el.node.value)
-      s.update({ f, c: (f - 32) * 5 / 9 })
-    },
+      s.update({ f, c: ((f - 32) * 5) / 9 })
+    }
   },
   P: {
-    text: (el, s) => s.c + '°C = ' + s.f.toFixed(1) + '°F',
-  },
+    text: (el, s) => s.c + '°C = ' + s.f.toFixed(1) + '°F'
+  }
 }
 ```
 
@@ -742,19 +756,18 @@ export const ImageGallery = {
     images: [
       'https://picsum.photos/200/200',
       'https://picsum.photos/201/200',
-      'https://picsum.photos/202/200',
-    ],
+      'https://picsum.photos/202/200'
+    ]
   },
   Img: {
     src: (el, s) => s.images[s.index],
-    alt: 'Gallery image',
+    alt: 'Gallery image'
   },
   Hr: {},
   Button_Next: {
     text: 'Next',
-    onClick: (e, el, s) =>
-      s.update({ index: (s.index + 1) % s.images.length }),
-  },
+    onClick: (e, el, s) => s.update({ index: (s.index + 1) % s.images.length })
+  }
 }
 ```
 
@@ -777,11 +790,11 @@ export const LocalStorage = {
       const value = element.node.value
       state.update({ note: value })
       localStorage.setItem('note', value)
-    },
+    }
   },
   P: {
-    text: (element, state) => 'Saved: ' + state.note,
-  },
+    text: (element, state) => 'Saved: ' + state.note
+  }
 }
 ```
 
@@ -799,13 +812,14 @@ export const SliderControl = {
     min: 0,
     max: 100,
     value: '{{ volume }}',
-    onInput: (e, el, s) => s.update({
-      volume: parseInt(el.node.value)
-    }),
+    onInput: (e, el, s) =>
+      s.update({
+        volume: parseInt(el.node.value)
+      })
   },
   P: {
-    text: (el, s) => 'Volume: ' + s.volume,
-  },
+    text: (el, s) => 'Volume: ' + s.volume
+  }
 }
 ```
 
@@ -819,13 +833,11 @@ Listen for keypress and update state.
 export const KeyboardShortcut = {
   state: { key: 'None' },
   onRender: (el, s) => {
-    window.addEventListener('keydown', e =>
-      s.update({ key: e.key })
-    )
+    window.addEventListener('keydown', (e) => s.update({ key: e.key }))
   },
   P: {
-    text: (el, s) => 'Last key pressed: ' + s.key,
-  },
+    text: (el, s) => 'Last key pressed: ' + s.key
+  }
 }
 ```
 
@@ -839,12 +851,12 @@ Track cursor position in real-time.
 export const MouseTracker = {
   state: { x: 0, y: 0 },
   onRender: (el, s) => {
-    window.addEventListener('mousemove', e =>
+    window.addEventListener('mousemove', (e) =>
       s.update({ x: e.clientX, y: e.clientY })
     )
   },
   P: {
-    text: (el, s) => 'X: ' + s.x + ', Y: ' + s.y,
-  },
+    text: (el, s) => 'X: ' + s.x + ', Y: ' + s.y
+  }
 }
 ```

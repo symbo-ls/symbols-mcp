@@ -11,10 +11,11 @@ For project configuration, see PROJECT_STRUCTURE.md. For design system values, s
 ## Components
 
 ### Accordion
+
 ```js
 export const Accordion = {
   state: {
-    activeAccordion: false,
+    activeAccordion: false
   },
   ButtonParagraph: {
     cursor: 'pointer',
@@ -23,21 +24,20 @@ export const Accordion = {
       state.update({
         activeAccordion: !state.activeAccordion
       })
-
     },
     P: {
-      text: 'Question text one here',
+      text: 'Question text one here'
     },
     Button: {
       text: '',
       Icon: {
         name: 'chevronDown',
         '.activeAccordion': {
-          transform: 'rotate(-180deg)',
+          transform: 'rotate(-180deg)'
         },
-        transition: 'transform .3s ease',
-      },
-    },
+        transition: 'transform .3s ease'
+      }
+    }
   },
   P: {
     text: 'Use a checkbox when users can select one option, multiple options, or no option from a list of a possible options',
@@ -52,31 +52,33 @@ export const Accordion = {
     '.activeAccordion': {
       minHeight: '4em',
       maxHeight: '10em',
-      opacity: '1',
+      opacity: '1'
     },
     '!activeAccordion': {
       minHeight: '0',
       maxHeight: '0',
-      opacity: '0',
-    },
+      opacity: '0'
+    }
   },
   flow: 'y',
 
   gap: 'Y2',
 
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### Avatar
+
 ```js
 export const Avatar = {
   extends: 'smbls.Avatar',
-  boxSize: 'C2',
-};
+  boxSize: 'C2'
+}
 ```
 
 ### AvatarBadgeHgroup
+
 ```js
 export const AvatarBadgeHgroup = {
   Avatar: {},
@@ -86,15 +88,16 @@ export const AvatarBadgeHgroup = {
       display: 'flex',
       alignItems: 'center',
       gap: 'Y',
-      Badge: {},
+      Badge: {}
     },
-    P: {},
+    P: {}
   },
-  extends: 'AvatarHgroup',
-};
+  extends: 'AvatarHgroup'
+}
 ```
 
 ### AvatarChatPreview
+
 ```js
 export const AvatarChatPreview = {
   Avatar: {},
@@ -102,139 +105,145 @@ export const AvatarChatPreview = {
     flow: 'y',
     flex: '1',
     '> *': {
-      minWidth: '100%',
+      minWidth: '100%'
     },
     ValueHeading: {
       H: {},
       UnitValue: {
         flow: 'row-reverse',
         Unit: {
-          text: 'am',
+          text: 'am'
         },
         Value: {
-          text: '2:20',
-        },
-      },
+          text: '2:20'
+        }
+      }
     },
     NotCounterParagraph: {
       P: {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
-        maxWidth: 'F2',
+        maxWidth: 'F2'
       },
-      NotificationCounter: {},
-    },
+      NotificationCounter: {}
+    }
   },
   gap: 'Z1',
 
   minWidth: 'G3',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### AvatarHeading
+
 ```js
 export const AvatarHeading = {
   Avatar: {},
   H: {
     tag: 'h6',
     lineHeight: '1em',
-    text: 'Heading',
+    text: 'Heading'
   },
   gap: 'X2',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### AvatarHgroup
+
 ```js
 export const AvatarHgroup = {
   Avatar: {
-    margin: '-X - - -',
+    margin: '-X - - -'
   },
   Hgroup: {
     gap: 'X2',
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   gap: 'Z',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### AvatarHgroupIconButton
+
 ```js
 export const AvatarHgroupIconButton = {
   Avatar: {},
   Hgroup: {
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   IconButton: {
     margin: '- - - auto',
     Icon: {
-      name: 'copy',
-    },
+      name: 'copy'
+    }
   },
   extends: 'AvatarHgroup',
-  minWidth: 'G+Z2',
-};
+  minWidth: 'G+Z2'
+}
 ```
 
 ### AvatarHgroupSelect
+
 ```js
 export const AvatarHgroupSelect = {
   Avatar: {},
   Hgroup: {
     H: {},
-    P: {},
+    P: {}
   },
   SelectPicker: {
     margin: '- - - auto',
     Select: {
       0: {
-        value: 'Goat',
+        value: 'Goat'
       },
       1: {
-        value: 'Icon',
-      },
-    },
+        value: 'Icon'
+      }
+    }
   },
   extends: 'AvatarHgroup',
-  minWidth: 'G1',
-};
+  minWidth: 'G1'
+}
 ```
 
 ### AvatarParagraph
+
 ```js
 export const AvatarParagraph = {
   Avatar: {
-    boxSize: 'B1',
+    boxSize: 'B1'
   },
   P: {
     text: 'Can you join us today?',
-    margin: '0',
+    margin: '0'
   },
   align: 'center flex-start',
 
-  gap: 'Y1',
-};
+  gap: 'Y1'
+}
 ```
 
 ### AvatarSelectPicker
+
 ```js
 export const AvatarSelectPicker = {
   tag: 'label',
   Avatar: {},
   Select: {
-      fontSize: 'A',
+    fontSize: 'A',
     boxSize: '100%',
     padding: '- B+V2 - Z',
     cursor: 'pointer',
@@ -248,61 +257,59 @@ export const AvatarSelectPicker = {
     pointerEvents: 'All',
     color: 'title',
     ':focus-visible': {
-      outline: 'none',
+      outline: 'none'
     },
     children: [
       {
         text: 'Nikoloza',
-        value: 'Nikoloza',
+        value: 'Nikoloza'
       },
       {
         text: 'Svinchy',
-        value: 'Svinchy',
-      },
+        value: 'Svinchy'
+      }
     ],
     childProps: {
-      tag: 'option',
-    },
+      tag: 'option'
+    }
   },
   Icon: {
     name: 'chevronDown',
     position: 'absolute',
     right: '0',
     margin: 'V - - -',
-    fontSize: 'B',
+    fontSize: 'B'
   },
   round: '0',
 
   align: 'center flex-start',
 
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### AvatarSet
+
 ```js
 export const AvatarSet = {
   display: 'flex',
   childExtends: 'Avatar',
-    childProps: {
-  border: 'solid codGray',
-  borderWidth: 'X+W',
-  ':first-child': {
-  margin: '0 -Z1 0 0',
+  childProps: {
+    border: 'solid codGray',
+    borderWidth: 'X+W',
+    ':first-child': {
+      margin: '0 -Z1 0 0'
+    },
+    ':nth-child(2)': {
+      margin: '0 -Z1 0 0'
+    }
   },
-  ':nth-child(2)': {
-  margin: '0 -Z1 0 0',
-  },
-  },
-  children: [
-  {},
-  {},
-  {},
-  ],
-};
+  children: [{}, {}, {}]
+}
 ```
 
 ### AvatarSetChatPreview
+
 ```js
 export const AvatarSetChatPreview = {
   AvatarSet: {
@@ -319,44 +326,44 @@ export const AvatarSetChatPreview = {
       left: '50%',
       transform: 'translate(-50%, -50%)',
       ':first-child': {
-        margin: 'Z2 0 0 0',
+        margin: 'Z2 0 0 0'
       },
       ':nth-child(2)': {
-        margin: '0 0 0 Z1',
+        margin: '0 0 0 Z1'
       },
       ':nth-child(3)': {
-        margin: '-W 0 0 -Z1',
-      },
-    },
+        margin: '-W 0 0 -Z1'
+      }
+    }
   },
   Flex: {
     flow: 'y',
     flex: '1',
     gap: 'W2',
     '> *': {
-      minWidth: '100%',
+      minWidth: '100%'
     },
     ValueHeading: {
       minWidth: '0',
       maxWidth: '100%',
       H: {
-        text: 'Design',
+        text: 'Design'
       },
       UnitValue: {
         flow: 'row-reverse',
         Unit: {
-          text: 'am',
+          text: 'am'
         },
         Value: {
-          text: '2:20',
-        },
-      },
+          text: '2:20'
+        }
+      }
     },
     Flex: {
       gap: 'X2',
       Caption: {
         text: 'nick:',
-        color: 'paragraph',
+        color: 'paragraph'
       },
       NotCounterParagraph: {
         flex: '1',
@@ -364,21 +371,22 @@ export const AvatarSetChatPreview = {
         P: {
           maxWidth: 'F2',
           whiteSpace: 'nowrap',
-          overflow: 'hidden',
+          overflow: 'hidden'
         },
-        NotificationCounter: {},
-      },
-    },
+        NotificationCounter: {}
+      }
+    }
   },
   gap: 'Z1',
 
   minWidth: 'G3',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### AvatarStatus
+
 ```js
 export const AvatarStatus = {
   display: 'flex',
@@ -386,52 +394,54 @@ export const AvatarStatus = {
   StatusDot: {
     position: 'absolute',
     bottom: 'W2',
-    right: '0',
+    right: '0'
   },
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### AvatarStatusChatPreview
+
 ```js
 export const AvatarStatusChatPreview = {
   AvatarStatus: {
     Avatar: {},
-    StatusDot: {},
+    StatusDot: {}
   },
   Flex: {
     flow: 'y',
     flex: '1',
     gap: 'W2',
     '> *': {
-      minWidth: '100%',
+      minWidth: '100%'
     },
     ValueHeading: {
       H: {},
       UnitValue: {
         flow: 'row-reverse',
         Unit: {
-          text: 'am',
+          text: 'am'
         },
         Value: {
-          text: '2:20',
-        },
-      },
+          text: '2:20'
+        }
+      }
     },
     NotCounterParagraph: {
       P: {},
-      NotificationCounter: {},
-    },
+      NotificationCounter: {}
+    }
   },
   gap: 'Z1',
 
   minWidth: 'G3',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### Badge
+
 ```js
 export const Badge = {
   tag: 'label',
@@ -450,386 +460,401 @@ export const Badge = {
 
   backgroundColor: '',
 
-  borderRadius: '',
-};
+  borderRadius: ''
+}
 ```
 
 ### BadgeCaption
+
 ```js
 export const BadgeCaption = {
   Caption: {
-    text: 'CAPTION',
+    text: 'CAPTION'
   },
   Badge: {},
   align: 'center flex-start',
 
-  gap: 'Y',
-};
+  gap: 'Y'
+}
 ```
 
 ### BadgeParagraph
+
 ```js
 export const BadgeParagraph = {
   P: {
     margin: '0',
     text: `Hey team, I've finished the re...`,
-    color: 'paragraph',
+    color: 'paragraph'
   },
   Badge: {},
   align: 'center space-between',
 
-  gap: 'A',
-};
+  gap: 'A'
+}
 ```
 
 ### Breadcrumb
+
 ```js
 export const Breadcrumb = {
   tag: 'nav',
   childExtends: 'Link',
-    display: 'flex',
+  display: 'flex',
   align: 'center',
   childProps: {
-  fontWeight: '400',
-  textDecoration: 'none',
-  scrollToTop: false,
-  color: 'white 0.35',
-  '&[href]': {
-  color: 'title',
-  '&:hover': {
-  textDecoration: 'underline',
-  },
-  },
-  '&:not([href])': {
-  cursor: 'default',
-  },
-  '&:not(:first-child):before': {
-  content: '""',
-  display: 'inline-block',
-  width: '2px',
-  height: '2px',
-  borderRadius: '100%',
-  background: 'white',
-  verticalAlign: '0.2em',
-  marginInline: '.65em',
-  opacity: '.5',
-  },
+    fontWeight: '400',
+    textDecoration: 'none',
+    scrollToTop: false,
+    color: 'white 0.35',
+    '&[href]': {
+      color: 'title',
+      '&:hover': {
+        textDecoration: 'underline'
+      }
+    },
+    '&:not([href])': {
+      cursor: 'default'
+    },
+    '&:not(:first-child):before': {
+      content: '""',
+      display: 'inline-block',
+      width: '2px',
+      height: '2px',
+      borderRadius: '100%',
+      background: 'white',
+      verticalAlign: '0.2em',
+      marginInline: '.65em',
+      opacity: '.5'
+    }
   },
   children: (el, s, ctx) => {
-  const routeArr = (s.root.route || window.top.location.pathname).split('/').slice(1)
-  return routeArr
-  .map((text, i) => text === 'page' ? ({
-  href: '/pages',
-  text: 'Page'
-  }) : el.getData('pages')['/' + text] ? ({
-  href: '/' + routeArr.slice(0, i + 1).join('/'),
-  text: '/' + text
-  }) : ({
-  href: '/' + routeArr.slice(0, i + 1).join('/'),
-  text: i === 0 ? ctx.utils.toTitleCase(text) : text
-  }))
-  .filter((_, k) => {
-  const v = routeArr[k]
-  return !v.includes('-') && !v.includes('editor') && !v.includes('preview')
-  })
-  },
-};
+    const routeArr = (s.root.route || window.top.location.pathname)
+      .split('/')
+      .slice(1)
+    return routeArr
+      .map((text, i) =>
+        text === 'page'
+          ? {
+              href: '/pages',
+              text: 'Page'
+            }
+          : el.getData('pages')['/' + text]
+            ? {
+                href: '/' + routeArr.slice(0, i + 1).join('/'),
+                text: '/' + text
+              }
+            : {
+                href: '/' + routeArr.slice(0, i + 1).join('/'),
+                text: i === 0 ? ctx.utils.toTitleCase(text) : text
+              }
+      )
+      .filter((_, k) => {
+        const v = routeArr[k]
+        return (
+          !v.includes('-') && !v.includes('editor') && !v.includes('preview')
+        )
+      })
+  }
+}
 ```
 
 ### BulletCaption
+
 ```js
 export const BulletCaption = {
   tag: 'caption',
   text: 'Orders history',
-    align: 'center flex-start',
+  align: 'center flex-start',
   gap: 'Y1',
   ':before': {
-  content: '""',
-  boxSize: 'Z1',
-  background: 'blue',
-  round: 'A2',
-  },
-};
+    content: '""',
+    boxSize: 'Z1',
+    background: 'blue',
+    round: 'A2'
+  }
+}
 ```
 
 ### Button
+
 ```js
 export const Button = {
-  extends: 'smbls.Button',
-};
+  extends: 'smbls.Button'
+}
 ```
 
 ### ButtonHeading
+
 ```js
 export const ButtonHeading = {
   H: {
     tag: 'h6',
-    text: 'Heading',
+    text: 'Heading'
   },
   Button: {
     text: 'Button',
-    theme: 'dialog',
+    theme: 'dialog'
   },
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### ButtonHgroup
+
 ```js
 export const ButtonHgroup = {
   Hgroup: {
     gap: 'X2',
     H: {
       tag: 'h6',
-      text: 'Heading',
+      text: 'Heading'
     },
-    P: {},
+    P: {}
   },
   Button: {
     text: 'Button',
-    theme: 'dialog',
+    theme: 'dialog'
   },
   align: 'flex-start flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### ButtonParagraph
+
 ```js
 export const ButtonParagraph = {
   display: 'flex',
   P: {
     text: `Didn't get the code?`,
     color: 'caption',
-    margin: '0',
+    margin: '0'
   },
   Button: {
     padding: '0',
     theme: 'transparent',
-    text: 'Click to Resend',
+    text: 'Click to Resend'
   },
   alignItems: 'center',
 
-  gap: 'X2',
-};
+  gap: 'X2'
+}
 ```
 
 ### ButtonSet
+
 ```js
 export const ButtonSet = {
   childExtends: 'Button',
-    gap: 'Z',
+  gap: 'Z',
   align: 'center flex-start',
   childProps: {
-  theme: 'dialog',
-  padding: 'A1 B2',
+    theme: 'dialog',
+    padding: 'A1 B2'
   },
   children: [
-  {
-  text: 'BUTTON 1',
-  },
-  {
-  text: 'BUTTEN 2',
-  },
-  ],
-};
+    {
+      text: 'BUTTON 1'
+    },
+    {
+      text: 'BUTTEN 2'
+    }
+  ]
+}
 ```
 
 ### Caption
+
 ```js
 export const Caption = {
   extends: 'smbls.Caption',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### CardNumberField
+
 ```js
 export const CardNumberField = {
   display: 'flex',
   state: {
-    value: 'XXXXXXXXXXXXXXXX',
+    value: 'XXXXXXXXXXXXXXXX'
   },
   childExtends: 'FixedNumberField',
-    gap: '0',
+  gap: '0',
   childProps: {
-  Input: {
-  textAlign: 'center',
-  padding: 'X2 X',
-  round: '0',
-  outline: 'none',
-  value: (el, s) => {
-  const index = parseInt(el.parent.key)
-  const valueArray = s.value
-  const inputValue = el.node.value.split('')
-  for (let i = 0; i < 4; i++) {
-  const charIndex = index * 4 + i
-  const numericPattern = /^\d$/
-  const char = valueArray[charIndex]
-  const isNumeric = numericPattern.test(char)
-  if (isNumeric) inputValue[i] = char
-  }
-  return inputValue.join('')
+    Input: {
+      textAlign: 'center',
+      padding: 'X2 X',
+      round: '0',
+      outline: 'none',
+      value: (el, s) => {
+        const index = parseInt(el.parent.key)
+        const valueArray = s.value
+        const inputValue = el.node.value.split('')
+        for (let i = 0; i < 4; i++) {
+          const charIndex = index * 4 + i
+          const numericPattern = /^\d$/
+          const char = valueArray[charIndex]
+          const isNumeric = numericPattern.test(char)
+          if (isNumeric) inputValue[i] = char
+        }
+        return inputValue.join('')
+      },
+      ':focus-visible': {
+        outline: 'none'
+      },
+      onUpdate: (el, s) => {
+        el.node.value = el.props.value(el, s)
+      },
+      onInput: (ev, el, s, ctx) => {
+        const index = parseInt(el.parent.key)
+        const valueArray = s.value.split('')
+        const inputValue = el.node.value
+        for (let i = 0; i < 4; i++) {
+          const charIndex = index * 4 + i
+          valueArray[charIndex] = inputValue[i] || 'X'
+        }
+        s.update({
+          value: valueArray.join('')
+        })
+        ctx.components.FixedNumberField.Input.onInput(ev, el, s, ctx)
+      },
+      onPaste: (ev, el, s) => {
+        console.log(ev)
+        const handlePastedInput = (event, validationFn) => {
+          event.preventDefault()
+          const pastedText = event.clipboardData.getData('text/plain')
+          const value = validationFn ? validationFn(pastedText) : pastedText
+          s.update({
+            value
+          })
+        }
+        const numericOnlyPaste = (input) => {
+          return input.replace(/[^\d]/g, '')
+        }
+        const maxLengthPaste = (input, maxLength = 12) => {
+          return input.slice(0, maxLength)
+        }
+        return handlePastedInput(ev, (text) => {
+          return maxLengthPaste(numericOnlyPaste(text))
+        })
+      }
+    },
+    ':first-child input': {
+      padding: 'X2 X X2 A1',
+      round: 'A 0 0 A'
+    },
+    ':last-child input': {
+      padding: 'X2 A1 X2 X',
+      round: '0 A A 0'
+    }
   },
-  ':focus-visible': {
-  outline: 'none',
-  },
-  onUpdate: (el, s) => {
-  el.node.value = el.props.value(el, s)
-  },
-  onInput: (ev, el, s, ctx) => {
-  const index = parseInt(el.parent.key)
-  const valueArray = s.value.split('')
-  const inputValue = el.node.value
-  for (let i = 0; i < 4; i++) {
-  const charIndex = index * 4 + i
-  valueArray[charIndex] = inputValue[i] || 'X'
-  }
-  s.update({
-  value: valueArray.join('')
-  })
-  ctx.components.FixedNumberField.Input.onInput(ev, el, s, ctx)
-  },
-  onPaste: (ev, el, s) => {
-  console.log(ev)
-  const handlePastedInput = (event, validationFn) => {
-  event.preventDefault()
-  const pastedText = event.clipboardData.getData('text/plain')
-  const value = validationFn ? validationFn(pastedText) : pastedText
-  s.update({
-  value
-  })
-  }
-  const numericOnlyPaste = (input) => {
-  return input.replace(/[^\d]/g, '')
-  }
-  const maxLengthPaste = (input, maxLength = 12) => {
-  return input.slice(0, maxLength)
-  }
-  return handlePastedInput(ev, (text) => {
-  return maxLengthPaste(numericOnlyPaste(text));
-  });
-  },
-  },
-  ':first-child input': {
-  padding: 'X2 X X2 A1',
-  round: 'A 0 0 A',
-  },
-  ':last-child input': {
-  padding: 'X2 A1 X2 X',
-  round: '0 A A 0',
-  },
-  },
-  children: [
-  {},
-  {},
-  {},
-  {},
-  ],
-};
+  children: [{}, {}, {}, {}]
+}
 ```
 
 ### CheckCaption
+
 ```js
 export const CheckCaption = {
   Caption: {
-    text: 'Caption',
+    text: 'Caption'
   },
   Checkbox: {
     Input: {},
     Flex: {
       Icon: {
-        name: 'check',
-      },
-    },
+        name: 'check'
+      }
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### CheckCaptionList
+
 ```js
 export const CheckCaptionList = {
   childExtends: 'CheckCaption',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Caption: {},
-  Checkbox: {
-  Input: {},
-  Flex: {
-  Icon: {
-  name: 'check',
+    Caption: {},
+    Checkbox: {
+      Input: {},
+      Flex: {
+        Icon: {
+          name: 'check'
+        }
+      }
+    }
   },
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### CheckHgroup
+
 ```js
 export const CheckHgroup = {
   display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   Checkbox: {
     Input: {},
     Flex: {
       Icon: {
-        name: 'check',
-      },
-    },
+        name: 'check'
+      }
+    }
   },
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### CheckHgroupList
+
 ```js
 export const CheckHgroupList = {
   childExtends: 'CheckHgroup',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Hgroup: {
-  gap: 'W2',
-  H: {
-  tag: 'h6',
+    Hgroup: {
+      gap: 'W2',
+      H: {
+        tag: 'h6'
+      },
+      P: {}
+    },
+    Checkbox: {
+      Input: {},
+      Flex: {
+        Icon: {
+          name: 'check'
+        }
+      }
+    }
   },
-  P: {},
-  },
-  Checkbox: {
-  Input: {},
-  Flex: {
-  Icon: {
-  name: 'check',
-  },
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### CheckStep
+
 ```js
 export const CheckStep = {
   Icon: {
@@ -838,10 +863,10 @@ export const CheckStep = {
     display: 'block',
     boxSizing: 'content-box',
     padding: 'Y2',
-    round: '100%',
+    round: '100%'
   },
   H6: {
-    text: 'Step',
+    text: 'Step'
   },
   Progress: {
     minWidth: 'E',
@@ -849,139 +874,146 @@ export const CheckStep = {
     value: 0,
     height: 'V',
     '.isActive': {
-      value: 1,
-    },
+      value: 1
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### CheckStepSet
+
 ```js
 export const CheckStepSet = {
   display: 'flex',
   childExtends: 'CheckStep',
-    gap: 'Z1',
+  gap: 'Z1',
   childProps: {
-  Icon: {
-  '.isActive': {
-  theme: 'primary',
-  },
-  },
-  Progress: {},
-  ':last-child > progress': {
-  hide: true,
-  },
+    Icon: {
+      '.isActive': {
+        theme: 'primary'
+      }
+    },
+    Progress: {},
+    ':last-child > progress': {
+      hide: true
+    }
   },
   children: [
-  {
-  Icon: {
-  isActive: true,
-  },
-  },
-  {},
-  ],
-};
+    {
+      Icon: {
+        isActive: true
+      }
+    },
+    {}
+  ]
+}
 ```
 
 ### CircleButton
+
 ```js
 export const CircleButton = {
   extends: 'SquareButton',
-  round: 'C',
-};
+  round: 'C'
+}
 ```
 
 ### CircleProgress
+
 ```js
 export const CircleProgress = {
   tag: 'progress',
   max: ({ props }) => props.max,
   progress: ({ props }) => props.progress,
   value: ({ props }) => props.value,
-    boxSize: 'D D',
+  boxSize: 'D D',
   value: 0.73,
   round: '100%',
   overflow: 'hidden',
   position: 'relative',
   '&::-webkit-progress-bar': {
-  background: 'gray',
+    background: 'gray'
   },
   '&::-webkit-progress-value': {
-  theme: 'primary',
+    theme: 'primary'
   },
   ':after': {
-  content: '""',
-  position: 'absolute',
-  width: 'B+B2',
-  height: 'B+B2',
-  round: '100%',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  background: 'codGray',
-  },
-};
+    content: '""',
+    position: 'absolute',
+    width: 'B+B2',
+    height: 'B+B2',
+    round: '100%',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: 'codGray'
+  }
+}
 ```
 
 ### ConfirmationButtons
+
 ```js
 export const ConfirmationButtons = {
   display: 'flex',
   childExtends: 'Button',
-    gap: 'Y1',
+  gap: 'Y1',
   childProps: {
-  theme: 'dialog',
-  padding: 'Z1 B1',
+    theme: 'dialog',
+    padding: 'Z1 B1'
   },
   children: [
-  {
-  text: 'No',
-  },
-  {
-  text: 'YES',
-  },
-  ],
-};
+    {
+      text: 'No'
+    },
+    {
+      text: 'YES'
+    }
+  ]
+}
 ```
 
 ### CounterButton
+
 ```js
 export const CounterButton = {
   extends: 'Button',
-    position: 'relative',
+  position: 'relative',
   align: 'center space-between',
   padding: 'Z Z Z A1',
   minWidth: 'F',
   theme: 'field',
   Span: {
-  text: 'Button',
+    text: 'Button'
   },
   NotificationCounter: {
-  text: '7',
-  },
-};
+    text: '7'
+  }
+}
 ```
 
 ### CounterIconButton
+
 ```js
 export const CounterIconButton = {
   Icon: {
-    name: 'smile',
+    name: 'smile'
   },
   NotificationCounter: {
     position: 'absolute',
     right: '-Y',
-    top: '-W2',
+    top: '-W2'
   },
   extends: 'IconButton',
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### CounterParagraph
+
 ```js
 export const CounterParagraph = {
   P: {
@@ -989,15 +1021,16 @@ export const CounterParagraph = {
     text: `Hey team, I've finished the re...`,
     color: 'paragraph',
     maxWidth: 'E3+D1',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   NotificationCounter: {},
   align: 'center space-between',
-  gap: 'B',
-};
+  gap: 'B'
+}
 ```
 
 ### Field
+
 ```js
 export const Field = {
   tag: 'label',
@@ -1005,7 +1038,7 @@ export const Field = {
     round: 'C',
     padding: 'Z2 C Z2 A2',
     placeholder: 'Placeholder',
-    minWidth: '100%',
+    minWidth: '100%'
   },
   Icon: {
     icon: 'info',
@@ -1013,7 +1046,7 @@ export const Field = {
     lineHeight: '1em',
     position: 'absolute',
     right: 'Z2',
-    opacity: '.45',
+    opacity: '.45'
   },
   theme: 'field',
 
@@ -1021,11 +1054,12 @@ export const Field = {
 
   round: 'D',
 
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### FieldCaption
+
 ```js
 export const FieldCaption = {
   Caption: {
@@ -1037,20 +1071,21 @@ export const FieldCaption = {
     padding: '- Y2 Z X',
     alignSelf: 'flex-start',
     whiteSpace: 'nowrap',
-    textAlign: 'left',
+    textAlign: 'left'
   },
   Field: {
     width: '100%',
     Input: {},
-    Icon: {},
+    Icon: {}
   },
   flow: 'column',
 
-  boxSize: 'fit-content fit-content',
-};
+  boxSize: 'fit-content fit-content'
+}
 ```
 
 ### FixedNumberField
+
 ```js
 export const FixedNumberField = {
   Input: {
@@ -1062,23 +1097,31 @@ export const FixedNumberField = {
     maxlength: '4',
     textTransform: 'uppercase',
     style: {
-      fontFamily: 'Courier, monospace',
+      fontFamily: 'Courier, monospace'
     },
     onKeydown: (event, element, state) => {
-      const numericPattern = /^\d$/;
+      const numericPattern = /^\d$/
       const navigationKeys = [
-        "Backspace", "ArrowLeft", "ArrowRight", "Tab",
-        "Delete", "Home", "End", "Enter", "Escape"
-      ];
-      const ctrlShortcuts = ["a", "c", "v", "x"];
+        'Backspace',
+        'ArrowLeft',
+        'ArrowRight',
+        'Tab',
+        'Delete',
+        'Home',
+        'End',
+        'Enter',
+        'Escape'
+      ]
+      const ctrlShortcuts = ['a', 'c', 'v', 'x']
 
-      const isNumeric = numericPattern.test(event.key);
-      const isNavigationKey = navigationKeys.includes(event.key);
-      const isCtrlShortcut = (event.metaKey || event.ctrlKey) && ctrlShortcuts.includes(event.key);
+      const isNumeric = numericPattern.test(event.key)
+      const isNavigationKey = navigationKeys.includes(event.key)
+      const isCtrlShortcut =
+        (event.metaKey || event.ctrlKey) && ctrlShortcuts.includes(event.key)
 
       // Allow only numeric input, navigation keys, and Ctrl shortcuts
       if (!isNumeric && !isNavigationKey && !isCtrlShortcut) {
-        event.preventDefault();
+        event.preventDefault()
       }
     },
     onInput: (event, element, state) => {
@@ -1088,150 +1131,165 @@ export const FixedNumberField = {
       if (element.node.value.length > 3) {
         element.parent.nextElement()?.Input?.node.focus()
       }
-    },
+    }
   },
-  extends: 'InputField',
-};
+  extends: 'InputField'
+}
 ```
 
 ### Flex
+
 ```js
 export const Flex = {
   extends: 'smbls.Flex',
-  flow: 'x',
-};
+  flow: 'x'
+}
 ```
 
 ### Footnote
+
 ```js
 export const Footnote = {
   text: 'Footnote',
-  extends: 'smbls.Footnote',
-};
+  extends: 'smbls.Footnote'
+}
 ```
 
 ### Gif
+
 ```js
 export const Gif = {
   extends: 'smbls.Img',
-  src: 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWpmZDl5OXVzZGNjeHpuenRhZmNidHYzdzJiMXlkMmc3ODZwaHo1NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PkL0rQzXvMICwoKZGK/giphy.gif',
-};
+  src: 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWpmZDl5OXVzZGNjeHpuenRhZmNidHYzdzJiMXlkMmc3ODZwaHo1NiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PkL0rQzXvMICwoKZGK/giphy.gif'
+}
 ```
 
 ### Grid
+
 ```js
 export const Grid = {
-  extends: 'smbls.Flex',
-};
+  extends: 'smbls.Flex'
+}
 ```
 
 ### Group
+
 ```js
 export const Group = {
   Title: {
     text: 'Field Title',
     color: 'caption',
     userSelect: 'none',
-    whiteSpace: 'nowrap',
+    whiteSpace: 'nowrap'
   },
-    flow: 'y',
+  flow: 'y',
   align: 'flex-start',
   gap: 'Y1',
   minWidth: 'F',
   childProps: {
-  width: '100%',
-  },
-};
+    width: '100%'
+  }
+}
 ```
 
 ### GroupField
+
 ```js
 export const GroupField = {
   tag: 'label',
-  extends: 'Group',
-};
+  extends: 'Group'
+}
 ```
 
 ### H1
+
 ```js
 export const H1 = {
   extends: 'smbls.H1',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### H2
+
 ```js
 export const H2 = {
   extends: 'smbls.H2',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### H3
+
 ```js
 export const H3 = {
   extends: 'smbls.H3',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### H4
+
 ```js
 export const H4 = {
   extends: 'smbls.H4',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### H5
+
 ```js
 export const H5 = {
   extends: 'smbls.H5',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### H6
+
 ```js
 export const H6 = {
   extends: 'smbls.H6',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### Headline
+
 ```js
 export const Headline = {
   text: 'Headline',
-  extends: 'smbls.Headline',
-};
+  extends: 'smbls.Headline'
+}
 ```
 
 ### Hgroup
+
 ```js
 export const Hgroup = {
-  extends: 'smbls.Hgroup',
-};
+  extends: 'smbls.Hgroup'
+}
 ```
 
 ### HgroupSteps
+
 ```js
 export const HgroupSteps = {
   Hgroup: {
     gap: 'Y1',
     H: {
       tag: 'h4',
-      text: 'Symbols',
+      text: 'Symbols'
     },
     P: {
-      text: 'The easiest way to build your own website',
-    },
+      text: 'The easiest way to build your own website'
+    }
   },
   ProgressStepSet: {
     childProps: {
-      flex: '1',
-    },
+      flex: '1'
+    }
   },
   flow: 'column',
 
@@ -1239,57 +1297,61 @@ export const HgroupSteps = {
 
   minWidth: 'G1',
 
-  maxWidth: 'H',
-};
+  maxWidth: 'H'
+}
 ```
 
 ### Hr
+
 ```js
 export const Hr = {
   extends: 'smbls.Hr',
-  minWidth: 'F',
-};
+  minWidth: 'F'
+}
 ```
 
 ### HrLegend
+
 ```js
 export const HrLegend = {
   display: 'flex',
   text: 'Or',
-    minWidth: 'G',
+  minWidth: 'G',
   fontWeight: '500',
   alignItems: 'center',
   gap: 'A',
   ':before': {
-  content: '""',
-  height: 'V',
-  theme: 'dialog',
-  round: 'C',
-  flex: '1',
+    content: '""',
+    height: 'V',
+    theme: 'dialog',
+    round: 'C',
+    flex: '1'
   },
   ':after': {
-  content: '""',
-  height: 'V',
-  theme: 'dialog',
-  round: 'C',
-  flex: '1',
-  },
-};
+    content: '""',
+    height: 'V',
+    theme: 'dialog',
+    round: 'C',
+    flex: '1'
+  }
+}
 ```
 
 ### Icon
+
 ```js
 export const Icon = {
-  extends: 'smbls.Icon',
-};
+  extends: 'smbls.Icon'
+}
 ```
 
 ### IconButton
+
 ```js
 export const IconButton = {
   Icon: {
     name: 'smile',
-    fontSize: 'A2',
+    fontSize: 'A2'
   },
   extends: 'Button',
   padding: 'A',
@@ -1304,112 +1366,118 @@ export const IconButton = {
 
   align: 'center center',
 
-  theme: 'dialog',
-};
+  theme: 'dialog'
+}
 ```
 
 ### IconButtonHeading
+
 ```js
 export const IconButtonHeading = {
   H: {
     tag: 'h5',
-    text: 'Heading',
+    text: 'Heading'
   },
   IconButton: {},
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### IconButtonHgroup
+
 ```js
 export const IconButtonHgroup = {
   Hgroup: {
     gap: 'X2',
     H: {
       tag: 'h6',
-      text: 'Heading',
+      text: 'Heading'
     },
-    P: {},
+    P: {}
   },
   IconButton: {
-    theme: 'dialog',
+    theme: 'dialog'
   },
   align: 'flex-start flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### IconButtonSet
+
 ```js
 export const IconButtonSet = {
   display: 'flex',
   childExtends: 'IconButton',
-    gap: 'Z',
+  gap: 'Z',
   childProps: {
-  Icon: {},
+    Icon: {}
   },
   children: [
-  {
-  Icon: {
-  name: 'sun',
-  },
-  },
-  {
-  Icon: {
-  name: 'moon',
-  },
-  },
-  ],
-};
+    {
+      Icon: {
+        name: 'sun'
+      }
+    },
+    {
+      Icon: {
+        name: 'moon'
+      }
+    }
+  ]
+}
 ```
 
 ### IconCounterButton
+
 ```js
 export const IconCounterButton = {
   extends: 'Button',
-    position: 'relative',
+  position: 'relative',
   align: 'center flex-start',
   padding: 'Z Z Z Z1',
   minWidth: 'F',
   theme: 'field',
   gap: 'Z',
   Icon: {
-  display: 'block',
-  name: 'info',
+    display: 'block',
+    name: 'info'
   },
   Span: {
-  text: 'Button',
+    text: 'Button'
   },
   NotificationCounter: {
-  text: '7',
-  margin: '- - - auto',
-  },
-};
+    text: '7',
+    margin: '- - - auto'
+  }
+}
 ```
 
 ### IconHeading
+
 ```js
 export const IconHeading = {
   Icon: {
     name: 'logo',
-    fontSize: 'C',
+    fontSize: 'C'
   },
   H: {
     tag: 'h5',
     text: 'Heading',
     lineHeight: '1em',
-    fontWeight: '700',
+    fontWeight: '700'
   },
   gap: 'Z',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### IconHgroup
+
 ```js
 export const IconHgroup = {
   Icon: {
@@ -1417,22 +1485,23 @@ export const IconHgroup = {
     display: 'block',
     color: 'blue',
     margin: '- X - -',
-    fontSize: 'E',
+    fontSize: 'E'
   },
   Hgroup: {
     gap: 'Y',
     H: {
-      tag: 'h2',
+      tag: 'h2'
     },
-    P: {},
+    P: {}
   },
   gap: 'X',
 
-  align: 'flex-start',
-};
+  align: 'flex-start'
+}
 ```
 
 ### IconInput
+
 ```js
 export const IconInput = {
   tag: 'label',
@@ -1441,13 +1510,13 @@ export const IconInput = {
     round: 'C',
     placeholder: 'Placeholder',
     padding: 'Z2 C Z2 A2',
-    maxHeight: '100%',
+    maxHeight: '100%'
   },
   Icon: {
     name: 'info',
     position: 'absolute',
     zIndex: '2',
-    right: 'Z2',
+    right: 'Z2'
   },
   minWidth: 'G',
 
@@ -1455,29 +1524,28 @@ export const IconInput = {
 
   round: 'D',
 
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### IconText
+
 ```js
 export const IconText = {
-  extends: 'smbls.IconText',
-};
+  extends: 'smbls.IconText'
+}
 ```
 
 ### IcontextLink
+
 ```js
 export const IcontextLink = {
   text: 'Follow Symbols',
   Icon: {
     fontSize: 'B',
-    name: 'logo',
+    name: 'logo'
   },
-  extends: [
-    'Link',
-    'IconText',
-  ],
+  extends: ['Link', 'IconText'],
   gap: 'Y',
 
   maxHeight: '3em',
@@ -1486,55 +1554,55 @@ export const IcontextLink = {
 
   round: 'D',
 
-  fontWeight: '500',
-};
+  fontWeight: '500'
+}
 ```
 
 ### IconTextSet
+
 ```js
 export const IconTextSet = {
-  childExtends: [
-    'IconText',
-    'Flex',
-  ],
-    flow: 'y',
+  childExtends: ['IconText', 'Flex'],
+  flow: 'y',
   gap: 'A',
   childProps: {
-  align: 'center flex-start',
-  gap: 'Y1',
-  Icon: {},
+    align: 'center flex-start',
+    gap: 'Y1',
+    Icon: {}
   },
   children: [
-  {
-  Icon: {
-  name: 'smile',
-  },
-  text: '+1 (555) 123-4567',
-  },
-  {
-  Icon: {
-  name: 'logo',
-  },
-  text: 'example@mail.com',
-  },
-  ],
-};
+    {
+      Icon: {
+        name: 'smile'
+      },
+      text: '+1 (555) 123-4567'
+    },
+    {
+      Icon: {
+        name: 'logo'
+      },
+      text: 'example@mail.com'
+    }
+  ]
+}
 ```
 
 ### Img
+
 ```js
 export const Img = {
   extends: 'smbls.Img',
-  src: 'https://placehold.co/200',
-};
+  src: 'https://placehold.co/200'
+}
 ```
 
 ### ImgButton
+
 ```js
 export const ImgButton = {
   Img: {
     src: 'https://api.symbols.app/core/files/public/69325cf7ebee5529e0391f0b/download',
-    boxSize: 'C1 D2',
+    boxSize: 'C1 D2'
   },
   extends: 'Button',
   theme: 'transparent',
@@ -1543,11 +1611,12 @@ export const ImgButton = {
 
   round: 'Z2',
 
-  overflow: 'hidden',
-};
+  overflow: 'hidden'
+}
 ```
 
 ### ImgHeading
+
 ```js
 export const ImgHeading = {
   Img: {
@@ -1555,29 +1624,30 @@ export const ImgHeading = {
     widthL: 'auto',
     maxWidth: 'C',
     maxHeight: 'C',
-    round: 'Z2',
+    round: 'Z2'
   },
   H: {
     tag: 'h4',
-    text: 'Heading',
+    text: 'Heading'
   },
   align: 'center flex-start',
 
-  gap: 'Y1',
-};
+  gap: 'Y1'
+}
 ```
 
 ### ImgHeadingButton
+
 ```js
 export const ImgHeadingButton = {
   Img: {
     src: 'https://api.symbols.app/core/files/public/69325cf7ebee5529e0391f0b/download',
     boxSize: 'C1 D2',
-    round: 'Z2',
+    round: 'Z2'
   },
   H: {
     tag: 'h6',
-    text: 'Heading',
+    text: 'Heading'
   },
   extends: 'Button',
   theme: 'transparent',
@@ -1588,202 +1658,213 @@ export const ImgHeadingButton = {
 
   padding: '0',
 
-  round: '0',
-};
+  round: '0'
+}
 ```
 
 ### ImgHgroup
+
 ```js
 export const ImgHgroup = {
   Img: {
     src: 'https://api.symbols.app/core/files/public/69325cf7ebee5529e0391f0b/download',
     boxSize: 'C+Y1 C2',
-    round: 'Z',
-    margin: '-Y - - -',
+    round: 'Z2',
+    margin: '-Y - - -'
   },
   Hgroup: {
     gap: 'W2',
     H: {
-      tag: 'h5',
+      tag: 'h5'
     },
-    P: {},
+    P: {}
   },
   align: 'center flex-start',
 
-  gap: 'Y1',
-};
+  gap: 'Y1'
+}
 ```
 
 ### InputButton
+
 ```js
 export const InputButton = {
   Input: {
     placeholder: 'Enter your email',
-    minWidth: 'G+B1',
+    minWidth: 'G+B1'
   },
   Button: {
     text: 'Sign up',
-    theme: 'primary',
+    theme: 'primary'
   },
-    gap: 'Y2',
+  gap: 'Y2',
   align: 'center flex-start',
   height: 'C+X',
   '> *': {
-  height: '100%',
-  minHeight: '100%',
-  maxHeight: '100%',
-  },
-};
+    height: '100%',
+    minHeight: '100%',
+    maxHeight: '100%'
+  }
+}
 ```
 
 ### Italic
+
 ```js
 export const Italic = {
   text: 'Italic text',
-  extends: 'smbls.Italic',
-};
+  extends: 'smbls.Italic'
+}
 ```
 
 ### KangorooButton
+
 ```js
 export const KangorooButton = {
   extends: 'Button',
   childExtends: 'IconText',
   padding: 'X',
-  gap: 'A',
-};
+  gap: 'A'
+}
 ```
 
 ### LayerSimple
+
 ```js
 export const LayerSimple = {
   Title: {
-    text: 'Checklist',
+    text: 'Checklist'
   },
   Flex: {
     flow: 'column',
     gap: 'A',
     childProps: {
       gap: 'X',
-      align: 'center',
+      align: 'center'
     },
     childExtends: {
       Icon: {
         color: 'inactive',
-        gap: 'Y1',
+        gap: 'Y1'
       },
       Span: {
         color: 'white',
-        padding: '- - - X2',
-      },
+        padding: '- - - X2'
+      }
     },
-    children: () => [{
+    children: () => [
+      {
         Icon: {
-          icon: 'check',
+          icon: 'check'
         },
         Span: {
-          text: 'Sun',
-        },
+          text: 'Sun'
+        }
       },
       {
         Icon: {
-          icon: 'check',
+          icon: 'check'
         },
         Span: {
-          text: 'Moon',
-        },
-      },
-    ],
+          text: 'Moon'
+        }
+      }
+    ]
   },
   extends: 'Group',
   padding: 'Z A A A',
 
   margin: 'C -',
 
-  round: 'Z',
+  round: 'Z2',
 
   gap: 'A',
 
   width: 'F1',
 
-  background: 'gray',
-};
+  background: 'gray'
+}
 ```
 
 ### Link
+
 ```js
 export const Link = {
   text: 'Link',
-  extends: 'smbls.Link',
-};
+  extends: 'smbls.Link'
+}
 ```
 
 ### LinkHgroup
+
 ```js
 export const LinkHgroup = {
   Hgroup: {
     gap: 'X2',
     H: {
       tag: 'h2',
-      text: 'Tbilisi',
+      text: 'Tbilisi'
     },
     P: {
-      text: '35 Vazha-pshavela avenue.',
-    },
+      text: '35 Vazha-pshavela avenue.'
+    }
   },
   Link: {
-    text: 'Get direction',
+    text: 'Get direction'
   },
   flow: 'y',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### LinkParagraph
+
 ```js
 export const LinkParagraph = {
   display: 'flex',
   P: {
     text: 'You are agree',
     color: 'caption',
-    margin: '0',
+    margin: '0'
   },
   Link: {
     padding: '0',
     theme: 'transparent',
     text: 'Privacy policy',
     textDecoration: 'underline',
-    fontWeight: '400',
+    fontWeight: '400'
   },
   alignItems: 'center',
 
-  gap: 'X2',
-};
+  gap: 'X2'
+}
 ```
 
 ### LinkSet
+
 ```js
 export const LinkSet = {
   tag: 'nav',
   childExtends: 'Link',
-    align: 'center flex-start',
+  align: 'center flex-start',
   gap: 'A',
   childProps: {
-  cursor: 'pointer',
+    cursor: 'pointer'
   },
   children: [
-  {
-  text: 'Link 1',
-  },
-  {
-  text: 'Link 2',
-  },
-  ],
-};
+    {
+      text: 'Link 1'
+    },
+    {
+      text: 'Link 2'
+    }
+  ]
+}
 ```
 
 ### ListingItem
+
 ```js
 export const ListingItem = {
   display: 'flex',
@@ -1802,13 +1883,13 @@ export const ListingItem = {
       name: 'check',
       color: 'dim',
       '.isActive': {
-        color: 'orange',
-      },
+        color: 'orange'
+      }
     },
     '!isActive': {
       ':hover svg': {
-        color: 'disabled',
-      },
+        color: 'disabled'
+      }
     },
     onClick: (ev, el, s) => {
       const isActive = s.isActive
@@ -1816,99 +1897,102 @@ export const ListingItem = {
         isActive: !isActive,
         upvotes: isActive ? s.upvotes - 1 : s.upvotes + 1
       })
-    },
+    }
   },
   Hgroup: {
     H: {
       extends: 'Link',
       tag: 'h6',
       text: 'Flexbox in Editor',
-      fontWeight: '700',
+      fontWeight: '700'
     },
     P: {
       text: null,
       childProps: {
-        display: 'inline',
+        display: 'inline'
       },
       children: [
         'by ',
         {
           Link: {
-            text: 'kiaynwang',
-          },
+            text: 'kiaynwang'
+          }
         },
         ' ',
         {
           Link: {
-            text: '3 hours ago',
-          },
+            text: '3 hours ago'
+          }
         },
         ' . ',
         {
           Link: {
-            text: '49 commnts',
-          },
-        },
-      ],
-    },
+            text: '49 commnts'
+          }
+        }
+      ]
+    }
   },
   gap: 'A2',
 
-  alignItems: 'flex-start',
-};
+  alignItems: 'flex-start'
+}
 ```
 
 ### LoadingGif
+
 ```js
 export const LoadingGif = {
   extends: 'Img',
-    src: 'https://assets.symbo.ls/loading.gif',
+  src: 'https://assets.symbo.ls/loading.gif',
   width: '3.2em',
   pointerEvents: 'none',
   opacity: '.35',
   zIndex: '-1',
   inCenter: true,
   '.inCenter': {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate3d(-50%, -50%, 0)',
-  },
-};
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate3d(-50%, -50%, 0)'
+  }
+}
 ```
 
 ### MessageModal
+
 ```js
 export const MessageModal = {
   Hgroup: {
     gap: 'A',
     H: {
-      text: 'Message',
+      text: 'Message'
     },
     P: {
-      text: 'Yes. If you change your mind and no longer wish to keep your iPhone, you have the option to return it to us. The returned iPhone must be in good condition and in the original packaging, which contains all accessories, manuals and instructions. Returns are subject to Apple\'s Sales and Refunds Policy.',
-    },
+      text: "Yes. If you change your mind and no longer wish to keep your iPhone, you have the option to return it to us. The returned iPhone must be in good condition and in the original packaging, which contains all accessories, manuals and instructions. Returns are subject to Apple's Sales and Refunds Policy."
+    }
   },
   IconButton: {
     Icon: {
-      name: 'x',
-    },
+      name: 'x'
+    }
   },
   extends: 'Modal',
-  maxWidth: 'H',
-};
+  maxWidth: 'H'
+}
 ```
 
 ### Modal
+
 ```js
 export const Modal = {
   Hgroup: {
     gap: 'X1',
     H: {
       tag: 'h5',
-      fontWeight: '700',
+      fontWeight: '700'
     },
-    P: {},
+    P: {}
   },
   IconButton: {
     position: 'absolute',
@@ -1917,11 +2001,11 @@ export const Modal = {
     round: '100%',
     $isSafari: {
       top: 'Z2',
-      right: 'Z2',
+      right: 'Z2'
     },
     Icon: {
-      name: 'x',
-    },
+      name: 'x'
+    }
   },
   boxSize: 'fit-content',
 
@@ -1939,64 +2023,67 @@ export const Modal = {
 
   padding: 'A2 A2 A1 A2',
 
-  borderStyle: 'none',
-};
+  borderStyle: 'none'
+}
 ```
 
 ### NavigationArrows
+
 ```js
 export const NavigationArrows = {
   display: 'flex',
   childExtends: 'IconButton',
-    gap: 'Z',
+  gap: 'Z',
   childProps: {
-  round: '100%',
+    round: '100%'
   },
   children: [
-  {
-  Icon: {
-  name: 'chevronLeft',
-  },
-  },
-  {
-  Icon: {
-  name: 'chevronRight',
-  },
-  },
-  ],
-};
+    {
+      Icon: {
+        name: 'chevronLeft'
+      }
+    },
+    {
+      Icon: {
+        name: 'chevronRight'
+      }
+    }
+  ]
+}
 ```
 
 ### NavigationDots
+
 ```js
 export const NavigationDots = {
   display: 'flex',
   tag: 'nav',
   childExtends: 'Link',
-    gap: 'C1',
+  gap: 'C1',
   childProps: {
-  boxSize: 'Z',
-  theme: 'dialog',
-  round: '100%',
-  cursor: 'pointer',
-  text: '',
-  '.isActive': {
-  theme: 'primary',
-  },
-  ':active': {
-  theme: 'primary',
-  },
+    boxSize: 'Z',
+    theme: 'dialog',
+    round: '100%',
+    cursor: 'pointer',
+    text: '',
+    '.isActive': {
+      theme: 'primary'
+    },
+    ':active': {
+      theme: 'primary'
+    }
   },
   children: [
-  {},
-  {
-  isActive: true,
-  },
-  ],
-};
+    {},
+    {
+      isActive: true
+    }
+  ]
+}
 ```
 
 ### NotCounterParagraph
+
 ```js
 export const NotCounterParagraph = {
   P: {
@@ -2004,16 +2091,17 @@ export const NotCounterParagraph = {
     text: `Hey team, I've finished the re...`,
     color: 'paragraph',
     maxWidth: 'E3+D1',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   NotificationCounter: {},
   align: 'center space-between',
 
-  gap: 'B',
-};
+  gap: 'B'
+}
 ```
 
 ### NotificationCounter
+
 ```js
 export const NotificationCounter = {
   text: '3',
@@ -2031,59 +2119,62 @@ export const NotificationCounter = {
 
   boxSizing: 'content-box',
 
-  align: 'center center',
-};
+  align: 'center center'
+}
 ```
 
 ### NumberPicker
+
 ```js
 export const NumberPicker = {
   state: {
-    currentValue: 0,
+    currentValue: 0
   },
   Minus: {
     extends: 'IconButton',
     Icon: {
-      name: 'minus',
+      name: 'minus'
     },
     onClick: (event, element, state) => {
       if (state.currentValue <= 0) return
       state.update({
         currentValue: state.currentValue - 1
       })
-    },
+    }
   },
   Value: {
-    text: '{{ currentValue }}',
+    text: '{{ currentValue }}'
   },
   Plus: {
     extends: 'IconButton',
     Icon: {
-      name: 'plus',
+      name: 'plus'
     },
     onClick: (event, element, state) => {
       state.update({
         currentValue: state.currentValue + 1
       })
-    },
+    }
   },
-    align: 'center flex-start',
+  align: 'center flex-start',
   gap: 'Z',
   '> button': {
-  theme: 'transparent',
-  },
-};
+    theme: 'transparent'
+  }
+}
 ```
 
 ### P
+
 ```js
 export const P = {
   extends: 'smbls.P',
-  text: 'It was the last day for our tribe, the year ends',
-};
+  text: 'It was the last day for our tribe, the year ends'
+}
 ```
 
 ### PackageFeatureItem
+
 ```js
 export const PackageFeatureItem = {
   display: 'flex',
@@ -2092,8 +2183,8 @@ export const PackageFeatureItem = {
     display: 'none',
     type: 'checkbox',
     ':checked + hgroup': {
-      outline: '1.5px solid #0079FD',
-    },
+      outline: '1.5px solid #0079FD'
+    }
   },
   Hgroup: {
     width: '100%',
@@ -2103,24 +2194,25 @@ export const PackageFeatureItem = {
     Icon: {
       order: '-1',
       margin: '- - A2',
-      name: 'logo',
-    },
+      name: 'logo'
+    }
   },
-  cursor: 'pointer',
-};
+  cursor: 'pointer'
+}
 ```
 
 ### Pagination
+
 ```js
 export const Pagination = {
   Left: {
     extends: 'IconButton',
     Icon: {
-      name: 'chevronLeft',
+      name: 'chevronLeft'
     },
     onClick: (event, element, state) => {
       state.update({})
-    },
+    }
   },
   Flex: {
     gap: 'Z',
@@ -2132,44 +2224,45 @@ export const Pagination = {
       theme: 'field',
       isActive: (element, state) => state.active === parseInt(element.key),
       '.isActive': {
-        theme: 'primary',
-      },
+        theme: 'primary'
+      }
     },
     childExtends: 'Button',
     children: [
       {
-        text: '1',
+        text: '1'
       },
       {
-        text: '2',
+        text: '2'
       },
       {
-        text: '3',
+        text: '3'
       },
       {
-        text: '4',
+        text: '4'
       },
       {
-        text: '5',
-      },
-    ],
+        text: '5'
+      }
+    ]
   },
   Right: {
     extends: 'IconButton',
     Icon: {
-      name: 'chevronRight',
+      name: 'chevronRight'
     },
     onClick: (event, element, state) => {
       state.update({})
-    },
+    }
   },
   gap: 'A',
 
-  align: 'center flex-start',
-};
+  align: 'center flex-start'
+}
 ```
 
 ### Pills
+
 ```js
 export const Pills = {
   display: 'flex',
@@ -2181,189 +2274,191 @@ export const Pills = {
     cursor: 'pointer',
     text: '',
     '.isActive': {
-      theme: 'primary',
+      theme: 'primary'
     },
     '!isActive': {
-      theme: 'tertiary',
+      theme: 'tertiary'
     },
     ':active': {
-      theme: 'primary',
-    },
+      theme: 'primary'
+    }
   },
   children: [
     {},
     {
-      isActive: true,
-    },
+      isActive: true
+    }
   ],
-  tag: 'nav',
-};
+  tag: 'nav'
+}
 ```
 
 ### Progress
+
 ```js
 export const Progress = {
   tag: 'progress',
   max: ({ props }) => props.max,
   progress: ({ props }) => props.progress,
   value: ({ props }) => props.value,
-    height: 'X',
+  height: 'X',
   minWidth: 'F3',
   round: 'Y',
   overflow: 'hidden',
   '::-webkit-progress-bar': {
-  '@dark': {
-  background: 'gray',
-  },
-  '@light': {
-  background: 'hurricane',
-  },
+    '@dark': {
+      background: 'gray'
+    },
+    '@light': {
+      background: 'hurricane'
+    }
   },
   '::-webkit-progress-value': {
-  borderRadius: 'Y',
-  theme: 'primary',
-  },
-};
+    borderRadius: 'Y',
+    theme: 'primary'
+  }
+}
 ```
 
 ### ProgressStepSet
+
 ```js
 export const ProgressStepSet = {
   display: 'flex',
   childExtends: 'Progress',
-    gap: 'A',
+  gap: 'A',
   childProps: {
-  minWidth: 'C',
+    minWidth: 'C'
   },
   children: [
-  {
-  value: 0.7,
-  },
-  {},
-  ],
-};
+    {
+      value: 0.7
+    },
+    {}
+  ]
+}
 ```
 
 ### RadioCaption
+
 ```js
 export const RadioCaption = {
   Caption: {
-    text: 'Caption',
+    text: 'Caption'
   },
   Radio: {
     Input: {},
     FLex: {
-      ':after': {},
-    },
+      ':after': {}
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### RadioCaptionList
+
 ```js
 export const RadioCaptionList = {
   childExtends: 'RadioCaption',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Caption: {
-  text: 'Caption',
+    Caption: {
+      text: 'Caption'
+    },
+    Radio: {
+      Input: {},
+      FLex: {
+        ':after': {}
+      }
+    }
   },
-  Radio: {
-  Input: {},
-  FLex: {
-  ':after': {},
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### RadioHgroup
+
 ```js
 export const RadioHgroup = {
   display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   Radio: {
     Input: {},
     FLex: {
-      ':after': {},
-    },
+      ':after': {}
+    }
   },
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### RadioHgroupList
+
 ```js
 export const RadioHgroupList = {
   childExtends: 'RadioHgroup',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Hgroup: {
-  gap: 'W2',
-  H: {
-  tag: 'h6',
+    Hgroup: {
+      gap: 'W2',
+      H: {
+        tag: 'h6'
+      },
+      P: {}
+    },
+    Radio: {
+      Input: {},
+      FLex: {
+        ':after': {}
+      }
+    }
   },
-  P: {},
-  },
-  Radio: {
-  Input: {},
-  FLex: {
-  ':after': {},
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### RadioMark
+
 ```js
 export const RadioMark = {
-    padding: 'Z1',
+  padding: 'Z1',
   theme: 'primary',
   round: '100%',
   boxSize: 'fit-content',
   ':after': {
-  content: '""',
-  boxSize: 'Z1',
-  background: 'white',
-  round: '100%',
-  display: 'block',
-  },
-};
+    content: '""',
+    boxSize: 'Z1',
+    background: 'white',
+    round: '100%',
+    display: 'block'
+  }
+}
 ```
 
 ### RadioStep
+
 ```js
 export const RadioStep = {
   RadioMark: {
     theme: 'field',
     '.isActive': {
-      theme: 'primary',
+      theme: 'primary'
     },
-    ':after': {},
+    ':after': {}
   },
   H6: {
-    text: 'Step',
+    text: 'Step'
   },
   Progress: {
     minWidth: 'E',
@@ -2372,40 +2467,42 @@ export const RadioStep = {
     height: 'V',
     margin: '- - - W',
     '.isActive': {
-      value: 1,
-    },
+      value: 1
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Y2',
-};
+  gap: 'Y2'
+}
 ```
 
 ### RadioSteps
+
 ```js
 export const RadioSteps = {
   display: 'flex',
   childExtends: 'RadioStep',
-    gap: 'Z1',
+  gap: 'Z1',
   childProps: {
-  RadioMark: {},
-  Progress: {},
-  ':last-child > progress': {
-  hide: true,
-  },
+    RadioMark: {},
+    Progress: {},
+    ':last-child > progress': {
+      hide: true
+    }
   },
   children: [
-  {
-  RadioMark: {
-  isActive: true,
-  },
-  },
-  {},
-  ],
-};
+    {
+      RadioMark: {
+        isActive: true
+      }
+    },
+    {}
+  ]
+}
 ```
 
 ### ScrollableList
+
 ```js
 export const ScrollableList = {
   tag: 'nav',
@@ -2417,8 +2514,8 @@ export const ScrollableList = {
     style: {
       listStyleType: 'none',
       '::-webkit-scrollbar': {
-        display: 'none',
-      },
+        display: 'none'
+      }
     },
     childProps: {
       padding: 'Y1 A',
@@ -2430,54 +2527,55 @@ export const ScrollableList = {
       theme: 'dialog',
       fontSize: 'C',
       ':hover': {
-        theme: 'dialog-elevated',
-      },
+        theme: 'dialog-elevated'
+      }
     },
     childExtends: 'Button',
     children: [
       {
-        text: 'Item One',
+        text: 'Item One'
       },
       {
-        text: 'Item Two',
-      },
-    ],
+        text: 'Item Two'
+      }
+    ]
   },
-    position: 'relative',
+  position: 'relative',
   overflow: 'hidden',
   theme: 'field',
   round: 'A2',
   minWidth: 'F1',
   ':before, &:after': {
-  content: '""',
-  position: 'absolute',
-  boxSize: 'B 100%',
-  zIndex: '2',
-  left: '0',
-  pointerEvents: 'none',
+    content: '""',
+    position: 'absolute',
+    boxSize: 'B 100%',
+    zIndex: '2',
+    left: '0',
+    pointerEvents: 'none'
   },
   ':before': {
-  top: '0',
-  '@light': {
-  background: 'linear-gradient(to bottom,  #ebecf2 0%, transparent 100%)',
-  },
-  '@dark': {
-  background: 'linear-gradient(to bottom, #171717 0%, transparent 100%)',
-  },
+    top: '0',
+    '@light': {
+      background: 'linear-gradient(to bottom,  #ebecf2 0%, transparent 100%)'
+    },
+    '@dark': {
+      background: 'linear-gradient(to bottom, #171717 0%, transparent 100%)'
+    }
   },
   ':after': {
-  bottom: '-3px',
-  '@light': {
-  background: 'linear-gradient(to top,  #ebecf2 0%, transparent 100%)',
-  },
-  '@dark': {
-  background: 'linear-gradient(to top, #171717 0%, transparent 100%)',
-  },
-  },
-};
+    bottom: '-3px',
+    '@light': {
+      background: 'linear-gradient(to top,  #ebecf2 0%, transparent 100%)'
+    },
+    '@dark': {
+      background: 'linear-gradient(to top, #171717 0%, transparent 100%)'
+    }
+  }
+}
 ```
 
 ### Scrollbar
+
 ```js
 export const Scrollbar = {
   display: 'flex',
@@ -2498,22 +2596,23 @@ export const Scrollbar = {
       background: '#d9d7d7 .5',
       left: '0',
       transformOrigin: 'left',
-      width: '15%',
-    },
+      width: '15%'
+    }
   },
   NavigationArrows: {
     childProps: {
       padding: 'Z Z',
       Icon: {
-        fontSize: 'B1',
-      },
-    },
+        fontSize: 'B1'
+      }
+    }
   },
-  minWidth: 'I',
-};
+  minWidth: 'I'
+}
 ```
 
 ### Search
+
 ```js
 export const Search = {
   tag: 'search',
@@ -2524,14 +2623,14 @@ export const Search = {
     padding: 'Z2 C+W2 Z2 A2',
     theme: 'transparent',
     ':focus ~ button': {
-      opacity: '1',
-    },
+      opacity: '1'
+    }
   },
   Icon: {
     name: 'search',
     position: 'absolute',
     right: 'Z+W2',
-    fontSize: 'B',
+    fontSize: 'B'
   },
   minWidth: 'G+A2',
 
@@ -2543,25 +2642,20 @@ export const Search = {
 
   align: 'center flex-start',
 
-  position: 'relative',
-};
+  position: 'relative'
+}
 ```
 
 ### SearchDropdown
+
 ```js
 export const SearchDropdown = {
   state: {
     isOpen: false,
     selected: 'Search and Select',
-    data: [
-      'Los Angeles',
-      'New York',
-      'San Fransisco',
-      'San Diego',
-    ],
-    filtered: [
-    ],
-    searchValue: '',
+    data: ['Los Angeles', 'New York', 'San Fransisco', 'San Diego'],
+    filtered: [],
+    searchValue: ''
   },
   SelectedContainer: {
     text: '{{ selected }}',
@@ -2572,9 +2666,9 @@ export const SearchDropdown = {
     color: 'caption',
     isSelected: (el, s) => s.selected !== 'Search and Select',
     '.isSelected': {
-      color: 'blue',
+      color: 'blue'
     },
-    onClick: (e, el, s) => s.toggle('isOpen'),
+    onClick: (e, el, s) => s.toggle('isOpen')
   },
   Options: {
     show: (el, s) => s.isOpen,
@@ -2596,14 +2690,15 @@ export const SearchDropdown = {
       border: 'none',
       outline: 'none',
       onInput: (e, el, state) => {
-          const value = e.target.value.trim().toLowerCase()
-          const filtered = state.data.filter(item =>
-            item.toLowerCase().includes(value))
-          state.replace({
-            searchValue: value,
-            filtered: filtered
-          })
-        },
+        const value = e.target.value.trim().toLowerCase()
+        const filtered = state.data.filter((item) =>
+          item.toLowerCase().includes(value)
+        )
+        state.replace({
+          searchValue: value,
+          filtered: filtered
+        })
+      }
     },
     Results: {
       marginTop: 'X',
@@ -2614,26 +2709,26 @@ export const SearchDropdown = {
         padding: 'Z',
         text: '{{ value }}',
         onClick: (ev, el, s) => {
-            s.parent.update({
-              selected: s.value,
-              isOpen: false,
-              searchValue: '',
-            })
-          },
-      },
+          s.parent.update({
+            selected: s.value,
+            isOpen: false,
+            searchValue: ''
+          })
+        }
+      }
     },
     Placeholder: {
       padding: 'Z',
       show: (el, s) => !s.searchValue,
       text: 'Enter name to search',
-      color: 'disabled',
+      color: 'disabled'
     },
     NoResults: {
       padding: 'Z',
       show: (el, s) => !!s.searchValue && !s.filtered.length,
       text: 'No results found',
-      color: 'disabled',
-    },
+      color: 'disabled'
+    }
   },
   position: 'relative',
 
@@ -2641,25 +2736,20 @@ export const SearchDropdown = {
 
   theme: 'field',
 
-  round: 'A2',
-};
+  round: 'A2'
+}
 ```
 
 ### SearchDropdown_copy
+
 ```js
 export const SearchDropdown_copy = {
   state: {
     isOpen: false,
     selected: 'Search and Select',
-    data: [
-      'Los Angeles',
-      'New York',
-      'San Fransisco',
-      'San Diego',
-    ],
-    filtered: [
-    ],
-    searchValue: '',
+    data: ['Los Angeles', 'New York', 'San Fransisco', 'San Diego'],
+    filtered: [],
+    searchValue: ''
   },
   SelectedContainer: {
     text: '{{ selected }}',
@@ -2672,9 +2762,9 @@ export const SearchDropdown_copy = {
     cursor: 'pointer',
     isSelected: (el, s) => s.selected !== 'Search and Select',
     '.isSelected': {
-      color: 'title',
+      color: 'title'
     },
-    onClick: (e, el, s) => s.toggle('isOpen'),
+    onClick: (e, el, s) => s.toggle('isOpen')
   },
   Options: {
     show: (el, s) => s.isOpen,
@@ -2696,14 +2786,15 @@ export const SearchDropdown_copy = {
       border: 'none',
       outline: 'none',
       onInput: (e, el, state) => {
-          const value = e.target.value.trim().toLowerCase()
-          const filtered = state.data.filter(item =>
-            item.toLowerCase().includes(value))
-          state.replace({
-            searchValue: value,
-            filtered: filtered
-          })
-        },
+        const value = e.target.value.trim().toLowerCase()
+        const filtered = state.data.filter((item) =>
+          item.toLowerCase().includes(value)
+        )
+        state.replace({
+          searchValue: value,
+          filtered: filtered
+        })
+      }
     },
     Results: {
       marginTop: 'X',
@@ -2714,26 +2805,26 @@ export const SearchDropdown_copy = {
         padding: 'Z',
         text: '{{ value }}',
         onClick: (ev, el, s) => {
-            s.parent.update({
-              selected: s.value,
-              isOpen: false,
-              searchValue: '',
-            })
-          },
-      },
+          s.parent.update({
+            selected: s.value,
+            isOpen: false,
+            searchValue: ''
+          })
+        }
+      }
     },
     Placeholder: {
       padding: 'Z',
       show: (el, s) => !s.searchValue,
       text: 'Enter name to search',
-      color: 'disabled',
+      color: 'disabled'
     },
     NoResults: {
       padding: 'Z',
       show: (el, s) => !!s.searchValue && !s.filtered.length,
       text: 'No results found',
-      color: 'disabled',
-    },
+      color: 'disabled'
+    }
   },
   color: 'black',
 
@@ -2743,49 +2834,52 @@ export const SearchDropdown_copy = {
 
   theme: 'field',
 
-  round: 'A2',
-};
+  round: 'A2'
+}
 ```
 
 ### SectionHeader
+
 ```js
 export const SectionHeader = {
   display: 'flex',
   tag: 'header',
   Hgroup: {},
   IconButtonSet: {},
-  gap: 'C1',
-};
+  gap: 'C1'
+}
 ```
 
 ### Select
+
 ```js
 export const Select = {
-  extends: 'smbls.Select',
-};
+  extends: 'smbls.Select'
+}
 ```
 
 ### SelectField
+
 ```js
 export const SelectField = {
   Select: {
     children: [
       {
         value: '',
-        text: 'Select one...',
+        text: 'Select one...'
       },
       {
         value: 'mazda',
-        text: 'Mazda',
+        text: 'Mazda'
       },
       {
         value: 'bmw',
-        text: 'BMW',
-      },
-    ],
+        text: 'BMW'
+      }
+    ]
   },
   Icon: {
-    margin: '- Z2 - -',
+    margin: '- Z2 - -'
   },
   extends: 'SelectPicker',
   theme: 'field',
@@ -2794,86 +2888,90 @@ export const SelectField = {
 
   padding: 'A A1',
 
-  round: 'D',
-};
+  round: 'D'
+}
 ```
 
 ### SelectHgroup
+
 ```js
 export const SelectHgroup = {
   display: 'flex',
   Hgroup: {
     gap: 'V2',
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   SelectPicker: {
     margin: '- - - auto',
     Select: {
-      children: () => [{
-          value: 'Goat',
+      children: () => [
+        {
+          value: 'Goat'
         },
         {
-          value: 'Icon',
-        },
-      ],
-    },
+          value: 'Icon'
+        }
+      ]
+    }
   },
-  gap: 'C',
-};
+  gap: 'C'
+}
 ```
 
 ### SelectPicker
+
 ```js
 export const SelectPicker = {
   tag: 'label',
-    round: '0',
+  round: '0',
   align: 'center flex-start',
   position: 'relative',
   Select: {
-  fontSize: 'A',
-  boxSize: '100%',
-  padding: '- B+V2 - -',
-  cursor: 'pointer',
-  outline: 'none',
-  appearance: 'none',
-  flex: '1',
-  zIndex: '2',
-  lineHeight: 1,
-  border: 'none',
-  background: 'none',
-  pointerEvents: 'All',
-  color: 'title',
-  ':focus-visible': {
-  outline: 'none',
-  },
-  children: [
-  {
-  text: 'Nikoloza',
-  value: 'Nikoloza',
-  },
-  {
-  text: 'Svinchy',
-  value: 'Svinchy',
-  },
-  ],
-  childProps: {
-  tag: 'option',
-  },
+    fontSize: 'A',
+    boxSize: '100%',
+    padding: '- B+V2 - -',
+    cursor: 'pointer',
+    outline: 'none',
+    appearance: 'none',
+    flex: '1',
+    zIndex: '2',
+    lineHeight: 1,
+    border: 'none',
+    background: 'none',
+    pointerEvents: 'All',
+    color: 'title',
+    ':focus-visible': {
+      outline: 'none'
+    },
+    children: [
+      {
+        text: 'Nikoloza',
+        value: 'Nikoloza'
+      },
+      {
+        text: 'Svinchy',
+        value: 'Svinchy'
+      }
+    ],
+    childProps: {
+      tag: 'option'
+    }
   },
   Icon: {
-  name: 'chevronDown',
-  position: 'absolute',
-  right: '0',
-  margin: 'V - - -',
-  fontSize: 'B',
-  },
-};
+    name: 'chevronDown',
+    position: 'absolute',
+    right: '0',
+    margin: 'V - - -',
+    fontSize: 'B'
+  }
+}
 ```
 
 ### SquareButton
+
 ```js
 export const SquareButton = {
   extends: 'Button',
@@ -2884,57 +2982,60 @@ export const SquareButton = {
   icon: 'smile',
   boxSize: 'fit-content fit-content',
   justifyContent: 'center',
-  round: 'Z',
-  boxSizing: 'content-box',
-};
+  round: 'Z2',
+  boxSizing: 'content-box'
+}
 ```
 
 ### Stars
+
 ```js
 export const Stars = {
   display: 'flex',
   childExtends: 'Icon',
-    fontSize: 'B',
+  fontSize: 'B',
   gap: 'W',
   children: [
-  {
-  name: 'star',
-  },
-  {
-  name: 'star',
-  },
-  {
-  name: 'star',
-  },
-  {
-  name: 'star',
-  },
-  {
-  name: 'star',
-  },
-  ],
-};
+    {
+      name: 'star'
+    },
+    {
+      name: 'star'
+    },
+    {
+      name: 'star'
+    },
+    {
+      name: 'star'
+    },
+    {
+      name: 'star'
+    }
+  ]
+}
 ```
 
 ### StatusDot
+
 ```js
 export const StatusDot = {
-    widthRange: 'A+W',
+  widthRange: 'A+W',
   aspectRatio: '1/1',
   theme: 'success',
   round: '100%',
   '@dark': {
-  border: 'solid codGray',
-  borderWidth: 'X1',
+    border: 'solid codGray',
+    borderWidth: 'X1'
   },
   '@light': {
-  border: 'solid concrete',
-  borderWidth: 'X1',
-  },
-};
+    border: 'solid concrete',
+    borderWidth: 'X1'
+  }
+}
 ```
 
 ### StoryCard
+
 ```js
 export const StoryCard = {
   display: 'flex',
@@ -2942,7 +3043,7 @@ export const StoryCard = {
     src: 'https://files-production-symbols-platform-development-en-d5-u3-p7x0.based.dev/fibd6dc13e/64be440c-ae12-4942-8da7-d772e06cb76c-b3013bf0-701c-4aff-b439-55d412265b2a-25215bc5-652d-40a7-8c99-af865865b74e.jpeg',
     boxSize: '100%',
     zIndex: '2',
-    round: 'A',
+    round: 'A'
   },
   Icon: {
     icon: 'smile',
@@ -2952,7 +3053,7 @@ export const StoryCard = {
     left: '50%',
     fontSize: 'J1+F1',
     transform: 'translate(-50%, -50%)',
-    color: 'white',
+    color: 'white'
   },
   HgroupSteps: {
     position: 'absolute',
@@ -2966,18 +3067,18 @@ export const StoryCard = {
     theme: 'field',
     Hgroup: {
       H: {
-        text: 'Symbols',
+        text: 'Symbols'
       },
       P: {
-        color: 'white .65',
-      },
+        color: 'white .65'
+      }
     },
     ProgressStepSet: {
       childProps: {
-        theme: 'field-dialog',
+        theme: 'field-dialog'
       },
-      children: () => [{}, {}],
-    },
+      children: () => [{}, {}]
+    }
   },
   position: 'relative',
 
@@ -2987,27 +3088,30 @@ export const StoryCard = {
 
   alignSelf: 'flex-start',
 
-  overflow: 'hidden',
-};
+  overflow: 'hidden'
+}
 ```
 
 ### Strong
+
 ```js
 export const Strong = {
   text: 'Strong text',
-  extends: 'smbls.Strong',
-};
+  extends: 'smbls.Strong'
+}
 ```
 
 ### Subhead
+
 ```js
 export const Subhead = {
   text: 'Subhead',
-  extends: 'smbls.Subhead',
-};
+  extends: 'smbls.Subhead'
+}
 ```
 
 ### SubmitButton
+
 ```js
 export const SubmitButton = {
   extends: 'Input',
@@ -3015,44 +3119,46 @@ export const SubmitButton = {
 
   value: 'Submit',
 
-  padding: 'Z2 B',
-};
+  padding: 'Z2 B'
+}
 ```
 
 ### TabSet
+
 ```js
 export const TabSet = {
   display: 'flex',
   childExtends: 'Button',
-    padding: 'V2+V2',
+  padding: 'V2+V2',
   round: 'D',
   background: 'gray .1',
   width: 'fit-content',
   children: [
-  {
-  text: 'build',
-  isActive: true,
-  theme: 'dialog-elevated',
-  },
-  {
-  text: 'test',
-  },
+    {
+      text: 'build',
+      isActive: true,
+      theme: 'dialog-elevated'
+    },
+    {
+      text: 'test'
+    }
   ],
   childProps: {
-  Icon: null,
-  round: 'D',
-  fontWeight: '400',
-  padding: 'Z B1',
-  textTransform: 'capitalize',
-  '.isActive': {
-  theme: 'document',
-  },
-  theme: 'transparent',
-  },
-};
+    Icon: null,
+    round: 'D',
+    fontWeight: '400',
+    padding: 'Z B1',
+    textTransform: 'capitalize',
+    '.isActive': {
+      theme: 'document'
+    },
+    theme: 'transparent'
+  }
+}
 ```
 
 ### TextareaIconButton
+
 ```js
 export const TextareaIconButton = {
   display: 'flex',
@@ -3061,138 +3167,139 @@ export const TextareaIconButton = {
     maxHeight: 'C+Y',
     minWidth: 'G1',
     round: 'D',
-    padding: 'A A A A2',
+    padding: 'A A A A2'
   },
   IconButton: {
     theme: 'primary',
     Icon: {
-      name: 'send',
-    },
+      name: 'send'
+    }
   },
-  gap: 'Y1',
-};
+  gap: 'Y1'
+}
 ```
 
 ### ToggleCaption
+
 ```js
 export const ToggleCaption = {
   Caption: {
-    text: 'Caption',
+    text: 'Caption'
   },
   Toggle: {
     Input: {},
     Flex: {
-      ':after': {},
-    },
+      ':after': {}
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### ToggleCaptionList
+
 ```js
 export const ToggleCaptionList = {
   childExtends: 'ToggleCaption',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Caption: {
-  text: 'Caption',
+    Caption: {
+      text: 'Caption'
+    },
+    Toggle: {
+      Input: {},
+      Flex: {
+        ':after': {}
+      }
+    }
   },
-  Toggle: {
-  Input: {},
-  Flex: {
-  ':after': {},
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### ToggleHgroup
+
 ```js
 export const ToggleHgroup = {
   display: 'flex',
   Hgroup: {
     gap: 'W2',
     H: {
-      tag: 'h6',
+      tag: 'h6'
     },
-    P: {},
+    P: {}
   },
   Toggle: {
     margin: '- - - auto',
     Input: {},
     Flex: {
-      after: {},
-    },
+      after: {}
+    }
   },
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### ToggleHgroupList
+
 ```js
 export const ToggleHgroupList = {
   childExtends: 'ToggleHgroup',
-    flow: 'y',
+  flow: 'y',
   gap: 'B',
   childProps: {
-  Hgroup: {
-  gap: 'W2',
-  H: {
-  tag: 'h6',
+    Hgroup: {
+      gap: 'W2',
+      H: {
+        tag: 'h6'
+      },
+      P: {}
+    },
+    Toggle: {
+      margin: '- - - auto',
+      Input: {},
+      Flex: {
+        after: {}
+      }
+    }
   },
-  P: {},
-  },
-  Toggle: {
-  margin: '- - - auto',
-  Input: {},
-  Flex: {
-  after: {},
-  },
-  },
-  },
-  children: [
-  {},
-  {},
-  ],
-};
+  children: [{}, {}]
+}
 ```
 
 ### U
+
 ```js
 export const U = {
   text: 'Underlined text',
-  extends: 'smbls.Underline',
-};
+  extends: 'smbls.Underline'
+}
 ```
 
 ### UnitValue
+
 ```js
 export const UnitValue = {
   Unit: {
-    text: '$',
+    text: '$'
   },
   Value: {
-    text: '73',
+    text: '73'
   },
-    align: 'center flex-start',
+  align: 'center flex-start',
   gap: 'V',
   childProps: {
-  lineHeight: '1em',
-  color: 'title',
-  },
-};
+    lineHeight: '1em',
+    color: 'title'
+  }
+}
 ```
 
 ### UploadButton
+
 ```js
 export const UploadButton = {
   text: 'Choose file',
@@ -3205,7 +3312,7 @@ export const UploadButton = {
     cursor: 'pointer',
     top: '0',
     left: '0',
-    opacity: '0',
+    opacity: '0'
   },
   extends: 'Button',
   position: 'relative',
@@ -3216,15 +3323,16 @@ export const UploadButton = {
 
   theme: 'transparent',
 
-  color: 'blue',
-};
+  color: 'blue'
+}
 ```
 
 ### UploadIconButton
+
 ```js
 export const UploadIconButton = {
   Icon: {
-    name: 'upload',
+    name: 'upload'
   },
   Input: {
     type: 'file',
@@ -3235,55 +3343,57 @@ export const UploadIconButton = {
     cursor: 'pointer',
     top: '0',
     left: '0',
-    opacity: '0',
+    opacity: '0'
   },
   extends: 'IconButton',
   position: 'relative',
 
   padding: '0',
 
-  cursor: 'pointer',
-};
+  cursor: 'pointer'
+}
 ```
 
 ### UserNavbar
+
 ```js
 export const UserNavbar = {
   AvatarStatus: {
     margin: '-W - - -',
     Avatar: {},
-    Status: {},
+    Status: {}
   },
   Hgroup: {
     gap: 'W',
     H: {
       tag: 'h5',
-      text: 'Nika Tomadze',
+      text: 'Nika Tomadze'
     },
     P: {
-      text: 'active now',
-    },
+      text: 'active now'
+    }
   },
   IconButtonSet: {
     margin: '- - - auto',
     childProps: {
-      Icon: {},
+      Icon: {}
     },
-    children: () => [{}, {}],
+    children: () => [{}, {}]
   },
   minWidth: 'G2',
 
   align: 'center flex-start',
 
-  gap: 'Z',
-};
+  gap: 'Z'
+}
 ```
 
 ### ValueCircleProgress
+
 ```js
 export const ValueCircleProgress = {
   CircleProgress: {
-    ':after': {},
+    ':after': {}
   },
   UnitValue: {
     position: 'absolute',
@@ -3294,65 +3404,67 @@ export const ValueCircleProgress = {
     zIndex: '5',
     gap: 'V',
     Value: {
-      text: '73',
+      text: '73'
     },
     Unit: {
-      text: '%',
-    },
+      text: '%'
+    }
   },
-  border: '2',
-};
+  border: '2'
+}
 ```
 
 ### ValueHeading
+
 ```js
 export const ValueHeading = {
   H: {
     tag: 'h6',
-    text: 'Kobe Bryant',
+    text: 'Kobe Bryant'
   },
   UnitValue: {
     margin: '- - - auto',
     Unit: {},
-    Value: {},
+    Value: {}
   },
   minWidth: 'F3',
 
-  align: 'center space-between',
-};
+  align: 'center space-between'
+}
 ```
 
 ### ValueProgress
+
 ```js
 export const ValueProgress = {
   Progress: {
     maxWidth: '100%',
     flex: '1',
-    value: 0.73,
+    value: 0.73
   },
   UnitValue: {
     flow: 'row-reverse',
     color: 'paragraph',
     Value: {
-      text: '73',
+      text: '73'
     },
     Unit: {
-      text: '%',
-    },
+      text: '%'
+    }
   },
   align: 'center flex-start',
 
-  gap: 'Y2',
-};
+  gap: 'Y2'
+}
 ```
 
 ### Video
+
 ```js
 export const Video = {
   extends: 'smbls.Video',
-  src: 'https://examplefiles.org/files/video/mp4-example-video-download-640x480.mp4',
-};
+  src: 'https://examplefiles.org/files/video/mp4-example-video-download-640x480.mp4'
+}
 ```
 
 ---
-
