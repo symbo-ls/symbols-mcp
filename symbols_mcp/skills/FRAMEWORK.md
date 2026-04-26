@@ -1076,7 +1076,80 @@ PID via `ps aux | grep 'portless <app-name>'` and restart by direct port.
 
 ---
 
-## 13. Where to read more
+## 13. App teardown — destroy / dispose / context.key
+
+### `destroy(app)` — named app teardown
+
+`destroy` is a named export from `'smbls'`. It is also available as `app.destroy()` on the object returned by `create()`.
+
+```js
+import { create, destroy } from 'smbls'
+import context from './symbols/context.js'
+
+const app = await create({ … }, context)
+
+// Swap apps cleanly — tear down the old one first
+destroy(app)                // returns true on first call; false if already destroyed (idempotent)
+```
+
+Teardown order inside `destroy(app)`:
+
+1. Runs every function registered in `context.__teardowns` (popstate listener, custom consumer hooks) — these fire BEFORE the element tree is walked so they can still read context state.
+2. Calls `dispose(app)` — recursive element teardown (see below).
+3. Clears memoized `fetch.__resolved` / `fetch.__resolving` / `db.__resolved` / `db.__resolving` caches so a re-`create()` starts fresh.
+
+`destroy` does NOT strip CSS rules from the shared `<style data-smbls>` sheet. Those sheets are realm-wide by design (atomic CSS dedup, scoped IDs). Orphan rules are inert — their selectors target content-hashed class names that no new element will ever share.
+
+### `dispose(element)` — recursive element teardown
+
+`dispose` is a named export from `'smbls'` (re-exported from `@symbo.ls/element`). Unlike `destroy`, it walks only the element subtree — it does NOT run `context.__teardowns`.
+
+```js
+import { dispose } from 'smbls'
+dispose(someChildElement)
+```
+
+Teardown order inside `dispose(element)`:
+
+1. `onBeforeRemove(el, state, context)` — user hook fires FIRST, before anything is torn down. Handler can still read state and cancel sockets / in-flight requests.
+2. Reactive effects (`ref.__effects`) disposed.
+3. Delegated event listeners (`ref.__eventCleanup`) removed.
+4. Children recursively disposed.
+5. DOM node removed from parent.
+6. Owned state (`state.destroy()`) called if this element owns it.
+7. Element removed from parent's `__children` tracking.
+8. `onRemove(el)` — user hook fires AFTER DOM detach + `state.destroy()`, BEFORE refs cleared. Safe for logging `el.key` / `el.parent`.
+9. Refs cleared (`el.node = null`, `el.parent = null`, `el.__ref = null`).
+
+Both `onBeforeRemove` and `onRemove` are wrapped in try/catch — a misbehaving handler does not block sibling cleanup.
+
+### `context.key` derivation
+
+Every app instance has a stable identifier at `context.key`. Derivation order (first truthy value wins):
+
+1. Explicit `context.key` supplied by the caller.
+2. `symbolsConfig.owner` + `symbolsConfig.key` combined → `"owner--key"` (e.g. `"system--canvas"`, `"system--workspace"`). Used when both fields are present in `symbols.json`.
+3. Bare `symbolsConfig.key` (when no owner).
+4. The `app` argument if it is a string.
+5. `'smblsapp'` — the default fallback.
+
+Source: `smbls/packages/smbls/src/createDomql.js:40-46`.
+
+Apps in the same browser realm (e.g. canvas editor + preview iframe mounted on the same page) get unique stable identifiers from this derivation, which drives atomic-CSS prefix isolation and design-system config lookup.
+
+### `import * as` getter-only namespaces — Parcel fallback
+
+`prepareContext` in `createDomql.js` rehydrates function-strings back to real functions after frank serializes a project. When the bucket (`functions`, `methods`, `snippets`) is an ESM-namespace-shaped object with getter-only own properties, `Object.assign(value, destringified)` throws a `TypeError`. The framework now catches that error and assigns the destringified clone to the key instead:
+
+```js
+try { Object.assign(value, destringified) } catch (e) { if (key) target[key] = destringified }
+```
+
+This means `import * as functions from './functions/index.js'` in `context.js` no longer breaks published Parcel-compiled projects. The old warning to avoid `import * as` for functions/methods/snippets context keys is no longer applicable — Parcel getter-only namespaces are handled by the rehydrate fallback.
+
+---
+
+## 14. Where to read more
 
 | Topic | Doc |
 |---|---|

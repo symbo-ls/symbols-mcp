@@ -83,7 +83,8 @@ props, if, show, hide, value, define, key, tag, query, parent, node,
 variables, component, context, fetch, routes, metadata,
 onInit, onCreate, onComplete, onRender, onRenderRouter, onUpdate, onBeforeUpdate,
 onStateInit, onStateCreated, onStateUpdate, onBeforeStateUpdate,
-onAttachNode, onFrame, onDestroy, onRemove, onDispose,
+onAttachNode, onFrame, onError,
+onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup, onMouseover,
 onBlur, onFocus, onScroll, onResize, … any other onXxx
 ```
@@ -246,10 +247,15 @@ onUpdate:      (el, s, ctx)    => { /* after el.update() */ },
 onBeforeUpdate:(changes, el, s, ctx) => { /* return false to cancel */ },
 onStateUpdate: (changes, el, s, ctx) => { /* after state change */ },
 onBeforeStateUpdate: (changes, el, s, ctx) => { /* return false to cancel */ },
-onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ }
+onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ },
+onError:       (el, s, ctx)    => { /* lifecycle error caught inside the element */ },
+onBeforeRemove:(el, s, ctx)    => { /* fires BEFORE refs/state are torn down — can still read state and cancel sockets/requests */ },
+onRemove:      (el)            => { /* fires AFTER DOM detach + state.destroy(); refs are still present for logging */ }
 ```
 
 `onBeforeUpdate` / `onStateUpdate` / `onBeforeStateUpdate` receive `changes` as their FIRST parameter.
+
+`onBeforeRemove` fires inside `dispose(element)` BEFORE effects, event listeners, and state are destroyed — the handler can still access `el.state`, `el.context`, and call methods. `onRemove` fires AFTER DOM detach and `state.destroy()` but BEFORE refs are cleared — safe for logging `el.key` / `el.parent`. Both hooks are wrapped in try/catch so a misbehaving handler does not block sibling cleanup.
 
 ### Event Detection Rule
 
@@ -1116,7 +1122,7 @@ __name, __ref, __hash, __text,
 onInit, onCreate, onComplete, onRender, onRenderRouter,
 onUpdate, onBeforeUpdate, onStateInit, onStateCreated,
 onStateUpdate, onBeforeStateUpdate, onAttachNode, onFrame,
-onDestroy, onRemove, onDispose,
+onError, onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup,
 onMouseover, onMouseout, onBlur, onFocus, onScroll, onResize, …
 ```
