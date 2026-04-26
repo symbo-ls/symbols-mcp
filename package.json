@@ -5,10 +5,13 @@
   "mcpName": "io.github.symbo-ls/symbols-mcp",
   "files": [
     "bin/",
-    "symbols_mcp/skills/"
+    "symbols_mcp/skills/",
+    "templates/agent-rules/"
   ],
   "bin": {
-    "symbols-mcp": "./bin/symbols-mcp.js"
+    "symbols-mcp": "./bin/symbols-mcp.js",
+    "symbols-audit": "./bin/symbols-audit",
+    "symbols-mcp-init-rules": "./bin/symbols-mcp-init-rules"
   },
   "repository": {
     "type": "git",

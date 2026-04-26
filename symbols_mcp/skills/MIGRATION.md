@@ -1,21 +1,154 @@
-# Migration Rules: DOMQL v2 to v3 & Framework to Symbols
+# Migration Rules: DOMQL v2 → v3 → v4 & Framework → Symbols
 
 Apply these transformation rules when migrating code. Each rule is a BEFORE/AFTER pair.
 
+> **Current target is v4 (smbls@4.0.0).** Most projects migrating from React/Vue/Angular jump straight to v4. Read Part 0 (v3 → v4) first if you're already on v3.
+
 ---
 
-## Part 1: DOMQL v2 to v3
+## Part 0: DOMQL v3 → v4 (signal-based, flat element API)
+
+v4 reorganizes the element runtime around signals and flattens both props and event handlers onto the element directly. v3 wrappers (`props: {}`, `on: {}`) and v3 nested access (`el.props.X`, `el.on.X`) are REMOVED.
 
 ### Rule Summary
 
-| What changed            | v2 (REMOVE)                   | v3 (USE INSTEAD)              |
-| ----------------------- | ----------------------------- | ----------------------------- |
-| CSS props wrapper       | `props: { padding: 'A' }`    | `padding: 'A'` (at root)     |
-| Events wrapper          | `on: { click: fn }`          | `onClick: fn` (at root)      |
-| Inheritance             | `extend: 'Component'`        | `extends: 'Component'`       |
-| Child extend            | `childExtend: 'Item'`        | `childExtends: 'Item'`       |
-| Child element detection | any key including lowercase   | PascalCase keys ONLY          |
-| Base components         | `extends: 'Text'` / `'Box'`  | Remove — implicit defaults    |
+| What changed | v3 (REMOVE) | v4 (USE INSTEAD) |
+| -- | -- | -- |
+| Reactive prop signature | `({ props, state }) => ...` | `(el, s) => ...` (or `(el, s, ctx)`) |
+| Element prop reads | `el.props.text` | `el.text` (flat) |
+| Element event reads | `el.on.click` | `el.onClick` (flat) |
+| Lifecycle declaration | `on: { init: fn, render: fn }` | `onInit: fn, onRender: fn` (flat) |
+| DOM event declaration | `on: { click: fn }` | `onClick: fn` (flat) |
+| Update reactivity | manual `update()` chain | signal-based — function reads in props auto-track |
+| State update | `s.update({...})` (still works) | `s.update({...})` — also `s.rootUpdate`, `s.parentUpdate`, `s.setByPath`, `s.apply`, `s.toggle`, etc. |
+| Plugins | individual init | composable plugins via `context.plugins` |
+
+### Rule 0.1: Flatten reactive prop signatures
+
+BEFORE (v3):
+```js
+{
+  text: ({ props, state }) => state.user.name,
+  isActive: ({ key, state }) => state.active === key,
+  href: ({ props }) => props.href
+}
+```
+
+AFTER (v4):
+```js
+{
+  text: (el, s) => s.user.name,
+  isActive: (el, s) => s.active === el.key,
+  href: (el, s) => el.href
+}
+```
+
+### Rule 0.2: Flatten event reads at runtime
+
+BEFORE (v3):
+```js
+onClick: (e, el) => el.on.click(e)        // never used in practice but flagged anyway
+const handler = el.on.click
+const text = el.props.text
+```
+
+AFTER (v4):
+```js
+onClick: (e, el) => el.onClick(e)
+const handler = el.onClick
+const text = el.text
+```
+
+### Rule 0.3: Use the modern smbls stack — declarative fetch / polyglot / helmet / router
+
+v4 ships a coherent set of plugins. Migrating means replacing imperative one-offs with declarative props. See Rules 47–52 in RULES.md.
+
+BEFORE (imperative v3 patterns):
+```js
+ArticleList: {
+  state: { items: [], loading: true },
+  onRender: async (el, s) => {
+    const r = await fetch('/api/articles')
+    s.update({ items: await r.json(), loading: false })
+  }
+}
+
+ProductPage: {
+  onRender: (el, s) => { document.title = s.product.name }
+}
+
+LangSwitcher: {
+  onClick: (e, el) => {
+    localStorage.setItem('lang', 'ka')
+    s.root.update({ lang: 'ka' })
+    location.reload()
+  }
+}
+
+NavLink: {
+  text: 'About',
+  onClick: () => { window.location.href = '/about' }
+}
+```
+
+AFTER (v4 modern stack):
+```js
+ArticleList: {
+  state: 'articles',
+  fetch: { from: 'articles', cache: '5m' }
+}
+
+export const product = {
+  metadata: (el, s) => ({ title: s.product.name, description: s.product.description })
+}
+
+LangSwitcher: {
+  extends: 'Button',
+  onClick: (e, el) => el.call('setLang', 'ka')
+}
+
+NavLink: {
+  extends: 'Link',
+  href: '/about',
+  text: '{{ aboutLabel | polyglot }}'
+}
+```
+
+### Rule 0.4: Hardcoded user-facing strings → polyglot
+
+```js
+// v3 (hardcoded English)
+{ placeholder: 'Search', text: 'Submit', label: 'Welcome back' }
+
+// v4 (polyglot)
+{ placeholder: '{{ search | polyglot }}', text: '{{ submit | polyglot }}', label: '{{ welcomeBack | polyglot }}' }
+```
+
+### Rule 0.5: Theme writes → `changeGlobalTheme()`
+
+```js
+// v3 (or earlier — bypasses framework)
+document.documentElement.setAttribute('data-theme', 'dark')
+
+// v4 (proper)
+import { changeGlobalTheme } from 'smbls'
+changeGlobalTheme('dark', context.designSystem)   // 2nd arg = optional targetConfig (cross-app)
+```
+
+---
+
+## Part 1: DOMQL v2 → v3 (still applies; v3 → v4 above adds the rest)
+
+### Rule Summary
+
+| What changed | v2 (REMOVE) | v3 (USE INSTEAD; v4 still uses these) |
+| -- | -- | -- |
+| CSS props wrapper | `props: { padding: 'A' }` | `padding: 'A'` (at root) |
+| Events wrapper | `on: { click: fn }` | `onClick: fn` (at root) |
+| Inheritance | `extend: 'Component'` | `extends: 'Component'` |
+| Child extend | `childExtend: 'Item'` | `childExtends: 'Item'` |
+| Child element detection | any key including lowercase | PascalCase keys ONLY |
+| Base components | `extends: 'Text'` / `'Box'` | Remove — implicit defaults |
 
 ### Rule 1: Flatten `props` and `on`
 
@@ -164,14 +297,14 @@ AFTER:
 
 ### Rule 6: PascalCase-only child elements
 
-In v3, only PascalCase keys create child elements. Lowercase keys are treated as CSS properties.
+In v3 and v4, only PascalCase keys create child elements. Lowercase keys are treated as CSS properties.
 
 BEFORE (v2):
 ```js
 { div: {} }   // creates <div>
 ```
 
-AFTER (v3):
+AFTER (v3 / v4):
 ```js
 { div: {} }   // treated as a plain prop, NOT rendered
 { Div: {} }   // creates a child element (equivalent to { extends: 'Div' })
@@ -179,7 +312,7 @@ AFTER (v3):
 
 ### Rule 7: Replace array spread with `children` array
 
-Array spread creates numeric keys (`0`, `1`, `2`...) which v3 treats as CSS properties. Always use `children` array.
+Array spread creates numeric keys (`0`, `1`, `2`...) which v3/v4 treat as CSS properties. Always use `children` array.
 
 BEFORE:
 ```js
@@ -199,7 +332,7 @@ AFTER:
 
 ### Rule 8: Picture `src` must go on Img child
 
-The HTML `<picture>` tag does NOT support `src` as an attribute. In v3, lowercase props move to `element.props`, so `element.parent.src` returns `undefined`.
+The HTML `<picture>` tag does NOT support `src` as an attribute. Always put `src` on the `Img` child.
 
 WRONG:
 ```js
@@ -445,7 +578,7 @@ AFTER:
 
 ---
 
-## Part 4: v3 Component Template
+## Part 4: v4 Component Template
 
 Use this as the base template for every new component:
 
@@ -466,8 +599,9 @@ export const ComponentName = {
   // DOM events
   onClick: (e, el, s) => {},
 
-  // Conditional cases (v3 pattern)
-  isActive: false,
+  // Conditional cases (.isX / '!isX' / $isX) — reactive in v4. Use whenever multiple CSS
+  // props share a single condition; the block re-applies whenever the state read by isX changes.
+  isActive: (el, s) => s.active,
   '.isActive': { background: 'primary', color: 'white' },
 
   // Responsive
@@ -495,18 +629,24 @@ export const ComponentName = {
 | Async data fetch                        | `onRender: async (el, s) => { ... s.update({data}) }`                         |
 | State persistence                       | Functions that read/write to localStorage/cookie                              |
 
-Async state pattern:
+Async state pattern (v4):
 
 ```js
+// ✅ Modern v4 — declarative fetch (preferred)
+export const DataView = {
+  state: 'data',
+  fetch: { from: 'items', params: (el, s) => ({ id: s.id }), placeholderData: null }
+}
+
+// ✅ Modern v4 — imperative with el.call (when fetch: doesn't fit)
 export const DataView = {
   state: { data: null, loading: true, error: null },
-
-  onRender: async (el, state) => {
+  onRender: async (el, s) => {
     try {
-      const data = await el.call('fetchData', el.props.id)
-      state.update({ data, loading: false })
+      const data = await el.call('fetchData', el.id)   // flat el.X access in v4
+      s.update({ data, loading: false })
     } catch (e) {
-      state.update({ error: e.message, loading: false })
+      s.update({ error: e.message, loading: false })
     }
   }
 }

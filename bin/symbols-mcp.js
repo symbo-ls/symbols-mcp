@@ -6,6 +6,32 @@ const readline = require('readline')
 const https = require('https')
 const http = require('http')
 
+// ---------------------------------------------------------------------------
+// Subcommand dispatch — `npx @symbo.ls/mcp <subcommand>` shortcuts.
+// Without a subcommand we fall through to the stdio MCP server below.
+// ---------------------------------------------------------------------------
+;(() => {
+  const argv = process.argv.slice(2)
+  if (!argv.length) return
+  const first = argv[0]
+  if (first.startsWith('-')) return  // global flag — let the MCP server handle (or ignore)
+
+  const subDispatch = {
+    'init-rules':              path.join(__dirname, 'symbols-mcp-init-rules'),
+    'symbols-mcp-init-rules':  path.join(__dirname, 'symbols-mcp-init-rules'),
+    'audit':                   path.join(__dirname, 'symbols-audit'),
+    'symbols-audit':           path.join(__dirname, 'symbols-audit'),
+  }
+  const target = subDispatch[first]
+  if (!target) return  // unknown — fall through (server will likely error or ignore)
+  if (!fs.existsSync(target)) {
+    process.stderr.write(`✗ subcommand target missing: ${target}\n`)
+    process.exit(2)
+  }
+  const result = require('node:child_process').spawnSync('node', [target, ...argv.slice(1)], { stdio: 'inherit' })
+  process.exit(result.status === null ? 1 : result.status)
+})()
+
 const SKILLS_DIR = path.join(__dirname, '..', 'symbols_mcp', 'skills')
 const API_BASE = process.env.SYMBOLS_API_URL || 'https://api.symbols.app'
 
@@ -655,14 +681,14 @@ async function handleTool(name, args) {
   // generate_component
   if (name === 'generate_component') {
     const componentName = args.component_name || 'MyComponent'
-    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'COMPONENTS.md', 'SYNTAX.md', 'COOKBOOK.md', 'DEFAULT_LIBRARY.md')
+    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'COMPONENTS.md', 'SYNTAX.md', 'COOKBOOK.md', 'DEFAULT_PROJECT.md')
     return `# Generate Component: ${componentName}\n\n## Description\n${args.description}\n\n## Requirements\n- Named export: \`export const ${componentName} = { ... }\`\n- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- NO imports between files — PascalCase keys auto-extend registered components\n- Include responsive breakpoints where appropriate (@tabletS, @mobileL)\n- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load\n\n## Context — Rules, Syntax & Examples\n\n${context}`
   }
 
   // generate_page
   if (name === 'generate_page') {
     const pageName = args.page_name || 'home'
-    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'PATTERNS.md', 'SNIPPETS.md', 'DEFAULT_LIBRARY.md', 'COMPONENTS.md')
+    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'PATTERNS.md', 'SNIPPETS.md', 'DEFAULT_PROJECT.md', 'COMPONENTS.md')
     return `# Generate Page: ${pageName}\n\n## Description\n${args.description}\n\n## Requirements\n- Export as: \`export const ${pageName} = { ... }\`\n- Page is a plain object composing components\n- Add to pages/index.js route map: \`'/${pageName}': ${pageName}\`\n- Use components by PascalCase key (Header, Footer, Hero, etc.)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Include responsive layout adjustments\n\n## Context — Rules, Structure, Patterns & Snippets\n\n${context}`
   }
 

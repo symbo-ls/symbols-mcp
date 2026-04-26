@@ -137,7 +137,7 @@ Run Symbols directly in the browser with a single HTML file. No npm, no bundler,
     import { create } from 'https://esm.sh/smbls'
 
     create({
-      flow: 'column',
+      flow: 'y',
       padding: 'C',
       text: 'Hello from Symbols!'
     })
@@ -179,7 +179,7 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
 
   // Define reusable components as variables
   const Card = {
-    flow: 'column',
+    flow: 'y',
     padding: 'B',
     round: 'A',
     background: 'white.95',
@@ -190,7 +190,7 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
   }
 
   const App = {
-    flow: 'column',
+    flow: 'y',
     gap: 'B',
     padding: 'C',
 
@@ -198,7 +198,7 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
 
     Counter: {
       gap: 'A',
-      Label: { text: ({ state }) => `Count: ${state.count}` },
+      Label: { text: (el, s) => `Count: ${s.count}` },
       Inc: {
         extends: 'Button',
         text: '+',
@@ -351,7 +351,7 @@ Rendering server that hosts Symbols apps on dynamic subdomains (`*.symbo.ls`, `*
 ### How It Works
 
 1. Deploy via `smbls push` -> project data stored on Symbols platform
-2. Request hits `myapp.nikoloza.preview.symbols.app`
+2. Request hits `myapp.<owner>.preview.symbols.app`
 3. Mermaid resolves appkey from subdomain
 4. Fetches project data (from DB, gateway, or local JSON)
 5. Generates JavaScript bundle from project data
@@ -362,13 +362,13 @@ Rendering server that hosts Symbols apps on dynamic subdomains (`*.symbo.ls`, `*
 
 ```
 # Production
-https://myapp.nikoloza.preview.symbols.app/
+https://myapp.<owner>.preview.symbols.app/
 
 # Development
-https://myapp.nikoloza.preview.dev.symbols.app/
+https://myapp.<owner>.preview.dev.symbols.app/
 
 # Staging
-https://myapp.nikoloza.preview.staging.symbols.app/
+https://myapp.<owner>.preview.staging.symbols.app/
 
 # Legacy format
 https://myapp.symbo.ls/

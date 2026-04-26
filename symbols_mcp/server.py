@@ -25,12 +25,46 @@ logger = logging.getLogger("symbols-mcp")
 mcp = FastMCP(
     "Symbols",
     instructions=(
-        "Reference assistant for the Symbols.app design-system framework. "
-        "Searches Symbols documentation, exposes framework rules, and provides "
-        "comprehensive syntax and API reference. Includes tools for generating "
-        "components, converting code from React/HTML, auditing DOMQL v3 compliance, "
-        "publishing/deploying projects to the Symbols platform, and complete "
-        "CLI (@symbo.ls/cli) and SDK (@symbo.ls/sdk) documentation."
+        # ── MUST-CALL SEQUENCE for any Symbols.app / DOMQL work ──────────────────
+        "When the user works in a Symbols project (or asks for Symbols/DOMQL code, design system "
+        "work, audits, publishing, anything related), follow this sequence — do NOT skip steps:\n\n"
+        "1. **`get_project_context`** FIRST — resolves owner/key/env from cwd's symbols.json. "
+        "Treat its `next_step` field as the source of truth for what to do next. Missing owner/key/token "
+        "are NEVER hardcoded — surface a `🟢 ASK USER` block.\n"
+        "2. **`get_project_rules`** before generating ANY component or page — bundles RULES + FRAMEWORK + "
+        "DESIGN_SYSTEM + DEFAULT_PROJECT into one read.\n"
+        "3. **`generate_component` / `generate_page`** for new code — these return a prompt + the right context bundle.\n"
+        "4. **`audit_component(code)`** after each component — inline validator, returns ~1K of violations. "
+        "Pass `include_playbook=True` only if you don't already have AUDIT.md.\n"
+        "5. **`audit_project()`** when the user asks for a full project audit — returns the multi-phase playbook. "
+        "Pair with `bin/symbols-audit <symbols-dir>` (CLI shipped in this package) for the static-audit phase.\n\n"
+        # ── HARD RULES — agents MUST treat these as preconditions, not goals ────
+        "Hard rules every output must respect (full list in RULES.md, get via get_project_rules):\n"
+        "- Flat element API: props live at `el.X` (NEVER `el.props.X`); events at `el.onClick` (NEVER `on: {}`); "
+        "reactive functions take `(el, s)` (NEVER `({ props, state })`).\n"
+        "- Lowercase child keys NEVER render. PascalCase only.\n"
+        "- **Auto-extend by key** — `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. "
+        "Rename the wrapper key to the component name and drop `extends`. Multi-instance → suffix `_N` "
+        "(`Navbar_1`, `Navbar_2`). Keep `extends:` only for genuinely distinct semantic labels, "
+        "multi-base composition (`extends: ['Hgroup', 'Form']`), or nested-child chains (`'AppShell > Sidebar'`).\n"
+        "- ALL values use design-system tokens. NO raw px/hex/rgb/hsl/ms. Sequence families "
+        "(typography / spacing / timing) share the letter alphabet but each generates its own values from "
+        "`{ base, ratio }` — `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`. NO custom-named spacing tokens.\n"
+        "- Polyglot for ALL user-facing strings (`'{{ key | polyglot }}'`). NO `t` or `tr` function exists.\n"
+        "- Declarative `fetch:` prop (@symbo.ls/fetch). NEVER raw `window.fetch` / `axios` in a component.\n"
+        "- `metadata: {…}` via @symbo.ls/helmet. NEVER `document.title = …` or `<head>` injection.\n"
+        "- `el.router(path, el.getRoot())` for navigation. NEVER `window.location.*`.\n"
+        "- `changeGlobalTheme()` from `smbls`. NEVER `setAttribute('data-theme')` from project code.\n"
+        "- Icons via `Icon` component referencing `designSystem.icons`. `html: '<svg ...>'` is BANNED (Rule 62 — "
+        "breaks theme color resolution, breaks Brender SSR, breaks sprite deduping).\n"
+        "- NO imports between project files. Reference components by PascalCase key, call functions via `el.call('fn', …)`.\n"
+        "- NO direct DOM manipulation (`document.querySelector`, `addEventListener`, `classList`, `innerHTML`, "
+        "`setAttribute`, `el.node.style.X = …`, `parentNode` traversal — all forbidden).\n\n"
+        # ── BOOTSTRAPPING NOTE ─────────────────────────────────────────────────
+        "If the project root has no `CLAUDE.md` / `.cursor/rules/` / `.windsurfrules` / `.clinerules`, "
+        "suggest the user run `npx @symbo.ls/mcp init-rules` (or equivalent) to drop editor-specific rule "
+        "files that auto-load these instructions on every future session — so the agent doesn't have to be "
+        "reminded with 'use symbols-mcp' each time."
     ),
 )
 
@@ -68,10 +102,16 @@ def _load_agent_instructions() -> str:
 # ---------------------------------------------------------------------------
 
 _V2_PATTERNS = [
-    (r"\bextend\s*:", "v2 syntax: use 'extends' (plural) instead of 'extend'"),
-    (r"\bchildExtend\s*:", "v2 syntax: use 'childExtends' (plural) instead of 'childExtend'"),
-    (r"\bon\s*:\s*\{", "v2 syntax: flatten event handlers with onX prefix (e.g. onClick) instead of on: {} wrapper"),
-    (r"\bprops\s*:\s*\{(?!\s*\})", "v2 syntax: flatten props directly on the component instead of props: {} wrapper"),
+    (r"\bextend\s*:", "FORBIDDEN: use 'extends' (plural) instead of 'extend'"),
+    (r"\bchildExtend\s*:", "FORBIDDEN: use 'childExtends' (plural) instead of 'childExtend'"),
+    (r"\bon\s*:\s*\{", "FORBIDDEN: flatten event handlers as top-level onX (e.g. onClick, onInit) — never wrap in on: {}"),
+    (r"\bprops\s*:\s*\{(?!\s*\})", "FORBIDDEN: flatten props directly on the component — never wrap in props: {}"),
+    (r"\bel\.props\.\w+", "FORBIDDEN: use flat el.X (e.g. el.text) instead of el.props.X — props are flat on the element"),
+    (r"\bel\.on\.\w+", "FORBIDDEN: use flat el.onX (e.g. el.onClick) instead of el.on.event — event handlers are flat on the element"),
+    (r"\(\s*\{\s*props\s*[,}]", "FORBIDDEN reactive prop signature: use (el, s) — never destructure ({ props })"),
+    (r"\(\s*\{\s*state\s*[,}]", "FORBIDDEN reactive prop signature: use (el, s) — never destructure ({ state })"),
+    (r"\(\s*\{\s*key\s*,\s*state", "FORBIDDEN reactive prop signature: use (el, s) — derive key via el.key"),
+    (r"\bisActive\s*:\s*\(\s*\{\s*key", "FORBIDDEN isActive signature: use (el, s) and reference el.key — not destructured key"),
 ]
 
 _RULE_CHECKS = [
@@ -82,15 +122,21 @@ _RULE_CHECKS = [
     (r"extends\s*:\s*['\"]Flex['\"]", "Replace extends: 'Flex' with flow: 'x' or flow: 'y' — do NOT just remove it, the element needs flow to stay flex (Rule 26)"),
     (r"extends\s*:\s*['\"]Box['\"]", "Remove extends: 'Box' — every element is already a Box (Rule 26)"),
     (r"extends\s*:\s*['\"]Text['\"]", "Remove extends: 'Text' — any element with text: is already Text (Rule 26)"),
-    (r"\bchildExtends\s*:\s*\{", "FORBIDDEN: childExtends must be a quoted string name, not an inline object — register as a named component (Rule 10)"),
-    (r"(?:padding|margin|gap|width|height|fontSize|borderRadius|minWidth|maxWidth|minHeight|maxHeight|top|left|right|bottom|letterSpacing|lineHeight|borderWidth|outlineWidth)\s*:\s*['\"]?\d+(?:\.\d+)?px", "FORBIDDEN: No raw px values — use design system tokens (A, B, C, etc.) instead of hardcoded pixels (Rule 28)"),
+    (r"\bchildExtends\s*:\s*\{", "FORBIDDEN: childExtends must be a quoted string name, not an inline object — register as a named component (Rule 10/61). Inline-object childExtends inflates frank-serialized JSON, breaks key resolution, and triggers the css-in-props text-leak bug. Extract to components/ and reference by string."),
+    # Redundant extends — key name already matches extends target. Capture group 1 = key, group 2 = quoted name.
+    (r"^\s+([A-Z][a-zA-Z0-9_]*)\s*:\s*\{[^}]*\bextends\s*:\s*['\"]\1['\"]", "AUTO-EXTEND BY KEY: `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to the component name — DOMQL extends by key automatically. Multi-instance? `Navbar_1`, `Navbar_2` (auto-extends from the part before `_`). Keep `extends:` only when the wrapper carries genuinely distinct semantic meaning, needs multi-base composition (`extends: ['Hgroup', 'Form']`), or chains a nested-child reference (`extends: 'AppShell > Sidebar'`) (Rule 6)."),
+    (r"(?:padding|margin|gap|width|height|fontSize|borderRadius|minWidth|maxWidth|minHeight|maxHeight|top|left|right|bottom|letterSpacing|lineHeight|borderWidth|outlineWidth)\s*:\s*['\"]?\d+(?:\.\d+)?px", "FORBIDDEN: No raw px values — use a sequence-generated token (e.g. `'A'`, `'B'`, `'B1'`) from the matching family (typography for fontSize/lineHeight/letterSpacing, spacing for padding/margin/gap/width/height/etc.). Same letter resolves to different values per family — `padding: 'B'` ≠ `fontSize: 'B'`. NO custom-named spacing tokens — sequence only (Rule 28)"),
     (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]#[0-9a-fA-F]", "Use design system color tokens (primary, secondary, white, gray.5) instead of hardcoded hex colors (Rule 27)"),
     (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]rgb", "Use design system color tokens instead of hardcoded rgb/rgba values (Rule 27)"),
     (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]hsl", "Use design system color tokens instead of hardcoded hsl/hsla values (Rule 27)"),
-    (r"<svg[\s>]", "FORBIDDEN: Use the Icon component for SVG icons — store SVGs in designSystem/icons, never inline (Rule 29)"),
-    (r"tag\s*:\s*['\"]svg['\"]", "FORBIDDEN: Never use tag: 'svg' — store SVGs in designSystem/icons and use Icon component (Rule 29)"),
-    (r"tag\s*:\s*['\"]path['\"]", "FORBIDDEN: Never use tag: 'path' — store SVG paths in designSystem/icons and use Icon component (Rule 29)"),
-    (r"extends\s*:\s*['\"]Svg['\"]", "Use Icon component for icons, not Svg — Svg is only for decorative/structural SVGs (Rule 29)"),
+    # Rule 62 — html: '<svg ...>' for icons is BANNED (the strictest icon enforcement)
+    (r"\bhtml\s*:\s*['\"`]\s*<svg\b", "CRITICAL FORBIDDEN: html: '<svg ...>' for icons is BANNED — use Icon component referencing designSystem.icons by name. Inline SVG via html: bypasses the design system, breaks theme color resolution, breaks Brender SSR, breaks sprite deduping, breaks @dark icon swaps (Rule 29 / Rule 62)"),
+    (r"<svg[\s>]", "FORBIDDEN: Use the Icon component for SVG icons — store SVGs in designSystem/icons, never inline (Rule 29 / Rule 62)"),
+    (r"tag\s*:\s*['\"]svg['\"]", "CRITICAL FORBIDDEN: tag: 'svg' inline component is BANNED — store SVGs in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
+    (r"tag\s*:\s*['\"]path['\"]", "CRITICAL FORBIDDEN: tag: 'path' inline component is BANNED — store SVG paths in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
+    (r"tag\s*:\s*['\"](?:circle|rect|polygon|polyline|ellipse|line)['\"]", "CRITICAL FORBIDDEN: inline SVG primitive elements are BANNED — store the full SVG in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
+    (r"extends\s*:\s*['\"]Svg['\"][^}]*\bhtml\s*:", "CRITICAL FORBIDDEN: extends: 'Svg' with html: SVG markup is BANNED for icons — use the Icon component + designSystem.icons. Svg is reserved for decorative/structural backgrounds, NOT icons (Rule 29 / Rule 62)"),
+    (r"extends\s*:\s*['\"]Svg['\"]", "Use Icon component for icons, not Svg — Svg is only for decorative/structural SVGs, never for icons (Rule 29 / Rule 62)"),
     (r"\biconName\s*:", "FORBIDDEN: Use icon: not iconName: — the prop is icon: 'name' matching a key in designSystem/icons (Rule 29)"),
     (r"document\.createElement\b", "FORBIDDEN: No direct DOM manipulation — use DOMQL declarative object syntax instead (Rule 30)"),
     (r"\.querySelector\b", "FORBIDDEN: No DOM queries — reference elements by key name in the DOMQL object tree (Rule 30)"),
@@ -128,6 +174,27 @@ _RULE_CHECKS = [
     (r"attr\s*:\s*\{\s*href\s*:", "FORBIDDEN: Never put href in attr — use extends: 'Link' with href as a direct prop (Rule 41)"),
     (r"\b(?:COLOR|THEME|TYPOGRAPHY|SPACING|TIMING|FONT_FAMILY|ICONS|SHADOW|MEDIA|GRID|ANIMATION|RESET|GRADIENT)\s*[=:{]", "FORBIDDEN: UPPERCASE design system keys are banned — use lowercase (color, theme, typography, spacing, etc.) (Rule 0)"),
     (r"'@\w+\s+[:.]", "FORBIDDEN: Never chain CSS selectors — use nesting: '@dark': { ':hover': {} } not '@dark :hover' (Rule 44)"),
+    # Modern smbls stack enforcement
+    (r"\bwindow\.fetch\b", "FORBIDDEN: Never call window.fetch directly in components — use the declarative fetch: prop (@symbo.ls/fetch) or wrap in functions/ + el.call (Rule 47)"),
+    (r"\baxios\s*\.\s*\w+\(", "FORBIDDEN: Never use axios in components — use the declarative fetch: prop (@symbo.ls/fetch) or functions/ + el.call (Rule 47)"),
+    (r"\$\.ajax\s*\(", "FORBIDDEN: jQuery-style ajax is banned — use the declarative fetch: prop (@symbo.ls/fetch) (Rule 47)"),
+    (r"document\.title\s*=", "FORBIDDEN: Never set document.title directly — define metadata via @symbo.ls/helmet (metadata: { title: ... }) (Rule 49)"),
+    (r"document\.head\.append", "FORBIDDEN: Never inject into document.head — use @symbo.ls/helmet metadata (Rule 49)"),
+    (r"document\.documentElement\.setAttribute\s*\(\s*['\"]data-theme", "FORBIDDEN: Never write data-theme directly — use changeGlobalTheme() from @symbo.ls/scratch (Rule 50)"),
+    (r"matchMedia\s*\(\s*['\"]\(prefers-color-scheme", "FORBIDDEN: Never read prefers-color-scheme manually — the framework owns theme resolution (Rule 50). Use @dark / @light CSS blocks instead."),
+    (r"globalTheme\s*:\s*['\"](?:dark|light)['\"]", "FORBIDDEN: Never store globalTheme in root state — it is a context-level concern (Rule 50)"),
+    (r"\.addEventListener\s*\(\s*['\"]storage['\"]", "FORBIDDEN: No raw 'storage' event listeners in components — use el.scope cleanup or a functions/ helper (Rule 30)"),
+    (r"localStorage\s*\.\s*(?:setItem|getItem|removeItem)", "WARNING: Direct localStorage in components is discouraged — for language use el.call('setLang', …) (polyglot persists), for theme use changeGlobalTheme(), for app data use state + fetch plugin's local adapter (Rule 47/48/50)"),
+    # Polyglot enforcement (flag obvious user-facing English strings — heuristic)
+    (r"placeholder\s*:\s*['\"][A-Z][a-z]+\s+[a-z]+", "WARNING: User-facing placeholder appears hardcoded — wrap in '{{ key | polyglot }}' template or use el.call('polyglot', 'key'). NOTE: there is NO `t` or `tr` function — only `polyglot`. (Rule 48)"),
+    # Direct el.node writes (re-statement, more explicit)
+    (r"el\.node\.value\s*=\s*", "FORBIDDEN: Never assign to el.node.value directly — use the value: prop (Rule 32/39)"),
+    (r"el\.node\.style\b", "WARNING: Direct el.node.style access — prefer DOMQL CSS-in-props. Reading is fine; writing is not (Rule 39)"),
+    # el.scope is for instance-local non-reactive storage; el.fetch is reserved by the framework
+    (r"\.fetch\s*=\s*function", "WARNING: Element method 'fetch' is reserved by @symbo.ls/fetch — declare custom helpers in functions/ instead"),
+    # Raw HTML composition is banned (Rule 31)
+    (r"=>\s*`<\w+", "FORBIDDEN: Reactive prop function returning a template-literal HTML string is banned — use DOMQL children, text:, if: (Rule 31)"),
+    (r"^\s*const\s+(?!_)[a-z]\w*\s*=\s*\([^)]*\)\s*=>", "WARNING: Module-level helper outside the export is lost during platform serialization — move to functions/ and call via el.call() (Rule 33)"),
 ]
 
 
@@ -144,7 +211,7 @@ _CODE_SECTIONS = {"components", "pages", "functions", "methods", "snippets"}
 
 
 def _parse_js_to_json(source_code: str) -> dict:
-    """Parse DOMQL v3 JavaScript source into platform JSON format.
+    """Parse DOMQL JavaScript source into platform JSON format.
 
     Handles export const/default statements and converts JS object literals
     to Python dicts. Functions are stringified as the platform expects.
@@ -485,7 +552,7 @@ def _build_changes_and_schema(data: dict) -> tuple[list, list, list]:
 
 
 def _audit_code(code: str) -> dict:
-    """Run deterministic v3 compliance checks on component code."""
+    """Run deterministic compliance checks on component code."""
     violations = []
     warnings = []
 
@@ -524,15 +591,23 @@ def _audit_code(code: str) -> dict:
 def get_project_rules() -> str:
     """ALWAYS call this first before any generate_* tool.
 
-    Returns the mandatory Symbols.app rules that MUST be followed.
-    Violations cause silent failures — black page, nothing renders.
+    Returns the mandatory Symbols.app rules that MUST be followed:
+    - FRAMEWORK.md (authoritative — project structure, plugins, theming, SSR, publish)
+    - DESIGN_SYSTEM.md (authoritative — design-system contract + token catalog)
+    - RULES.md (62 strict rules — flat API, signal reactivity, design tokens, polyglot, fetch, helmet, theme, reusability, icons)
+    - DEFAULT_PROJECT.md (recommended baseline design-system values + the default-library catalog)
 
-    Call this before: generate_component, generate_page, convert_react,
-    convert_html, or any code generation task.
+    Violations cause silent failures — black page, nothing renders, or a working app
+    with degraded UX you'll later have to rebuild.
+
+    Call this before: generate_component, generate_page, convert_react, convert_html,
+    or any code generation task.
     """
+    framework = _read_skill("FRAMEWORK.md")
+    design_system = _read_skill("DESIGN_SYSTEM.md")
     rules = _load_agent_instructions()
-    default_styles = _read_skill("DEFAULT_STYLES.md")
-    return f"{rules}\n\n{default_styles}"
+    default_project = _read_skill("DEFAULT_PROJECT.md")
+    return f"{framework}\n\n---\n\n{design_system}\n\n---\n\n{rules}\n\n---\n\n{default_project}"
 
 
 @mcp.tool()
@@ -578,32 +653,66 @@ def generate_component(
     description: str,
     component_name: str = "MyComponent",
 ) -> str:
-    """Generate a Symbols.app DOMQL v3 component from a description.
+    """Generate a Symbols.app DOMQL component from a description.
 
     Returns the rules, syntax reference, component catalog, cookbook examples,
     and default library reference as context. The calling LLM uses this context
-    to generate a correct component.
+    to generate a correct, compliant component.
 
     Args:
         description: What the component should do and look like.
         component_name: PascalCase name for the component.
     """
-    context = _read_skills("RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "COOKBOOK.md", "DEFAULT_LIBRARY.md", "DEFAULT_STYLES.md")
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "MODERN_STACK.md", "COOKBOOK.md", "DEFAULT_PROJECT.md")
     return f"""# Generate Component: {component_name}
 
 ## Description
 {description}
 
-## Requirements
-- Named export: `export const {component_name} = {{ ... }}`
-- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)
-- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.
-- NO imports between files — PascalCase keys auto-extend registered components
-- Include responsive breakpoints where appropriate (@tabletS, @mobileL)
-- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends
-- Use Icon component for SVGs — store icons in designSystem/icons
-- NO direct DOM manipulation — all structure via DOMQL declarative syntax
-- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load
+## Requirements (STRICT — read FRAMEWORK.md and DESIGN_SYSTEM.md before generating)
+
+### Identity & syntax
+- Named export: `export const {component_name} = {{ ... }}`. Plain object — never function/class.
+- Flat element API: props on the element (no `props: {{}}` wrapper). Event handlers flat top-level (`onClick`, `onInit`, NEVER `on: {{}}`). Reactive prop functions take `(el, s)` — NEVER `({{ props, state }})`.
+- ⚠️ **PascalCase child keys ONLY** — lowercase keys (`h1:`, `nav:`, `form:`, `hgroup:`) NEVER render. #1 cause of "missing content" (Rule 6).
+- NO imports between project files — PascalCase keys auto-extend registered components, functions called via `el.call('fnName', …)` (Rule 2/8/33).
+
+### Reusability — MANDATORY (Rule 6 / Rule 61)
+- **Auto-extend by key.** `Header: {{ extends: 'Navbar' }}` should almost always be `Navbar: {{}}`. Rename the wrapper key to match the component — DOMQL extends by key automatically. Multi-instance → `Navbar_1`, `Navbar_2` (the part before `_` auto-extends). Keep `extends:` only for (a) genuinely distinct semantic labels (`SidebarNav: {{ extends: 'Navbar' }}` IF the project really uses both names), (b) multi-base composition (`extends: ['Hgroup', 'Form']`), or (c) nested-child chains (`extends: 'AppShell > Sidebar'`). This is the most common boilerplate in Symbols code.
+- **Extract every duplicated shape** to `components/<Name>.js`. Repeated PascalCase blocks = candidates for extraction.
+- For lists/groups of similar children → `childExtends: 'Name'` (+ `childrenAs: 'state'` if data-driven; preferred for reusability).
+- For shared per-child overrides → `childProps: {{ … }}` on the parent.
+- NEVER inline-object `childExtends: {{ tag: 'button', ... }}` — must be a quoted string referencing a registered component (frank serialization breaks otherwise).
+
+### Design system — STRICT (Rules 27/28)
+- ALL values MUST use design system tokens. ZERO px, ZERO hex/rgb/hsl, ZERO raw ms.
+- **Sequence families share letter alphabets but NOT values.** Typography (`fontSize`), spacing (`padding`/`margin`/`gap`/`width`/`height`/etc.), and timing (`transition` duration) each generate their own sequence from `{{ base, ratio }}`. `fontSize: 'B'` ≈ 25px, `padding: 'B'` ≈ 26px, `transition: 'B'` ≈ 200ms — same letter, different values per family. There are NO custom-named spacing/typography/timing tokens — only the generated sequence + sub-tokens (`A1`, `A2`, `B1`, etc.).
+- Name-based families: colors (`'primary'`, `'surface'`, `'gray.5'`, `'blue.7'`, `'gray+20'`), themes, gradients, shadows, icons.
+- Color modifiers: `.N` is alpha (`'white.5'` = 50% opacity), `+N` lightens, `-N` darkens (both lightness, NOT raw RGB), `=N` absolute lightness %.
+- **Icons (Rule 29 / Rule 62 — CRITICAL):** ALWAYS render via the `Icon` component referencing `designSystem.icons` by name (`{{ extends: 'Icon', icon: 'name' }}`). NEVER `html: '<svg ...>'` (BANNED — bypasses design system, breaks Brender SSR, breaks theme color resolution, breaks sprite deduping). NEVER `tag: 'svg'`, NEVER `tag: 'path'` / `tag: 'circle'` / `tag: 'rect'`. NEVER `extends: 'Svg'` for an icon (`Svg` is reserved for non-icon backgrounds). Every SVG, no exceptions, lives in `designSystem/icons.js`.
+
+### Modern stack — MANDATORY
+- **Polyglot (Rule 48):** All user-facing text via `'{{{{ key | polyglot }}}}'` template (reactive). Imperative: `(el) => el.call('polyglot', 'key')`. **NO `t` or `tr` function exists** — only `polyglot`. No exceptions for short strings (Submit/OK/Cancel/Loading).
+- **Fetch (Rule 47):** Declarative `fetch:` prop (`@symbo.ls/fetch`). NEVER `window.fetch`/`axios` in components.
+- **Helmet (Rule 49):** Page-level `metadata: {{ title, description, ... }}`. NEVER `document.title = …`.
+- **Router (Rule 42):** `el.router(path, el.getRoot())`. NEVER `window.location.*`.
+- **Theme (Rule 50):** `changeGlobalTheme(theme, targetConfig?)` imported from `smbls`. NEVER `setAttribute('data-theme', …)`.
+
+### DOM manipulation — BANNED (Rules 30/32/40)
+- NEVER: `document.querySelector`, `getElementById`, `addEventListener`, `classList.toggle`, `innerHTML =`, `setAttribute`, `parentNode` traversal, `el.node.style.X = …`, `XMLHttpRequest`, `EventSource`/`WebSocket` at top level.
+- Element traversal: `el.lookdown('Key')`, `el.lookup('Key')`, `el.lookdownAll('Key')`, `el.getRoot()` — NEVER browser DOM queries.
+
+### Conditional rendering / animation
+- For tabs/views use `show:`/`hide:` (keeps in DOM). For conditional content use `if:` (removes from DOM, **destructive — kills CSS transitions, focus, scroll, video playback**).
+- Use `.isX` + `'.isX'` block for grouped conditional CSS (fully reactive — block re-applies when `isX` state changes).
+
+### Layout
+- `flow:` / `align:` are valid shorthands (`flow: 'y'` ≡ `flexFlow: 'column'`).
+- Built-in atoms (Box, Flex, Grid, Hgroup, Form, Text, Img, Iframe, Svg, Picture, Video, Link, Button, Input, etc.) auto-apply when key matches — NEVER `extends: 'Flex'` / `'Box'` / `'Text'` (just name the key `Flex: {{...}}` etc.).
+- Include responsive breakpoints (`@tabletS`, `@mobileL`, `@dark`, `@light`).
+
+### Aesthetics
+- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load.
 
 ## Context — Rules, Syntax & Examples
 
@@ -615,7 +724,7 @@ def generate_page(
     description: str,
     page_name: str = "home",
 ) -> str:
-    """Generate a Symbols.app page with routing integration.
+    """Generate a Symbols.app DOMQL page with routing + helmet metadata + fetch integration.
 
     Returns rules, project structure, patterns, snippets, and default library
     reference as context for page generation.
@@ -625,23 +734,52 @@ def generate_page(
         page_name: camelCase name for the page (used in route map).
     """
     context = _read_skills(
+        "FRAMEWORK.md", "DESIGN_SYSTEM.md",
         "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md",
-        "PATTERNS.md", "SNIPPETS.md", "DEFAULT_LIBRARY.md", "COMPONENTS.md", "DEFAULT_STYLES.md",
+        "MODERN_STACK.md",
+        "PATTERNS.md", "SNIPPETS.md", "COMPONENTS.md", "DEFAULT_PROJECT.md",
     )
     return f"""# Generate Page: {page_name}
 
 ## Description
 {description}
 
-## Requirements
-- Export as: `export const {page_name} = {{ ... }}`
-- Page is a plain object composing components
-- Add to pages/index.js route map: `'/{page_name}': {page_name}`
-- Use components by PascalCase key (Header, Footer, Hero, etc.)
-- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.
-- Use Icon component for SVGs — store icons in designSystem/icons
-- NO direct DOM manipulation — all structure via DOMQL declarative syntax
-- Include responsive layout adjustments
+## Requirements (STRICT — read FRAMEWORK.md and DESIGN_SYSTEM.md before generating)
+
+### Identity & registration
+- Export: `export const {page_name} = {{ ... }}`, extending `'Page'` (NEVER `'Flex'` / `'Box'`).
+- Add to `pages/index.js` route map: `'/{page_name}': {page_name}`. (`pages/index.js` is the ONLY file allowed to import siblings.)
+- Page is a plain object composing components by PascalCase key — no imports between project files.
+
+### Syntax (same rules as components)
+- Flat element API; reactive prop functions `(el, s)`; flat `onX` events; lowercase child keys NEVER render.
+- NO `props: {{}}` / `on: {{}}` / `({{ props, state }})` destructured signatures.
+
+### Reusability — MANDATORY (Rule 6 / Rule 61)
+- **Auto-extend by key.** `Header: {{ extends: 'Navbar' }}` should almost always be `Navbar: {{}}`. Rename the wrapper key to match the component. Multi-instance → `Navbar_1`, `Navbar_2`. Keep `extends:` only for genuinely distinct semantic labels, multi-base composition, or nested-child chains.
+- Extract every duplicated shape across pages to `components/<Name>.js`. NEVER duplicate inline.
+- `childExtends: 'Name'` for lists/groups; `childProps: {{ … }}` for shared per-child overrides.
+
+### Design system — STRICT
+- ALL values from design system tokens. ZERO px, hex, rgb, hsl, raw durations.
+- **Icons (Rule 29 / Rule 62 — CRITICAL):** every SVG goes in `designSystem/icons.js` and is rendered via `{{ extends: 'Icon', icon: 'name' }}`. NEVER `html: '<svg ...>'`, NEVER `tag: 'svg'` / `tag: 'path'`, NEVER `extends: 'Svg'` for an icon.
+
+### Modern stack — MANDATORY
+- **Helmet (Rule 49):** `metadata: {{ title, description, 'og:image', ... }}` (or `metadata: (el, s) => ({{ ... }})` for dynamic). NEVER `document.title = …`.
+- **Fetch (Rule 47):** Declarative `fetch: {{ from: 'table', cache: '5m', ... }}` (or array for parallel). Configure adapter once in `config.js`: `db: {{ adapter: 'supabase', url, key }}`. NEVER `window.fetch`/`axios`.
+- **Polyglot (Rule 48):** ALL user-facing text via `'{{{{ heading | polyglot }}}}'` template. Imperative: `el.call('polyglot', 'key')`. NO `t` or `tr` function — only `polyglot`.
+- **Router (Rule 42):** `el.router(path, el.getRoot())`. NEVER `window.location`. Param routes (`/blog/:id`) populate `state.params`.
+- **Theme (Rule 50):** `changeGlobalTheme(theme, targetConfig?)` imported from `smbls`. NEVER `setAttribute('data-theme')`.
+
+### DOM bans (Rules 30/40/42)
+- NEVER `document.*`, `addEventListener`, `classList`, `innerHTML`, `setAttribute`, `parentNode`, `el.node.style.X = …`, `XMLHttpRequest`, raw `EventSource`/`WebSocket`.
+
+### Conditional rendering
+- Tabs/views: `show:` / `hide:` (keeps in DOM). Conditional content: `if:` (removes from DOM — destructive: kills CSS transitions, focus, scroll, video).
+- Grouped reactive CSS: `isX: (el, s) => …` + `'.isX': {{ … }}` block (re-applies when state changes).
+
+### Layout / responsive
+- `flow:` / `align:` valid; built-in atoms auto-apply by key. Responsive breakpoints `@tabletS`, `@mobileL`, `@dark`, `@light`.
 
 ## Context — Rules, Structure, Patterns & Snippets
 
@@ -650,7 +788,7 @@ def generate_page(
 
 @mcp.tool()
 def convert_react(source_code: str) -> str:
-    """Convert React/JSX code to Symbols.app DOMQL v3.
+    """Convert React/JSX code to Symbols.app DOMQL.
 
     Provide React component code and receive the conversion context including
     migration rules, syntax reference, and examples.
@@ -658,30 +796,38 @@ def convert_react(source_code: str) -> str:
     Args:
         source_code: The React/JSX source code to convert.
     """
-    context = _read_skills("RULES.md", "MIGRATION.md", "SYNTAX.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_STYLES.md")
-    return f"""# Convert React → Symbols DOMQL v3
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "MIGRATION.md", "SYNTAX.md", "MODERN_STACK.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
+    return f"""# Convert React → Symbols DOMQL
 
 ## Source Code to Convert
 ```jsx
 {source_code}
 ```
 
-## Conversion Rules
-- Function/class components → plain object exports
-- JSX → nested object children (PascalCase keys auto-extend)
-- import/export between files → REMOVE (reference by key name)
-- useState → state: {{ key: val }} + s.update({{ key: newVal }})
-- useEffect → onRender (mount), onStateUpdate (deps)
-- props → flattened directly on component (no props wrapper)
-- onClick={{handler}} → onClick: (event, el, state) => {{}}
-- className → use design tokens and theme directly
-- map() → children: (el, s) => s.items, childExtends, childProps
-- conditional rendering → if: (el, s) => boolean
-- CSS modules/styled → CSS-in-props with design tokens
-- React.Fragment → not needed, just nest children
+## Conversion Rules (DOMQL — STRICT)
+- Function/class components → plain object exports (`export const X = {{ ... }}`)
+- JSX → nested object children (PascalCase keys auto-extend registered components)
+- import/export between project files → REMOVE (reference by string key, call functions via `el.call('fn', …)`)
+- useState → `state: {{ key: val }}`; updates via `s.update({{ key: newVal }})`
+- useReducer → `s.apply(fn)` / `s.applyFunction(fn)`
+- useEffect mount → `onInit` (before DOM) or `onRender` (after DOM). For data-loading effects, prefer the declarative `fetch:` prop (Rule 47).
+- useEffect deps → `onStateUpdate(changes, el, s, ctx)` or signal-based reactive prop functions (the framework auto-tracks reads).
+- useMemo / useCallback → not needed; reactive prop functions are memoized by signal subscription.
+- props → flat on the component (NO `props: {{}}` wrapper — FORBIDDEN)
+- onClick={{handler}} → `onClick: (e, el, s) => {{ … }}` (flat top-level, NEVER `on: {{ click }}`)
+- className / styled-components → DOMQL CSS-in-props with **design system tokens only** (Rule 27/28). ZERO px, hex, rgb, hsl.
+- .map() → `children: (el, s) => s.items, childExtends: 'ItemName', childrenAs: 'state'`
+- conditional rendering → `if: (el, s) => boolean` (removes from DOM) or `show:`/`hide:` (keeps in DOM, for tabs)
+- React.Fragment / `<>...</>` → not needed; just nest object keys.
+- React Router `<Link>` / `useNavigate()` → `extends: 'Link'` with `href`; programmatic navigation via `el.router(path, el.getRoot())` (Rule 41/42)
+- React Helmet / Next `<Head>` → page-level `metadata: {{ title, description, ... }}` via @symbo.ls/helmet (Rule 49)
+- fetch / axios / SWR / TanStack Query → declarative `fetch: {{ from, cache, transform, … }}` via @symbo.ls/fetch (Rule 47). Caching/dedup/retry/refetch-on-focus are built in — DO NOT reimplement them.
+- i18next / react-intl → `@symbo.ls/polyglot` with `'{{{{ key | polyglot }}}}'` template, `el.call('polyglot', 'key')`, `el.call('setLang', 'ka')` (Rule 48)
+- localStorage state → state + fetch plugin's `local` adapter, or polyglot's `setLang` for language. NEVER raw `localStorage.setItem` in components.
+- Theme switcher / dark mode → `changeGlobalTheme()` from @symbo.ls/scratch (Rule 50). NEVER `setAttribute('data-theme', …)` directly.
 - **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl
-- Use Icon component for SVGs — never inline SVG markup
-- NO direct DOM manipulation — all structure via DOMQL declarative syntax
+- Use `Icon` component for SVGs — never inline SVG markup, never `tag: 'svg'` (Rule 29)
+- NO direct DOM manipulation — banned: `document.*`, `addEventListener`, `classList`, `innerHTML`, `setAttribute`, `el.node.style.X = …`, `parentNode`/`children` traversal (Rule 30/32/40)
 
 ## Context — Migration Guide, Syntax & Rules
 
@@ -690,7 +836,7 @@ def convert_react(source_code: str) -> str:
 
 @mcp.tool()
 def convert_html(source_code: str) -> str:
-    """Convert raw HTML/CSS to Symbols.app DOMQL v3 components.
+    """Convert raw HTML/CSS to Symbols.app DOMQL components.
 
     Provide HTML code and receive the conversion context including component
     catalog, syntax reference, and design system tokens.
@@ -698,33 +844,38 @@ def convert_html(source_code: str) -> str:
     Args:
         source_code: The HTML/CSS source code to convert.
     """
-    context = _read_skills("RULES.md", "SYNTAX.md", "COMPONENTS.md", "DESIGN_SYSTEM.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_STYLES.md")
-    return f"""# Convert HTML → Symbols DOMQL v3
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
+    return f"""# Convert HTML → Symbols DOMQL
 
 ## Source Code to Convert
 ```html
 {source_code}
 ```
 
-## Conversion Rules
-- <div> → Box, Flex, or Grid (based on layout purpose)
-- <span>, <p>, <h1>-<h6> → Text, P, H with tag property
-- <a> → Link (has built-in SPA router)
-- <button> → Button (has icon/text support)
-- <input> → Input, Radio, Checkbox (based on type)
-- <img> → Img
-- <form> → Form (extends Box with tag: 'form')
-- <ul>/<ol> + <li> → children array with childExtends
-- CSS classes → flatten as CSS-in-props on the component
-- CSS px values → design tokens (16px → 'A', 26px → 'B', 42px → 'C')
-- CSS colors → theme color tokens
-- media queries → @tabletS, @mobileL, @screenS breakpoints
-- id/class attributes → not needed (use key names and themes)
-- inline styles → flatten as component properties
-- <style> blocks → distribute to component-level properties
-- **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl
-- <svg> icons → Icon component + designSystem/icons — never inline SVG
-- NO direct DOM manipulation — all structure via DOMQL declarative syntax
+## Conversion Rules (DOMQL — STRICT)
+- `<div>` with flex/grid → drop the wrapper; use `flow: 'x'`/`flow: 'y'` (replaces `extends: 'Flex'`) or `display: 'grid'` directly. Plain wrappers don't need `extends: 'Box'`.
+- `<span>`, `<p>`, `<h1>`-`<h6>` → keep semantic via `tag` (`P`, `H1`–`H6` exist as default-library components).
+- `<a>` → `extends: 'Link'` with `href` at root (NEVER inside `attr: {{}}`). For SPA navigation: `onClick: (e, el) => {{ e.preventDefault(); el.router(href, el.getRoot()) }}`.
+- `<button>` → `extends: 'Button'` (supports `icon` + `text`).
+- `<input>` → `Input`, `Radio`, `Checkbox` based on type. Standard HTML attrs (placeholder, type, name, value, disabled) flat at root — NOT inside `attr: {{}}`.
+- `<img>` → `Img` (or `Picture` containing `Img`; `<picture>` does NOT support `src`).
+- `<form>` → `Form` (or `tag: 'form'`).
+- `<ul>`/`<ol>` + `<li>` → `children` array + `childExtends: 'ItemName'`.
+- CSS classes → flatten as CSS-in-props on the component (no className prop).
+- CSS px values → design-system sequence tokens. **`fontSize` uses the typography sequence; `padding`/`margin`/`gap`/`width`/`height`/etc. use the spacing sequence; `transition` duration uses the timing sequence — same letters, DIFFERENT values per family.** Default mappings: spacing `A`≈16px, `B`≈26px, `C`≈42px (golden ratio); typography `A`≈16px, `B`≈20px, `C`≈25px (major-third). Sub-tokens (`Z1`, `Z2`, `A1`, `A2`, etc.) are minor increments within each family. NO custom-named spacing tokens.
+- CSS colors → theme color tokens (`primary`, `surface`, `gray.5`, `blue+20`, `white.7`). NEVER hex/rgb/hsl.
+- Durations → `designSystem.timing` tokens.
+- Media queries → `@tabletS`, `@mobileL`, `@screenS`, `@dark`, `@light` (NEVER chain selectors — Rule 44).
+- id/class attributes → not needed (PascalCase keys serve as identifiers; cases.js handles conditional classes).
+- inline styles → flatten as component properties (or `style: {{…}}` only for raw CSS escape hatches).
+- `<style>` blocks → distribute to component-level CSS-in-props.
+- `<svg>` icons → `Icon` component + `designSystem/icons` — NEVER `tag: 'svg'`, NEVER inline SVG markup, NEVER nest `<path>` (Rule 29).
+- Hardcoded user-facing text → polyglot `'{{{{ key | polyglot }}}}'` template (Rule 48).
+- jQuery / vanilla JS event listeners → flat `onClick`/`onInput`/`onSubmit` props on the element. NO `addEventListener`.
+- Hardcoded data fetches → declarative `fetch:` prop via @symbo.ls/fetch (Rule 47).
+- `<head>` `<title>`, `<meta>` → page/app-level `metadata: {{…}}` via @symbo.ls/helmet (Rule 49).
+- **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl, ZERO raw durations.
+- NO direct DOM manipulation — all structure via DOMQL declarative syntax (Rule 30/32/40).
 
 ## Context — Syntax, Components & Design System
 
@@ -732,17 +883,35 @@ def convert_html(source_code: str) -> str:
 
 
 @mcp.tool()
-def audit_component(component_code: str) -> str:
-    """Audit a Symbols/DOMQL component for v3 compliance and best practices.
+def audit_component(component_code: str, include_playbook: bool = False) -> str:
+    """Inline VALIDATOR for a single Symbols/DOMQL component string.
 
-    Runs deterministic checks against v3 rules and returns a structured report
-    with violations, warnings, and a compliance score.
+    Runs the deterministic ruleset (flat element API, signal reactivity, design system
+    tokens, declarative fetch/polyglot/helmet/router, no DOM manipulation, Rule 62 icon ban)
+    against an in-memory string of code. Returns a tight report with violations + warnings.
+
+    Use this:
+    - During generation, to verify a freshly-generated component before saving
+    - In any client without shell access (claude.ai web, hosted MCP) where the CLI
+      is unreachable
+    - On a single file's contents, not a whole project
+
+    Adjacent tools — call these for different scopes:
+    - `audit_project()` — returns the MULTI-PHASE PROJECT AUDIT PLAYBOOK (instructions
+      for the agent to follow). Use when the user asks for a full project audit.
+    - `bin/symbols-audit <symbols-dir>` (CLI, ships with this package) — filesystem
+      regex sweep across an entire project. Use during the playbook's static-audit phase.
+
+    By default returns ONLY the findings (≈1–2K chars). Pass `include_playbook=True`
+    to also dump the AUDIT.md playbook in the same response when you don't already have it.
 
     Args:
-        component_code: The JavaScript component code to audit.
+        component_code: The JavaScript/DOMQL source string to validate.
+        include_playbook: Append the full audit playbook to the response. Default False
+                          to keep responses small. Default agents should NOT set this —
+                          call `audit_project()` separately if the playbook is needed.
     """
     result = _audit_code(component_code)
-    rules_context = _read_skill("AUDIT.md")
 
     output = f"""# Audit Report
 
@@ -773,38 +942,138 @@ Passed: {'Yes' if result['passed'] else 'No'}
 
 """
 
-    output += f"""
-## Detailed Rules Reference
+    output += "\n## Next steps\n"
+    output += "- For a full project audit (filesystem-wide regex + chrome-mcp UI tests + iteration to convergence), call `audit_project()` to get the playbook.\n"
+    output += "- For the framework rules in detail, call `get_project_rules()`.\n"
 
-{rules_context}"""
+    if include_playbook:
+        output += "\n---\n\n## Audit Playbook (AUDIT.md)\n\n"
+        output += _read_skill("AUDIT.md")
 
     return output
 
 
 @mcp.tool()
 def get_cli_reference() -> str:
-    """Returns the complete Symbols CLI (@symbo.ls/cli) command reference.
+    """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`).
 
-    Covers all smbls commands: project setup (init, create, install, eject),
-    development (start, build, brender, deploy), sync (fetch, sync, push, publish),
-    collaboration (login, collab), project management, file management,
-    AI assistant (ask), and utilities (convert, migrate, validate, sdk).
+    Mirrors `smbls/CLI_FOR_MCP.md`. Covers: configuration files (symbols.json, .symbols_local/),
+    API URL resolution order + env-var overrides, common flag conventions, full command map
+    (project lifecycle, auth, sync, project mgmt, workspace ops, files & assets, integrations,
+    GitHub, Frank JSON↔FS, dev/build/deploy, code transformation, SDK proxy, ask),
+    publish flow (one-shot + granular), MCP/agent usage rules (--non-interactive + --yes
+    + SYMBOLS_API_CHANNEL + SYMBOLS_AUTH_TOKEN), error-handling contracts (AUTH_REQUIRED,
+    ECONNREFUSED, missing app key), source-file map, and CLI-specific anti-patterns.
     """
     return _read_skill("CLI.md")
 
 
 @mcp.tool()
 def get_sdk_reference() -> str:
-    """Returns the complete Symbols SDK (@symbo.ls/sdk) API reference.
+    """Returns the complete `@symbo.ls/sdk` v4 API reference.
 
-    Covers all SDK services: AuthService, ProjectService, BranchService,
-    PullRequestService, CollabService, FileService, DnsService,
-    IntegrationService, FeatureFlagService, MetricsService,
-    ScreenshotService, TrackingService, AdminService, KvService,
-    OrganizationService, PaymentService, PlanService, SubscriptionService,
-    and WaitlistService — with method signatures and usage examples.
+    Mirrors `sdk/SDK_FOR_MCP.md`. Covers all 24 services with full method lists:
+    auth, collab, project, plan, subscription, file, payment, dns, branch, pullRequest,
+    admin, screenshot, tracking, waitlist, metrics, integration, featureFlag, organization,
+    workspace, workspaceData (typed wrapper for /workspace/*), kv, allocationRule,
+    sharedAsset, credits. Plus: SDK class lifecycle, BaseService contract, TokenManager
+    (singleton, auto-refresh), environment matrix (channel URLs), root event bus
+    (sdk.rootBus with last-payload replay), validation surface, federation primitive
+    (multi-Supabase registry), permissions reference (ROLE_PERMISSIONS,
+    PROJECT_ROLE_PERMISSIONS, TIER_FEATURES), error handling contract, and MCP integration notes.
     """
     return _read_skill("SDK.md")
+
+
+@mcp.tool()
+def audit_project(phase: str = "all") -> str:
+    """Returns the multi-phase PROJECT AUDIT PLAYBOOK (instructions for the agent).
+
+    Strict mode is the default. Strict means EXHAUSTIVE — the agent does not stop
+    until every finding is `resolved`, `framework_bug` (in framework_audit_results.md),
+    or an active `🟢 ASK USER` block awaiting user input. No finding stays `open`.
+
+    Two CLI flags (default ON in strict mode, both opt-out via --no-...):
+    - `--deep-fix`: agent does NOT stop at first blocker (missing project key,
+      auth-protected route, missing CLI subcommand). Surfaces ASK-USER blocks or
+      runs documented fallbacks (e.g. publish blocked → local frank+brender preview).
+    - `--deep-framework-audit`: every framework_bug entry includes a Read+Grep trace
+      into smbls/ source identifying the suspected function, plus a suggested patch.
+
+    Two report files the CLI emits + the agent appends to:
+    - `audit/symbols_audit_results.md` — PROJECT findings + resolutions
+    - `audit/framework_audit_results.md` — FRAMEWORK bugs + repro + smbls/ trace +
+      suggested patch (each entry must be debuggable by someone who's never seen
+      the code; vague "doesn't work" entries are not acceptable in strict mode)
+
+    Findings have an `origin` field (project | framework | shared) classified by
+    `bin/symbols-audit` heuristically, then refined by the agent during Phase 2.
+
+    This tool is a **playbook getter**, not an executor. The agent runs the playbook
+    itself using:
+    - `get_project_context` — call FIRST to resolve owner/key/env. Missing values
+      surface as `🟢 ASK USER` blocks (NEVER hardcoded).
+    - `bin/symbols-audit <symbols-dir>` — deterministic regex sweep + dual-report
+      template emission. Strict + deep modes default ON.
+    - `audit_component(code)` — inline single-component validator (no filesystem).
+    - chrome-mcp tools — for the Phase 3c local-vs-remote UI testing protocol.
+
+    Phase summary:
+    - Phase 0: setup + baseline metrics + project-context resolution. Missing
+      owner/key resolved here via ASK-USER (not deferred).
+    - Phase 1: static audit via `bin/symbols-audit` (creates findings.json +
+      symbols_audit_results.md + framework_audit_results.md templates).
+    - Phase 2: fix loop with self-test. 3 failed fix attempts → finding becomes
+      framework_bug with deep-audit trace. Continue, never stop on first bug.
+    - Phase 3a: build gates with fallbacks for missing CLI subcommands.
+    - Phase 3b: publish to staging WITH FALLBACK LADDER. If publish is blocked
+      (missing key, AUTH_REQUIRED, env doesn't exist), agent surfaces ASK-USER
+      AND/OR falls back to local `frank to-json` + `brender` + http.server preview
+      so Phase 3c still has a viewable artifact. NEVER silently skip publish.
+    - Phase 3c: STRICT UI testing — local-vs-(remote OR localfallback) side-by-side,
+      click every clickable, icon rendering verification per Rule 62, theme/lang/
+      active-nav/forms/responsive.
+    - Phase 4: iterate until two consecutive runs converge — zero open findings,
+      zero pending ASK-USER, viewable artifact exists. Deep-fix loop re-visits
+      framework_bug entries to strengthen them and retries blockers.
+    - Phase 5: report = record of resolutions, NOT a TODO list. Strict mode
+      forbids "Recommended follow-up tasks" as a terminal state.
+
+    Transport awareness: this playbook assumes stdio MCP transport (filesystem
+    access). For SSE/HTTPS/CDN, the agent surfaces filesystem-dependent steps as
+    shell commands the user runs locally, then resumes Phase 2/3 with pasted
+    output. `audit_component` and `audit_project` are stateless and work over
+    any transport; `get_project_context` and `bin/symbols-audit` are stdio-only.
+
+    Output artifacts created in <project>/audit/: findings.json, symbols_audit_results.md (framework bugs), runs/, report.md.
+
+    Use this when the user asks to audit, validate, refactor for compliance, or 'make my project publish-ready in one shot'. Returns the entire playbook so the agent has the full context. Pair with the bundled `bin/symbols-audit` CLI for the deterministic regex pass.
+
+    Args:
+        phase: 'all' (full playbook — default) | '0' | '1' | '2' | '3' | '4' | '5' (just one phase's section)
+    """
+    full = _read_skill("AUDIT.md")
+    if phase == "all":
+        return full
+    # Extract a specific phase by header
+    phase_headers = {
+        "0": "## Phase 0",
+        "1": "## Phase 1",
+        "2": "## Phase 2",
+        "3": "## Phase 3",
+        "4": "## Phase 4",
+        "5": "## Phase 5",
+    }
+    header = phase_headers.get(phase)
+    if not header:
+        return f"Unknown phase: {phase}. Use 'all' or 0-5.\n\n{full[:500]}..."
+    start = full.find(header)
+    if start == -1:
+        return f"Phase {phase} not found in playbook. Returning full playbook.\n\n{full}"
+    # Find the next ## or end
+    next_header = full.find("\n## ", start + 1)
+    section = full[start:next_header] if next_header > 0 else full[start:]
+    return f"# Symbols Project Audit — Phase {phase}\n\n{section}\n\n---\n\n> For the full playbook, call audit_project() with phase='all'."
 
 
 @mcp.tool()
@@ -812,7 +1081,7 @@ def convert_to_json(
     source_code: str,
     section: str = "components",
 ) -> str:
-    """Convert DOMQL v3 JavaScript source code to platform JSON format.
+    """Convert DOMQL JavaScript source code to platform JSON format.
 
     Parses export statements from generated component/page code and converts
     them into the structured JSON the Symbols platform expects. Functions are
@@ -891,10 +1160,16 @@ def detect_environment(
     has_mermaid_config: bool = False,
     file_list: str = "",
 ) -> str:
-    """Detect what type of Symbols environment the user is working in.
+    """[Legacy] Detect Symbols environment from caller-supplied file flags.
 
-    Determines whether it's a local project, CDN, JSON runtime, or remote server
-    based on project indicators, and returns the appropriate setup guide and code format.
+    **Prefer `get_project_context`** — it does the same classification by inspecting
+    the filesystem directly (no caller-supplied flags needed) AND returns project
+    owner/key/auth state in the same call.
+
+    Kept for backward compatibility with older agent prompts. New code should call
+    `get_project_context(cwd)` instead — its response includes `env_type`,
+    `env_evidence`, and `env_guidance` fields equivalent to this tool's output,
+    plus `owner`, `key`, `token_present`, and `next_step` guidance.
 
     Args:
         has_symbols_json: Whether symbols.json exists in the project root.
@@ -994,6 +1269,240 @@ def detect_environment(
         output += f"### All 4 Ways to Run Symbols Apps\n\n{full_guide}"
 
     return output
+
+
+# ---------------------------------------------------------------------------
+# Project context — read symbols.json from cwd or a given path
+# ---------------------------------------------------------------------------
+
+def _find_symbols_json(start: Path) -> Path | None:
+    """Walk up from start looking for symbols.json. Stops at filesystem root."""
+    cur = start.resolve()
+    seen = set()
+    while cur not in seen:
+        seen.add(cur)
+        candidate = cur / "symbols.json"
+        if candidate.is_file():
+            return candidate
+        parent = cur.parent
+        if parent == cur:
+            return None
+        cur = parent
+    return None
+
+
+def _detect_env_type(project_root: Path, symbols_dir: Path | None) -> dict:
+    """Classify a project as local | cdn | json_runtime | remote_server | unknown.
+
+    Cheap filesystem inspection — no network, no expensive walks.
+    """
+    evidence: list[str] = []
+
+    has_symbols_dir = symbols_dir is not None and symbols_dir.exists() and symbols_dir.is_dir()
+    if has_symbols_dir:
+        evidence.append("symbols/ directory exists")
+
+    pkg_json = project_root / "package.json"
+    has_smbls_dep = False
+    if pkg_json.is_file():
+        try:
+            pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+            deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+            if "smbls" in deps or any(k.startswith("@symbo.ls/") for k in deps):
+                has_smbls_dep = True
+                evidence.append("package.json depends on smbls / @symbo.ls/*")
+        except Exception:
+            pass
+
+    has_cdn_marker = False
+    has_iife_marker = False
+    has_mermaid_marker = False
+    for html in list(project_root.glob("*.html"))[:8]:
+        try:
+            text = html.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        if "esm.sh/smbls" in text or "esm.sh/@symbo.ls" in text:
+            has_cdn_marker = True
+        if "/smbls.iife" in text or 'window.smbls' in text:
+            has_iife_marker = True
+
+    wrangler = project_root / "wrangler.toml"
+    if wrangler.is_file():
+        try:
+            wt = wrangler.read_text(encoding="utf-8", errors="ignore")
+            if "GATEWAY_URL" in wt or "JSON_PATH" in wt or "mermaid" in wt.lower():
+                has_mermaid_marker = True
+                evidence.append("wrangler.toml configures mermaid gateway")
+        except Exception:
+            pass
+
+    if has_cdn_marker:
+        evidence.append("HTML imports from esm.sh/smbls")
+    if has_iife_marker:
+        evidence.append("HTML loads smbls IIFE bundle")
+
+    has_json_data = any((project_root / "data").glob("*.json")) if (project_root / "data").is_dir() else False
+    if not has_json_data:
+        sj = project_root / "symbols.json"
+        if sj.is_file():
+            try:
+                blob = json.loads(sj.read_text(encoding="utf-8"))
+                if "components" in blob or "pages" in blob:
+                    has_json_data = True
+                    evidence.append("symbols.json contains compiled components/pages JSON")
+            except Exception:
+                pass
+
+    if has_mermaid_marker:
+        env_type = "remote_server"
+    elif has_json_data:
+        env_type = "json_runtime"
+    elif has_symbols_dir and has_smbls_dep:
+        env_type = "local"
+    elif has_cdn_marker or has_iife_marker:
+        env_type = "cdn"
+    elif has_symbols_dir:
+        env_type = "local"
+    else:
+        env_type = "unknown"
+
+    guidance = {
+        "local": "Local Symbols project. Run with `smbls start` (parcel/vite/esbuild/webpack — see bundler field). Push with `smbls push <env>`.",
+        "cdn": "CDN-loaded Symbols. Edit components in your HTML/JS — no build step. See symbols://skills/running-apps for hosted CDN setup.",
+        "json_runtime": "Pre-compiled JSON runtime (frank-built). Components/pages are statically generated. Modify source then re-run frank.",
+        "remote_server": "Remote Symbols server (mermaid). Routing via {project}.{owner}.preview.symbols.app. Edits propagate via `smbls push`.",
+        "unknown": "Could not classify the environment. Inspect file_list manually or ask the user.",
+    }[env_type]
+
+    return {
+        "env_type": env_type,
+        "env_evidence": evidence,
+        "env_guidance": guidance,
+    }
+
+
+@mcp.tool()
+def get_project_context(cwd: str = "") -> str:
+    """Read the current Symbols project context — START HERE for any Symbols task.
+
+    Walks up from `cwd` (or the MCP process's working directory) looking for `symbols.json`,
+    parses it, classifies the environment from filesystem signals, and returns a single
+    JSON payload with everything an agent needs to begin work.
+
+    Returns:
+    - **owner**, **key**, **dir**, **bundler**, **sharedLibraries**, **brender** — from symbols.json
+    - **project_root** — absolute path of the project root
+    - **symbols_dir** — absolute path of the symbols/ source dir (or null)
+    - **env_type** — `local | cdn | json_runtime | remote_server | unknown`
+    - **env_evidence** — the filesystem signals that produced the classification
+    - **env_guidance** — one-line guidance for that env type
+    - **token_present** — whether `SYMBOLS_TOKEN` env var or `~/.smblsrc` token exists
+    - **api_base** — the Symbols API base URL (defaults to https://api.symbols.app)
+    - **next_step** — what the agent should do next (ask user / log in / proceed)
+
+    **ALWAYS call this first** for any Symbols-project task. It replaces the older
+    `detect_environment` tool (which required the caller to pre-compute file flags).
+
+    Use this BEFORE calling any auth-required tool (save_to_project, publish, push,
+    get_project) — combine with `token_present` to know whether to prompt for `login`.
+
+    Never hardcode owner/key/credentials. If `next_step` says "ask the user", ASK.
+
+    Args:
+        cwd: Directory to start searching from. Defaults to the MCP server's process cwd.
+             Pass an absolute path when the agent's cwd differs from the project root.
+    """
+    start = Path(cwd) if cwd else Path.cwd()
+    if not start.exists():
+        return json.dumps({
+            "found": False,
+            "error": f"path does not exist: {start}",
+            "next_step": "Confirm the project path with the user.",
+        }, indent=2)
+
+    found = _find_symbols_json(start)
+    if not found:
+        return json.dumps({
+            "found": False,
+            "searched_from": str(start.resolve()),
+            "env_type": "unknown",
+            "next_step": (
+                "No symbols.json found in or above this directory. Either: "
+                "(a) the user is not inside a Symbols project — ask them to navigate to one or run `smbls init`; "
+                "(b) the user wants to scaffold a new project — run `smbls init` or call `create_project`; "
+                "(c) for auth-required tools, ask the user for the project owner+key, then call `list_projects` after `login`."
+            ),
+        }, indent=2)
+
+    try:
+        data = json.loads(found.read_text(encoding="utf-8"))
+    except Exception as e:
+        return json.dumps({
+            "found": True,
+            "resolved_path": str(found),
+            "error": f"failed to parse symbols.json: {e}",
+            "next_step": "Inspect symbols.json manually — it is malformed JSON.",
+        }, indent=2)
+
+    owner = data.get("owner")
+    key = data.get("key")
+    token_present = bool(os.getenv("SYMBOLS_TOKEN"))
+    smblsrc = Path.home() / ".smblsrc"
+    if not token_present and smblsrc.is_file():
+        try:
+            rc = json.loads(smblsrc.read_text(encoding="utf-8"))
+            token_present = bool(rc.get("token"))
+        except Exception:
+            pass
+
+    project_root = found.parent
+    raw_dir = data.get("dir", "./symbols")
+    symbols_dir = (project_root / raw_dir).resolve()
+    env = _detect_env_type(project_root, symbols_dir)
+
+    result: dict = {
+        "found": True,
+        "resolved_path": str(found),
+        "project_root": str(project_root),
+        "symbols_dir": str(symbols_dir) if symbols_dir.exists() else None,
+        "owner": owner,
+        "key": key,
+        "dir": raw_dir,
+        "bundler": data.get("bundler"),
+        "sharedLibraries": data.get("sharedLibraries", []),
+        "brender": bool(data.get("brender")),
+        "api_base": API_BASE,
+        "token_present": token_present,
+        **env,
+    }
+
+    missing = []
+    if not owner:
+        missing.append("owner")
+    if not key:
+        missing.append("key")
+
+    if missing:
+        result["next_step"] = (
+            f"symbols.json is missing required field(s): {', '.join(missing)}. "
+            "Ask the user for the missing value(s) — never invent or hardcode them. "
+            "If the project is new, suggest `smbls init` or `create_project`."
+        )
+    elif not token_present:
+        result["next_step"] = (
+            "Project context found, but no auth token is cached. For any tool that "
+            "requires authentication (save_to_project, publish, push, get_project), "
+            "ask the user to log in: call `login(email, password)` or set SYMBOLS_TOKEN. "
+            "Never hardcode or assume credentials."
+        )
+    else:
+        result["next_step"] = (
+            "Project context resolved AND token is available. You can call auth-required "
+            "tools directly — pass owner/key from this context."
+        )
+
+    return json.dumps(result, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -1461,19 +1970,19 @@ async def push(
 
 @mcp.resource("symbols://skills/rules")
 def get_rules() -> str:
-    """Strict rules for AI agents working in Symbols/DOMQL v3 projects."""
+    """Strict rules for AI agents working in Symbols/DOMQL projects (modern smbls stack: signal reactivity, design system tokens, declarative fetch, polyglot, helmet, router)."""
     return _read_skill("RULES.md")
 
 
 @mcp.resource("symbols://skills/syntax")
 def get_syntax() -> str:
-    """Complete DOMQL v3 syntax language reference."""
+    """Complete DOMQL syntax language reference — flat element API, signal reactivity, (el, s) prop functions, flat onX events."""
     return _read_skill("SYNTAX.md")
 
 
 @mcp.resource("symbols://skills/components")
 def get_components() -> str:
-    """DOMQL v3 component reference with flattened props and onX events."""
+    """DOMQL component reference — flat props on the element, flat onX events (NEVER on: {} or props: {} wrappers)."""
     return _read_skill("COMPONENTS.md")
 
 
@@ -1485,14 +1994,14 @@ def get_project_structure() -> str:
 
 @mcp.resource("symbols://skills/design-system")
 def get_design_system() -> str:
-    """Design system tokens, themes and configuration."""
+    """**AUTHORITATIVE DESIGN-SYSTEM REFERENCE** — single canonical doc covering: (1) the runtime contract — theming pipeline (resolveAndApplyTheme, prepareDesignSystem, createElement), multi-app isolation (createConfig({cleanBase:true}), pushConfig/popConfig, cssPrefix derivation, themeRoot), `changeGlobalTheme(theme, targetConfig?)`, async boundaries, project rules. (2) The token catalog — color (full grammar `<name>(.alpha)?(<+N|-N|=N>)?` where `.N` is ALPHA not shade, `+N`/`-N` are lightness modifiers, `=N` is absolute lightness %), gradient, theme (surface/priority/state), typography (ratio scale), spacing (golden-ratio), timing, animation, media (breakpoints), icons (Icon component required — `html: '<svg ...>'` for icons is BANNED), cases, vars, fonts. (3) CSS-in-props shorthands. (4) Full configuration reference. (5) Common mistakes. Includes branded-core-token caveat. Read this FIRST for any design-system, theming, or token-related work."""
     return _read_skill("DESIGN_SYSTEM.md")
 
 
-@mcp.resource("symbols://skills/design-direction")
-def get_design_direction() -> str:
-    """Modern UI/UX design direction for generating Symbols interfaces."""
-    return _read_skill("DESIGN_DIRECTION.md")
+@mcp.resource("symbols://skills/design")
+def get_design() -> str:
+    """Consolidated design discipline — three parts: (1) UI/UX direction (perceptual goals, hierarchy, motion, accessibility), (2) design-to-code translator role (visual specs → DOMQL), (3) seven design personas (brand identity, critique, trend, system architect, Figma, marketing, presentation). Use Part 1 to evaluate every UI; Part 2 when given visual input; Part 3 when explicitly asked for specialist design work."""
+    return _read_skill("DESIGN.md")
 
 
 @mcp.resource("symbols://skills/patterns")
@@ -1503,43 +2012,19 @@ def get_patterns() -> str:
 
 @mcp.resource("symbols://skills/migration")
 def get_migration() -> str:
-    """Migration guide for v2→v3 and React/Angular/Vue→Symbols."""
+    """Migration guide for legacy projects and React/Angular/Vue → Symbols (modern smbls stack)."""
     return _read_skill("MIGRATION.md")
 
 
 @mcp.resource("symbols://skills/audit")
 def get_audit() -> str:
-    """Full audit, enforcement and feedback framework."""
+    """**EXECUTABLE PROJECT AUDIT PLAYBOOK.** Phased plan agent can run end-to-end on any Symbols project: static audit (bin/symbols-audit CLI, strict-by-default), fix loop with self-test, build/publish/STRICT UI testing via chrome-mcp (local-vs-remote side-by-side, click every clickable, icon rendering verification per Rule 62, theme/lang/active-nav/forms/responsive), triple-iterate to convergence. Logs framework bugs to audit/symbols_audit_results.md. Final output: audit/report.md. Includes severity classification, common publish-time failures table, pre-publish checklist."""
     return _read_skill("AUDIT.md")
-
-
-@mcp.resource("symbols://skills/design-to-code")
-def get_design_to_code() -> str:
-    """Design-to-code translation guide."""
-    return _read_skill("DESIGN_TO_CODE.md")
-
-
-@mcp.resource("symbols://skills/seo-metadata")
-def get_seo_metadata() -> str:
-    """SEO metadata configuration reference."""
-    return _read_skill("SEO-METADATA.md")
-
-
-@mcp.resource("symbols://skills/ssr-brender")
-def get_ssr_brender() -> str:
-    """Server-side rendering with brender — SSR/SSG for Symbols apps."""
-    return _read_skill("SSR-BRENDER.md")
-
-
-@mcp.resource("symbols://skills/default-styles")
-def get_default_styles() -> str:
-    """Default template design system values — typography, spacing, colors, themes, fonts, animations."""
-    return _read_skill("DEFAULT_STYLES.md")
 
 
 @mcp.resource("symbols://skills/cookbook")
 def get_cookbook() -> str:
-    """Interactive DOMQL v3 cookbook with 30+ runnable recipes."""
+    """Interactive DOMQL cookbook with runnable recipes (uses fetch:, polyglot, helmet, router from the modern smbls stack)."""
     return _read_skill("COOKBOOK.md")
 
 
@@ -1549,15 +2034,15 @@ def get_snippets() -> str:
     return _read_skill("SNIPPETS.md")
 
 
-@mcp.resource("symbols://skills/default-library")
-def get_default_library() -> str:
-    """Default library — 127+ pre-built components available in all Symbols projects."""
-    return _read_skill("DEFAULT_LIBRARY.md")
+@mcp.resource("symbols://skills/default-project")
+def get_default_project() -> str:
+    """Default Symbols project template — 127+ pre-built components catalog AND the recommended pre-configured design system tokens (typography, spacing, color, theme, font_family, timing, animation, cases)."""
+    return _read_skill("DEFAULT_PROJECT.md")
 
 
 @mcp.resource("symbols://skills/default-components")
 def get_default_components() -> str:
-    """Complete source code of all 130+ default project template components."""
+    """Complete source code of all 130+ default project template components (heavy — load on demand only when looking up a specific component's implementation)."""
     return _read_skill("DEFAULT_COMPONENTS.md")
 
 
@@ -1575,14 +2060,26 @@ def get_running_apps() -> str:
 
 @mcp.resource("symbols://skills/cli")
 def get_cli() -> str:
-    """Symbols CLI (@symbo.ls/cli) — complete command reference for the smbls CLI tool."""
+    """`smbls` CLI (`@symbo.ls/cli`) — full command surface, configuration, MCP/agent usage rules, error contracts. Authoritative; mirrors smbls/CLI_FOR_MCP.md."""
     return _read_skill("CLI.md")
 
 
 @mcp.resource("symbols://skills/sdk")
 def get_sdk() -> str:
-    """Symbols SDK (@symbo.ls/sdk) — complete API reference for all SDK services and methods."""
+    """`@symbo.ls/sdk` v4 — all 24 services + lifecycle, BaseService contract, TokenManager, environment matrix, rootBus, validation surface, federation primitive, permissions reference. Authoritative; mirrors sdk/SDK_FOR_MCP.md."""
     return _read_skill("SDK.md")
+
+
+@mcp.resource("symbols://skills/modern-stack")
+def get_modern_stack() -> str:
+    """Modern smbls stack — the canonical declarative APIs for fetch (@symbo.ls/fetch), polyglot (@symbo.ls/polyglot), helmet (@symbo.ls/helmet), router (@symbo.ls/router), theme via @symbo.ls/scratch, and SSR via @symbo.ls/brender. Includes wiring, usage, and forbidden alternatives. Read this when generating any non-trivial Symbols project."""
+    return _read_skill("MODERN_STACK.md")
+
+
+@mcp.resource("symbols://skills/framework")
+def get_framework() -> str:
+    """**AUTHORITATIVE FRAMEWORK REFERENCE.** Single source of truth for project structure, plugin usage, theming, SSR, JSON↔FS compilation, publishing pipeline, three router patterns (A preferred, B/C legacy), common publish-time failures table, legacy-project migration. Mirrors smbls/FOR_MCP.md from the smbls repo. Read this FIRST for any non-trivial Symbols work; cross-reference DESIGN_SYSTEM.md for the design-system contract + token catalog."""
+    return _read_skill("FRAMEWORK.md")
 
 
 @mcp.resource("symbols://skills/shared-libraries")
@@ -1593,14 +2090,8 @@ def get_shared_libraries() -> str:
 
 @mcp.resource("symbols://skills/common-mistakes")
 def get_common_mistakes() -> str:
-    """Common mistakes reference — 17 wrong vs correct DOMQL v3 patterns with zero tolerance."""
+    """Common mistakes reference — wrong vs correct DOMQL patterns (flat el.X, flat onX, design tokens, polyglot, fetch, helmet) with zero tolerance."""
     return _read_skill("COMMON_MISTAKES.md")
-
-
-@mcp.resource("symbols://skills/design-personas")
-def get_design_personas() -> str:
-    """7 design persona prompt templates — Brand Identity, Design Critique, Design Trend, Design System Architect, Figma Matching, Marketing Assets, Presentation."""
-    return _read_skill("DESIGN_PERSONAS.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")
@@ -1670,42 +2161,69 @@ Usage examples:
 @mcp.resource("symbols://reference/event-handlers")
 def get_event_handlers() -> str:
     """Event handler reference for Symbols.app."""
-    return """# Symbols Event Handlers (v3)
+    return """# Symbols Event Handlers (DOMQL)
 
-## Lifecycle Events
-  onInit: (el, state) => {}              // Once on creation
-  onRender: (el, state) => {}            // On each render (return fn for cleanup)
-  onUpdate: (el, state) => {}            // On props/state change
-  onStateUpdate: (changes, el, state, context) => {}
+All event handlers are flat top-level keys (`onClick`, `onInit`, …). NEVER use `on: {}` wrapper (FORBIDDEN). NEVER read `el.on.X` at runtime (FORBIDDEN) — read `el.onClick` flat.
 
-## DOM Events
-  onClick: (event, el, state) => {}
-  onInput: (event, el, state) => {}
-  onKeydown: (event, el, state) => {}
-  onDblclick: (event, el, state) => {}
-  onMouseover: (event, el, state) => {}
-  onWheel: (event, el, state) => {}
-  onSubmit: (event, el, state) => {}
-  onLoad: (event, el, state) => {}
+## Lifecycle Events — signature: (el, state, context, options?)
+  onInit:           (el, s, ctx) => {}     // Before DOM creation
+  onAttachNode:     (el, s, ctx) => {}     // DOM created, not yet attached
+  onCreate:         (el, s, ctx) => {}     // Full setup done (children, events, effects)
+  onComplete:       (el, s, ctx) => {}     // Alias of onCreate
+  onRender:         (el, s, ctx) => {}     // After initial render
+  onRenderRouter:   (el, s, ctx) => {}     // Router-specific post-render
+  onUpdate:         (el, s, ctx) => {}     // After el.update()
+  onBeforeUpdate:   (changes, el, s, ctx) => {}   // Return false to cancel
+  onStateUpdate:    (changes, el, s, ctx) => {}
+  onBeforeStateUpdate: (changes, el, s, ctx) => {}// Return false to cancel
+  onFrame:          (el, s, ctx) => {}     // requestAnimationFrame loop
 
-## Calling Functions
-  onClick: (e, el) => el.call('functionName', args)  // Global function
-  onClick: (e, el) => el.scope.localFn(el, s)        // Scope function
-  onClick: (e, el) => el.methodName()                  // Element method
+## DOM Events — signature: (event, el, state)
+  onClick:     (e, el, s) => {}
+  onInput:     (e, el, s) => {}
+  onChange:    (e, el, s) => {}
+  onKeydown:   (e, el, s) => {}
+  onKeyup:     (e, el, s) => {}
+  onDblclick:  (e, el, s) => {}
+  onMouseover: (e, el, s) => {}
+  onMouseout:  (e, el, s) => {}
+  onWheel:     (e, el, s) => {}
+  onSubmit:    (e, el, s) => {}
+  onBlur:      (e, el, s) => {}
+  onFocus:     (e, el, s) => {}
+  onScroll:    (e, el, s) => {}
+  onLoad:      (e, el, s) => {}
+  // any onCustomEvent — detected structurally
 
-## State Updates
+## Calling Functions — el.call lookup: methods → functions → utils → element prototype
+  onClick: (e, el)    => el.call('saveDraft', payload)    // registered function
+  onClick: (e, el, s) => el.call('findUser', s).save()    // chained
+  onInit:  (el)       => { this.call('warmup') }           // inside lifecycle, this-bound
+
+## State Updates (signal-based, batched)
   onClick: (e, el, s) => s.update({ count: s.count + 1 })
   onClick: (e, el, s) => s.toggle('isActive')
-  onClick: (e, el, s) => s.root.update({ modal: '/add-item' })
+  onClick: (e, el, s) => s.rootUpdate({ modal: '/add-item' })
+  onClick: (e, el, s) => s.setByPath('user.profile.name', 'Nika')
 
 ## Navigation
-  onClick: (e, el) => el.router('/dashboard', el.getRoot())
+  onClick: (e, el)    => { e.preventDefault(); el.router('/dashboard', el.getRoot()) }
 
-## Cleanup Pattern
+## Cleanup Pattern (return cleanup from lifecycle)
   onRender: (el, s) => {
     const interval = setInterval(() => { /* ... */ }, 1000)
-    return () => clearInterval(interval)  // Called on element removal
+    return () => clearInterval(interval)   // called on element removal
   }
+
+## Polyglot
+  onClick: (e, el) => el.call('setLang', 'ka')
+  text:    '{{ hello | polyglot }}'                    // reactive (template re-evaluates on lang change)
+
+## Theme (NEVER setAttribute('data-theme', ...) directly)
+  import { changeGlobalTheme } from 'smbls'                // import path is `smbls`, NOT `@symbo.ls/scratch`
+  // Wrap in a registered project function so it's import-safe across frank serialization:
+  // functions/switchTheme.js → export function switchTheme () {{ changeGlobalTheme(next, this.context.designSystem) }}
+  onClick: (e, el) => el.call('switchTheme')
 """
 
 
@@ -1716,76 +2234,99 @@ def get_event_handlers() -> str:
 
 @mcp.prompt()
 def symbols_component_prompt(description: str, component_name: str = "MyComponent") -> str:
-    """Prompt template for generating a Symbols.app component."""
-    return f"""Generate a Symbols.app component with these requirements:
+    """Prompt template for generating a Symbols.app DOMQL component."""
+    return f"""Generate a Symbols.app DOMQL component with these requirements:
 
 Component Name: {component_name}
 Description: {description}
 
 Follow these strict rules:
-- Use DOMQL v3 syntax ONLY (extends, childExtends, flattened props, onX events)
-- Components are plain objects with named exports: export const {component_name} = {{ ... }}
-- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl
-- NO imports between files — reference components by PascalCase key name
-- All folders flat — no subfolders
-- The project likely has a default library — use Button, Avatar, Icon, Field, etc. via extends
-- Include responsive breakpoints (@tabletS, @mobileL) where appropriate
-- Follow modern UI/UX: visual hierarchy, minimal cognitive load, confident typography
+- Use DOMQL syntax ONLY — flat element API, no `props: {{}}` wrapper, no `on: {{}}` wrapper, reactive prop functions are `(el, s)` (NEVER `({{ props, state }})`).
+- Components are plain objects with named exports: `export const {component_name} = {{ ... }}`
+- **MANDATORY: ALL values MUST use design system tokens.** ZERO px, ZERO hex/rgb/hsl, ZERO raw ms. Sequence families (typography, spacing, timing) share the letter alphabet but each generates its own values from base × ratio — `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`. NO custom-named spacing tokens — only the generated sequence + sub-tokens (`A1`, `A2`, …). Name-based families: colors (`primary`, `surface`, `gray.5`, `blue.7`, `gray+20`), themes, gradients, shadows.
+- **MANDATORY: All user-facing text via polyglot** — `'{{{{ key | polyglot }}}}'` template or `(el) => el.call('polyglot', 'key')`. NEVER hardcode user-facing strings.
+- **MANDATORY: All data fetching via declarative `fetch:` prop** (@symbo.ls/fetch). NEVER `window.fetch` / `axios` in components.
+- **MANDATORY: All metadata via `metadata: {{...}}`** (@symbo.ls/helmet). NEVER `document.title = …` or `<head>` injection.
+- **MANDATORY: All navigation via `el.router(path, el.getRoot())`**. NEVER `window.location`.
+- NO imports between project files — reference components by PascalCase key, call functions via `el.call('fnName', …)`.
+- All folders flat — no subfolders.
+- Use the default library — Button, Avatar, Icon, Field, Modal, etc. via `extends: 'Name'`.
+- Include responsive breakpoints (`@tabletS`, `@mobileL`).
+- Follow modern UI/UX: visual hierarchy, minimal cognitive load, confident typography.
+- NO direct DOM manipulation — banned: `document.*`, `el.node.style.X = …`, `addEventListener`, `classList`, `innerHTML`, `setAttribute`, `parentNode`/`children` traversal.
 
 Output ONLY the JavaScript code."""
 
 
 @mcp.prompt()
 def symbols_migration_prompt(source_framework: str = "React") -> str:
-    """Prompt template for migrating code to Symbols.app."""
-    return f"""You are migrating {source_framework} code to Symbols.app.
+    """Prompt template for migrating code to Symbols.app DOMQL."""
+    return f"""You are migrating {source_framework} code to Symbols.app DOMQL (modern smbls stack).
 
 Key conversion rules for {source_framework}:
-- Components become plain objects (never functions)
-- NO imports between project files
+- Components become plain objects (never functions / classes)
+- NO imports between project files (only `pages/index.js` imports page modules)
 - All folders are flat — no subfolders
-- Use extends/childExtends (v3 plural, never v2 singular)
-- Flatten all props directly (no props: {{}} wrapper)
-- Events use onX prefix (no on: {{}} wrapper)
-- **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl
-- State: state: {{ key: val }} + s.update({{ key: newVal }})
-- Effects: onRender for mount, onStateUpdate for dependency changes
-- Lists: children: (el, s) => s.items, childrenAs: 'state', childExtends: 'Item'
-- The default library provides Button, Avatar, Field, Modal, etc. — use them via extends
+- Use `extends`/`childExtends` (always plural — singular forms are forbidden)
+- Flat element API: props are flat on the element (no `props: {{}}` wrapper, no `el.props.X` reads)
+- Events use flat `onX` (no `on: {{}}` wrapper, no `el.on.X` reads). DOM events: `(e, el, s)`. Lifecycle: `(el, s, ctx)`.
+- Reactive prop functions are `(el, s)` — NEVER `({{ props, state }})` (FORBIDDEN)
+- **MANDATORY: ALL values MUST use design system tokens** — ZERO px, hex, rgb, hsl, ZERO raw durations
+- State: `state: {{ key: val }}` + `s.update({{ key: newVal }})`. Signal-backed reactive store.
+- Effects: prefer signal-driven reactive prop functions over imperative `onRender`. For initial setup use `onInit`. For state-driven side effects use `onStateUpdate(changes, el, s, ctx)`.
+- Lists: `children: (el, s) => s.items, childrenAs: 'state', childExtends: 'Item'`
+- Data fetching: use the declarative `fetch:` prop (@symbo.ls/fetch). Caching, dedup, retry, refetch-on-focus are built in. NEVER reimplement them with `window.fetch`/`axios`.
+- Translations: use polyglot — `'{{{{ key | polyglot }}}}'` or `el.call('polyglot', 'key')`. NEVER hardcoded English.
+- SEO/metadata: `metadata: {{...}}` per page (@symbo.ls/helmet) — NEVER `document.title` writes or `<head>` injection.
+- Routing: `el.router(path, el.getRoot())` — NEVER `window.location.*`.
+- Theme: `changeGlobalTheme()` from @symbo.ls/scratch — NEVER `setAttribute('data-theme', …)`.
+- The default library provides Button, Avatar, Field, Modal, etc. — use them via `extends: 'Name'`.
 
-Provide the {source_framework} code to convert and I will output clean DOMQL v3."""
+Provide the {source_framework} code to convert and I will output clean DOMQL."""
 
 
 @mcp.prompt()
 def symbols_project_prompt(description: str) -> str:
     """Prompt template for scaffolding a complete Symbols project."""
-    return f"""Create a complete Symbols.app project:
+    return f"""Create a complete Symbols.app project (DOMQL + modern smbls stack):
 
 Project Description: {description}
 
 Required structure (symbols/ folder):
 - index.js (entry: import create from 'smbls', import context, create(app, context))
-- app.js (root app with routes: (pages) => pages)
-- config.js ({{ globalTheme: 'dark' }})
-- context.js (re-exports: state, pages, designSystem, components, functions, snippets)
-- state.js (app state)
-- dependencies.js (external packages)
-- components/ (PascalCase files, named exports)
-- pages/ (dash-case files, camelCase exports, route mapping in index.js)
-- functions/ (camelCase, called via el.call())
-- designSystem/ (color, theme, typography, spacing, font, icons — ALWAYS lowercase)
+- app.js (root app with routes: (pages) => pages, app-level metadata via @symbo.ls/helmet)
+- config.js (theme defaults, router config, db adapter for @symbo.ls/fetch)
+- context.js (re-exports: state, pages, designSystem, components, functions, methods, snippets, plugins, polyglot)
+- state.js (app state — defaults like {{ lang: 'en', theme: 'auto' }})
+- dependencies.js (external packages, plugin imports — fetchPlugin, polyglotPlugin, helmetPlugin, routerPlugin)
+- components/ (PascalCase files, named exports — flat, no subfolders)
+- pages/ (dash-case files, camelCase exports, route mapping in pages/index.js — only file allowed to import siblings)
+- functions/ (camelCase, called via el.call() — NEVER imported into components)
+- methods/ (camelCase, called via this.call() / el.call() in lifecycle methods)
+- designSystem/ (color, theme, typography, spacing, font, icons, svg_data — ALWAYS lowercase keys)
 - snippets/ (reusable snippets)
+- cases.js (root-level — global conditional cases for `.isX` / `$isX` patterns)
 
-The project uses the default library (default.symbo.ls) which provides:
-Button, Avatar, Icon, Field, Modal, Badge, Progress, TabSet, and 120+ more components.
-Reference these by PascalCase key name — no imports needed.
+The project uses the default library (default.symbo.ls) which provides Button, Avatar, Icon, Field, Modal, Badge, Progress, TabSet, and 120+ more components — reference by PascalCase key, no imports needed.
+
+Modern stack (configure in context):
+- @symbo.ls/router for SPA routing — `el.router(path, el.getRoot())` (Rule 42)
+- @symbo.ls/fetch for declarative data — `db: {{ adapter: 'supabase'|'rest'|'local', ... }}` + `fetch:` prop on elements (Rule 47)
+- @symbo.ls/polyglot for translations — `'{{{{ key | polyglot }}}}'` template (reactive) + `el.call('polyglot', 'key')` (imperative). NO `t` or `tr` function exists. (Rule 48)
+- @symbo.ls/helmet for SEO — page-level `metadata: {{...}}` (Rule 49)
+- @symbo.ls/scratch + `changeGlobalTheme()` for theme (Rule 50)
 
 Rules:
-- v3 syntax only — extends, childExtends, flattened props, onX events
-- Design tokens for all spacing/colors (padding: 'A', not padding: '16px')
-- Components are plain objects, never functions
-- No imports between project files
-- All folders completely flat
+- DOMQL syntax only — flat element API, flat onX events, reactive functions `(el, s)`. NO `props: {{}}`, NO `on: {{}}`, NO `({{ props }})`.
+- Design tokens for ALL values — `padding: 'A'` not `'16px'`. NO hex, NO rgb, NO hsl. Each ratio family (typography, spacing, timing) has its own sequence: same letter resolves to different values (`fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`). No custom-named spacing tokens.
+- Components are plain objects, never functions / classes.
+- No imports between project files (only `pages/index.js`).
+- All folders completely flat — no subfolders.
+- All user-facing text wrapped in polyglot.
+- All data fetching via declarative `fetch:` prop.
+- All metadata via @symbo.ls/helmet.
+- All navigation via `el.router()`.
+- NO direct DOM manipulation (banned: `document.*`, `addEventListener`, `classList`, `innerHTML`, `setAttribute`, etc.).
 
 Generate all files with complete, production-ready code."""
 
@@ -1793,23 +2334,34 @@ Generate all files with complete, production-ready code."""
 @mcp.prompt()
 def symbols_review_prompt() -> str:
     """Prompt template for reviewing Symbols/DOMQL code."""
-    return """Review this Symbols/DOMQL code for v3 compliance and best practices.
+    return """Review this Symbols/DOMQL code for compliance and best practices.
 
 Check for these violations:
-1. v2 syntax: extend→extends, childExtend→childExtends, props:{}, on:{}
-2. Imports between project files (FORBIDDEN)
-3. Function-based components (must be plain objects)
-4. Subfolders (must be flat)
-5. Hardcoded pixels instead of design tokens
-6. Wrong event handler signatures (lifecycle: (el, s), DOM: (event, el, s))
-7. Default exports for components (should be named)
-8. Standard HTML attrs in attr: {} (should be at root; attr: {} only for data-*/aria-*/custom)
-9. props block CSS trying to override component-level CSS (can't)
+1. Forbidden syntax leftovers: `extend` → `extends`, `childExtend` → `childExtends`, `props: {}` wrapper, `on: {}` wrapper, `el.props.X` reads, `el.on.X` reads, reactive prop signature `({ props, state })` instead of `(el, s)`
+2. Imports between project files (FORBIDDEN — only `pages/index.js` may import sibling pages)
+3. Function-based / class-based components (must be plain objects)
+4. Subfolders inside components/, pages/, functions/, methods/, designSystem/, snippets/
+5. Hardcoded values: pixels, hex/rgb/hsl colors, raw durations (must be design system tokens)
+6. Wrong event signatures — DOM events: `(e, el, s)`, lifecycle: `(el, s, ctx)`, before/state-update: `(changes, el, s, ctx)`
+7. Default exports for components (must be named: `export const X = {...}`)
+8. Standard HTML attrs wrapped in `attr: {}` (must be flat at root; `attr: {}` only for non-standard / custom attrs)
+9. Hardcoded user-facing strings (must use polyglot — `'{{ key | polyglot }}'` or `el.call('polyglot', 'key')`)
+10. Raw `window.fetch` / `axios` in components (must use declarative `fetch:` prop via @symbo.ls/fetch)
+11. `document.title = …` / `<head>` injection (must use @symbo.ls/helmet `metadata: {...}`)
+12. `window.location.*` for navigation (must use `el.router(path, el.getRoot())`)
+13. `setAttribute('data-theme', ...)` / `matchMedia('(prefers-color-scheme: dark)')` (must use `changeGlobalTheme()` from @symbo.ls/scratch)
+14. Direct DOM manipulation: `document.querySelector`, `getElementById`, `addEventListener`, `classList.toggle`, `innerHTML`, `appendChild`, `parentNode`/`children` traversal, `style.X = …`
+15. Module-level helper variables / functions outside the export (lost during platform serialization — move to functions/ + el.call)
+16. Inline `<svg>` markup in components (must use Icon component + designSystem/icons)
+17. `extends: 'Flex'` / `extends: 'Box'` / `extends: 'Text'` (replace with `flow:`/`align:`)
+18. Pages extending `'Flex'` instead of `'Page'`
+19. Chained CSS selectors `'@dark :hover'` (must nest separately)
+20. UPPERCASE design system keys (`COLOR`, `THEME`) (must be lowercase)
 
 Provide:
-- Issues found with line references
+- Issues found with line references and rule numbers (RULES.md Rule N)
 - Corrected code for each issue
-- Overall v3 compliance score (1-10)
+- Overall compliance score (1-10)
 - Improvement suggestions
 
 Paste your code below:"""
@@ -1817,25 +2369,31 @@ Paste your code below:"""
 
 @mcp.prompt()
 def symbols_convert_html_prompt() -> str:
-    """Prompt template for converting HTML to Symbols.app components."""
-    return """Convert the provided HTML/CSS to Symbols.app DOMQL v3 components.
+    """Prompt template for converting HTML to Symbols.app DOMQL components."""
+    return """Convert the provided HTML/CSS to Symbols.app DOMQL components.
 
 Conversion rules:
-- <div> → Box, Flex, or Grid (based on layout)
-- <span>/<p>/<h1>-<h6> → Text/P/H with tag property
-- <a> → Link (extends: 'Link', href as prop — never attr: { href })
-- <button> → Button
-- <input> → Input, Radio, Checkbox
-- <img> → Img
-- <form> → Form
-- <ul>/<ol> + <li> → children array with childExtends
-- CSS px → design tokens (16px→'A', 26px→'B', 42px→'C')
-- CSS colors → theme tokens
-- media queries → @tabletS, @mobileL breakpoints
-- CSS classes → flatten as component properties
-- id/class attrs → not needed
+- `<div>` with flex → drop wrapper, add `flow: 'x'`/`flow: 'y'` (NEVER `extends: 'Flex'`); `<div>` with grid → `display: 'grid'`. Plain wrappers don't need any extends.
+- `<span>` / `<p>` / `<h1>`-`<h6>` → keep semantic via `tag` (P, H1–H6 exist).
+- `<a>` → `extends: 'Link'`, `href` flat at root (NEVER `attr: { href }`).
+- `<button>` → `extends: 'Button'` (supports `icon`/`text`).
+- `<input>` → `Input` / `Radio` / `Checkbox` based on type. Standard HTML attrs (placeholder, type, value, disabled, required) flat at root, NOT in `attr: {}`.
+- `<img>` → `Img`.
+- `<form>` → `Form` (or `tag: 'form'`).
+- `<ul>` / `<ol>` + `<li>` → `children` array + `childExtends: 'ItemName'`.
+- CSS px → design-system sequence tokens. **Each family (typography, spacing, timing) generates its own values from `{ base, ratio }`** — same letter resolves to different values across families. Default spacing scale (`base:16, ratio:1.618`): `A`≈16px, `B`≈26px, `C`≈42px. Default typography (`base:16, ratio:1.25`): `A`≈16px, `B`≈20px, `C`≈25px. Sub-tokens (`A1`, `A2`, etc.) for in-between within each family. Pick the sequence that matches the prop, NOT a custom-named token.
+- CSS colors → theme tokens (`primary`, `surface`, `gray.5`, `blue+20`). NEVER hex / rgb / hsl.
+- Durations → timing-sequence tokens (`transition: 'B'` ≈ 200ms, NOT raw `200ms`).
+- Media queries → `@tabletS`, `@mobileL`, `@dark`, `@light` (NEVER chain selectors).
+- CSS classes → flatten as component properties (no className prop).
+- id/class attrs → not needed (PascalCase keys + cases.js handle it).
+- Hardcoded user-facing text → polyglot template `'{{ key | polyglot }}'`.
+- Raw event handlers (`onclick="..."`, `addEventListener`) → flat `onClick`/`onInput` props on the element.
+- `<head>` `<title>` / `<meta>` → page-level `metadata: {...}` via @symbo.ls/helmet.
+- Hardcoded data fetches / `<script>` tags doing API calls → declarative `fetch:` prop via @symbo.ls/fetch.
+- `<svg>` icons → `Icon` component + `designSystem/icons` (NEVER inline SVG, NEVER `tag: 'svg'`).
 
-Output clean DOMQL v3 with named exports.
+Output clean DOMQL with named exports — flat element API, no `props: {}` / `on: {}` / `({ props })`. Named exports only.
 
 Paste the HTML below:"""
 
@@ -1846,7 +2404,7 @@ def symbols_design_review_prompt() -> str:
     return """Review this Symbols component for design system compliance.
 
 Check:
-1. Spacing uses tokens (A, B, C...) not pixels
+1. Spacing/typography/timing use the **right sequence per family** — `padding`/`margin`/`gap`/`width` etc. from spacing scale; `fontSize`/`lineHeight` from typography scale; `transition` duration from timing scale. Same letter (e.g. `'B'`) resolves to different values per family — that's expected. NO raw px / ms / hex / rgb / hsl. NO custom-named spacing tokens (only the generated sequence + sub-tokens).
 2. Colors come from theme, not hardcoded hex/rgb
 3. Typography uses design system scale (fontSize tokens)
 4. Responsive breakpoints present (@tabletS, @mobileL)

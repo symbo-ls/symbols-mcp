@@ -1,6 +1,8 @@
 # Symbols Project Structure
 
-Follow this environment-agnostic folder structure for the Symbols platform. Generate independent files without JS module preloading. Files must render seamlessly across VSCode, file structure, Symbols platform, server rendering, and browsers.
+Follow this environment-agnostic folder structure for the Symbols platform. Generate independent files without JS module preloading. Files must render seamlessly across VSCode, file structure, Symbols platform, server rendering (`@symbo.ls/brender`), and browsers.
+
+> Conventions: flat element API, `(el, s)` reactive prop functions, declarative `fetch:` (`@symbo.ls/fetch`), polyglot, helmet metadata, signal-based state.
 
 ---
 
@@ -29,7 +31,7 @@ project-root/
     ├── cases.js                  # export default { isSafari: () => {}, ... } — conditional cases
     ├── lang.js                   # Translations — root level, NOT in designSystem
     ├── dependencies.js           # export default { 'pkg': 'exact-version' }
-    ├── config.js                 # export default { useReset: true, fetch: { adapter: 'supabase', ... }, ... }
+    ├── config.js                 # export default { useReset: true, db: { adapter: 'supabase', url, key, auth, db, global }, polyglot: {...}, router: {...} }
     ├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
     │
     ├── components/
@@ -74,8 +76,8 @@ export const Header = {
   minWidth: 'G2',
   padding: 'A',
 
-  Search: { extends: 'Input', flex: 1 },
-  Avatar: { extends: 'Image', boxSize: 'B' },
+  Search: { extends: 'Input', flex: 1 },     // Search is the key, Input is the atom
+  Avatar: { boxSize: 'B' },                    // Avatar key auto-extends the Avatar default-library component (no Image atom — it's `Img`)
 }
 ```
 
@@ -156,8 +158,9 @@ Frontend functions may call external APIs (including Supabase) via the client SD
 export const fetchItems = async function fetchItems(category) {
   const el = this
   const s = el.getRootState()
-  // Use Supabase client configured in config.js fetch adapter
-  const { data } = await el.call('getSupabaseClient').from('items').select('*')
+  // Use the framework's getDB() to obtain the configured adapter (supabase/rest/local)
+  const db = await this.getDB()
+  const { data } = await db.select({ from: 'items' })
   s.update({ items: data || [] })
 }
 ```
@@ -386,7 +389,7 @@ next/
 └── rita/, bazaar/, ...        # consumer apps
 ```
 
-All packages are version-locked at the same version across the monorepo. Consumer apps depend on `"smbls": "3.x.x"` (workspace-resolved).
+All packages are version-locked at the same version across the monorepo. Consumer apps depend on `"smbls"` (workspace-resolved).
 
 ---
 
@@ -463,10 +466,10 @@ After linking and pushing a project, access previews at these URLs:
 - `<user>` — Symbols username or org
 - `<app>` — project identifier
 
-Example for user `nikoloza`, project `my-app`:
+Example for user `<owner>`, project `my-app`:
 ```
-https://my-app.nikoloza.preview.symbo.ls/
-https://dev.my-app.nikoloza.preview.symbo.ls/
+https://my-app.<owner>.preview.symbo.ls/
+https://dev.my-app.<owner>.preview.symbo.ls/
 ```
 
 ---

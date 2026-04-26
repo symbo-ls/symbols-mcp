@@ -4,27 +4,43 @@ mcp-name: io.github.symbo-ls/symbols-mcp
 
 MCP server for [Symbols.app](https://symbols.app) — provides documentation search, code generation, conversion, auditing, project management, publishing/deployment, and CLI/SDK reference tools for AI coding assistants (Cursor, Claude Code, Windsurf, claude.ai, etc.).
 
+Targets the modern **smbls** stack — flat element API, signal-based reactivity, declarative `fetch:` (`@symbo.ls/fetch`), polyglot translations (`@symbo.ls/polyglot`), helmet metadata (`@symbo.ls/helmet`), SPA routing via `el.router(...)`, theme via `@symbo.ls/scratch`, and SSR via `@symbo.ls/brender`.
+
 No API keys required for documentation tools. Project management tools require a Symbols account (login or API key).
 
 ---
 
 ## Tools
 
-### Documentation & Generation
+### Context — start here
 
 | Tool | Description |
 |------|-------------|
-| `get_project_rules` | Returns mandatory Symbols.app rules. **Call this first** before any code generation task. |
+| `get_project_context` | **CALL FIRST.** Walks up from cwd to find `symbols.json`, returns owner, key, dir, bundler, sharedLibraries, brender, env_type (local/cdn/json_runtime/remote_server), env_evidence, env_guidance, token_present, and a `next_step` hint telling the agent what to do (ask user, log in, or proceed). Replaces the older `detect_environment` for new code. |
+| `get_project_rules` | Bundled mandatory ruleset (FRAMEWORK + DESIGN_SYSTEM + RULES + DEFAULT_PROJECT, ≈180K chars). Call before any code generation task. |
+| `get_cli_reference` | Complete Symbols CLI (`@symbo.ls/cli`) command reference. |
+| `get_sdk_reference` | Complete Symbols SDK (`@symbo.ls/sdk`) API reference. |
 | `search_symbols_docs` | Keyword search across all bundled Symbols documentation files. |
-| `generate_component` | Generate a DOMQL v3 component from a natural language description. |
-| `generate_page` | Generate a full page with routing integration. |
-| `convert_react` | Convert React/JSX code to Symbols DOMQL v3. |
-| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL v3 components. |
-| `convert_to_json` | Convert DOMQL v3 JS source code to platform JSON (mirrors frank's toJSON pipeline). |
-| `audit_component` | Audit component code for v3 compliance — returns violations, warnings, and a score. |
-| `detect_environment` | Detect whether the project is local, CDN, JSON runtime, or remote server. |
-| `get_cli_reference` | Returns the complete Symbols CLI (`@symbo.ls/cli`) command reference. |
-| `get_sdk_reference` | Returns the complete Symbols SDK (`@symbo.ls/sdk`) API reference. |
+| `detect_environment` | _[Legacy]_ Caller-supplied flags variant of env classification. Prefer `get_project_context`. |
+
+### Generation & conversion
+
+| Tool | Description |
+|------|-------------|
+| `generate_component` | Generate a DOMQL component from a natural language description. Returns prompt + bundled context (≈300K chars). |
+| `generate_page` | Generate a full page with routing, helmet metadata, and declarative `fetch:` integration. |
+| `convert_react` | Convert React/JSX code to Symbols DOMQL (modern smbls stack). |
+| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL components. |
+| `convert_to_json` | Convert DOMQL JS source to platform JSON (mirrors frank's toJSON pipeline). Use after `generate_component` / `generate_page` to feed `save_to_project`. |
+
+### Audit
+
+| Tool | Description |
+|------|-------------|
+| `audit_component` | **Inline VALIDATOR** for a single component string. Returns violations + warnings (≈1K chars). Use during generation. Pass `include_playbook=True` to also dump the AUDIT.md playbook. |
+| `audit_project` | Returns the **multi-phase project audit PLAYBOOK** (instructions for the agent — Phase 0 setup → Phase 5 report). Pair with `bin/symbols-audit` CLI for the static-audit phase. |
+
+For filesystem-wide regex sweeps the package ships a CLI: `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings).
 
 ### Project Management & Publishing
 
@@ -38,16 +54,18 @@ No API keys required for documentation tools. Project management tools require a
 | `publish` | Publish a version (make it live). |
 | `push` | Deploy a project to an environment (production, staging, dev). |
 
-### End-to-End Flow (from claude.ai or any MCP client)
+### End-to-End Flow (from any MCP client)
 
 ```
-1. generate_component  → JS source code
-2. convert_to_json     → platform JSON
-3. login               → get token
-4. create_project      → (if new project needed)
-   list_projects       → (or pick existing)
-5. save_to_project     → push JSON to platform (creates version)
-6. publish             → make version live
+1. get_project_context  → resolve owner/key/env/auth state from cwd's symbols.json
+2. generate_component   → JS source code
+3. audit_component      → inline check (saves a roundtrip if violations exist)
+4. convert_to_json      → platform JSON
+5. login                → only if token_present was false in step 1
+6. create_project       → (if new project needed)
+   list_projects        → (or pick existing)
+7. save_to_project      → push JSON to platform (creates version)
+8. publish              → make version live
 7. push                → deploy to environment
 ```
 
@@ -57,23 +75,24 @@ No API keys required for documentation tools. Project management tools require a
 
 | URI | Description |
 |-----|-------------|
-| `symbols://skills/rules` | Strict rules for AI agents working in Symbols/DOMQL v3 projects |
-| `symbols://skills/syntax` | Complete DOMQL v3 syntax language reference |
-| `symbols://skills/components` | Component reference with flattened props and onX events |
+| `symbols://skills/framework` | **Authoritative framework reference** — project structure, plugins, theming, SSR, publish pipeline (mirrors `smbls/FOR_MCP.md`) |
+| `symbols://skills/rules` | 62 strict rules for AI agents working in Symbols/DOMQL projects |
+| `symbols://skills/syntax` | Complete DOMQL syntax language reference (flat API, signal reactivity) |
+| `symbols://skills/modern-stack` | Modern smbls stack — fetch, polyglot, helmet (full metadata catalog), router, scratch theme runtime, brender SSR |
+| `symbols://skills/components` | DOMQL component reference (flat props on element, flat onX events) |
 | `symbols://skills/project-structure` | Project folder structure and file conventions |
-| `symbols://skills/design-system` | Design system tokens, themes, and configuration |
-| `symbols://skills/design-direction` | Modern UI/UX design direction |
-| `symbols://skills/patterns` | UI patterns, accessibility, and AI optimization |
-| `symbols://skills/migration` | Migration guide (v2→v3, React/Angular/Vue→Symbols) |
-| `symbols://skills/audit` | Full audit, enforcement, and feedback framework |
-| `symbols://skills/design-to-code` | Design-to-code translation guide |
-| `symbols://skills/seo-metadata` | SEO metadata configuration reference |
-| `symbols://skills/ssr-brender` | Server-side rendering with brender (SSR/SSG) |
-| `symbols://skills/cookbook` | Interactive cookbook with 30+ runnable recipes |
-| `symbols://skills/snippets` | Production-ready component snippets |
-| `symbols://skills/default-library` | 127+ pre-built components available in all projects |
-| `symbols://skills/default-components` | Complete source code of 130+ default template components |
+| `symbols://skills/shared-libraries` | sharedLibraries pattern — config, runtime merge, precedence |
+| `symbols://skills/design-system` | Design system contract + token catalog (colors, theme, typography, spacing, etc.) |
+| `symbols://skills/design` | UI/UX direction + design-to-code translator + 7 specialist personas (consolidated) |
+| `symbols://skills/patterns` | UI patterns, accessibility, AI optimization |
+| `symbols://skills/migration` | Migration guide for legacy projects + React/Angular/Vue → Symbols |
+| `symbols://skills/audit` | Full audit playbook (Phase 0–5, executable end-to-end) |
+| `symbols://skills/common-mistakes` | Wrong vs correct DOMQL patterns with zero-tolerance enforcement |
 | `symbols://skills/learnings` | Framework internals, technical gotchas, deep runtime knowledge |
+| `symbols://skills/cookbook` | Cookbook of small reactive recipes (toggle, fetch, modal, tabs, etc.) |
+| `symbols://skills/snippets` | Production-ready component snippets (nav, hero, pricing card, footer, etc.) |
+| `symbols://skills/default-project` | Default starter — library catalog (127+ components) + pre-configured design system tokens |
+| `symbols://skills/default-components` | Complete source code of 130+ default template components (heavy reference, on demand) |
 | `symbols://skills/running-apps` | 4 ways to run Symbols apps (local, CDN, JSON, remote) |
 | `symbols://skills/cli` | Symbols CLI (`@symbo.ls/cli`) complete command reference |
 | `symbols://skills/sdk` | Symbols SDK (`@symbo.ls/sdk`) complete API reference |
@@ -93,38 +112,35 @@ No API keys required for documentation tools. Project management tools require a
 | `symbols_component_prompt` | Generate a component from a description |
 | `symbols_migration_prompt` | Migrate code from React/Angular/Vue |
 | `symbols_project_prompt` | Scaffold a complete project |
-| `symbols_review_prompt` | Review code for v3 compliance |
-| `symbols_convert_html_prompt` | Convert HTML/CSS to DOMQL v3 |
+| `symbols_review_prompt` | Review code for compliance |
+| `symbols_convert_html_prompt` | Convert HTML/CSS to DOMQL |
 | `symbols_design_review_prompt` | Visual/design audit against the design system |
 
 ---
 
-## Installation
+## Quickstart
+
+Two commands and a one-line config — works for every major MCP client.
+
+### 1. Install
+
+Pick whichever runtime you have:
 
 ```bash
-pip install symbols-mcp
+uvx symbols-mcp           # uv  — recommended, zero install
+pip install symbols-mcp   # pip — global binary
+npx -y @symbo.ls/mcp      # npm — Node-friendly wrapper
 ```
 
-Or with `uv` (no install needed):
+### 2. Configure your editor
 
-```bash
-uvx symbols-mcp
-```
-
-Or via npm:
-
-```bash
-npx @symbo.ls/mcp
-```
-
-## Configuration
-
-### Recommended (auto-updates on every launch)
+The standard MCP config snippet (works for **Claude Code**, **Claude Desktop**, **Cursor**, **Windsurf**, **Cline**, **Continue**, **Zed**, **Goose**, **Gemini CLI** — wrap it in whatever shape that editor expects):
 
 ```json
 {
   "mcpServers": {
-    "symbols": {
+    "symbols-mcp": {
+      "type": "stdio",
       "command": "uvx",
       "args": ["--refresh", "symbols-mcp"]
     }
@@ -132,51 +148,54 @@ npx @symbo.ls/mcp
 }
 ```
 
-The `--refresh` flag checks PyPI for a newer version each time the server starts. Adds ~1-2s to startup but ensures you always have the latest rules and documentation.
+`--refresh` pulls the latest from PyPI on every launch (~1–2s startup tax — drop it for pinned/offline runs).
 
-### Alternative configs
+### 3. Verify
 
-**npm (also auto-updates):**
-```json
-{
-  "mcpServers": {
-    "symbols": {
-      "command": "npx",
-      "args": ["-y", "@symbo.ls/mcp"]
-    }
-  }
-}
-```
+In your editor's chat, ask the assistant:
 
-**Pinned version (manual updates):**
-```json
-{
-  "mcpServers": {
-    "symbols": {
-      "command": "uvx",
-      "args": ["symbols-mcp"]
-    }
-  }
-}
-```
+> Use `symbols-mcp` to call `get_project_rules`, then summarize the modern stack rules.
 
-### Manual update
+If that returns a long ruleset, you're set. Try `audit_component` on a deliberately broken snippet to confirm Rule 62 (the banned inline-SVG-for-icon rule) fires.
+
+---
+
+## Auto-bootstrapping a Symbols project — no more "use symbols-mcp" reminders
+
+Once `symbols-mcp` is configured in your editor, drop project-level rule files so every editor auto-loads the framework rules on every chat:
 
 ```bash
-# pip
-pip install --upgrade symbols-mcp
-
-# uv (clear cache and re-run)
-uv cache clean symbols-mcp && uvx symbols-mcp
-
-# npm
-npm update -g @symbo.ls/mcp
+# from your Symbols project root
+npx -y @symbo.ls/mcp init-rules
 ```
 
-### Transport modes
+Writes `CLAUDE.md`, `.cursor/rules/symbols.md`, `.windsurfrules`, `.clinerules`, and `AGENTS.md` — each tailored to its editor, all pointing at the symbols-mcp tools (`get_project_context`, `get_project_rules`, `generate_component`, `audit_component`, etc.). Idempotent; pass `--force` to overwrite or `--only=cursor,claude` to scope.
 
-By default, the server runs over **stdio**. For SSE transport:
+Combined with the MCP server's `instructions` field (auto-loaded on connect by every MCP-aware editor — Claude Code, Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity, Cody), this means you never have to remind the agent to "use symbols-mcp" — the workflow is bootstrapped on first interaction.
 
-```bash
-MCP_TRANSPORT=sse MCP_HOST=0.0.0.0 MCP_PORT=8080 uvx symbols-mcp
-```
+See [SETUP.md → Bootstrapping](SETUP.md#bootstrapping-a-new-symbols-project--auto-load-rules-in-every-editor) for the layered model and verification steps.
+
+---
+
+## What about `/symbols-audit`?
+
+The `/symbols-audit` slash command is **Claude Code-only**, but the underlying capability works in **every MCP-aware editor** — Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity (Google), Cody, Claude.ai web, and any custom MCP client.
+
+Three patterns:
+
+1. **Natural language** (zero setup) — just say _"Run a full Symbols audit on this project using symbols-mcp."_ The agent calls `get_project_context` → `audit_project` (playbook) → `bin/symbols-audit` CLI → iterates fixes with `audit_component`.
+2. **Custom command** — register a Cursor rule, Continue customCommand, Windsurf workflow, etc. for one-keystroke parity. Templates in [SETUP.md](SETUP.md#using-symbols-audit-and-other-tools-in-any-editor).
+3. **Pure shell** — `npx -y @symbo.ls/mcp symbols-audit ./symbols` works from any terminal, no editor needed. Strict by default, exit 1 on findings.
+
+---
+
+## Full setup guide
+
+**See [SETUP.md](SETUP.md)** for:
+
+- **Per-editor configs:** Claude Code · Claude Desktop · Claude.ai (web) · Cursor · Windsurf · Zed · Cline · Continue · Roo · Cody · Gemini CLI · Goose · Antigravity · generic clients
+- **Local development:** clone the repo, run from source, `.mcp.json` template
+- **Using `/symbols-audit` & other tools in non-Claude-Code editors:** natural language, custom commands per editor, shell fallback, sourcing the bundled venv directly
+- **Transport modes:** stdio (default) and SSE (for claude.ai web / remote clients)
+- **Audit CLI:** standalone `bin/symbols-audit` for CI / pre-commit
+- **Updating** and **Troubleshooting** (PATH issues, stale versions, missing tools)

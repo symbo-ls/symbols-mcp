@@ -1,6 +1,6 @@
-# Symbols Cookbook — DOMQL v3 Recipes
+# Symbols Cookbook — DOMQL Recipes
 
-28 complete, runnable DOMQL v3 component recipes covering state, events, rendering, data fetching, and more.
+28 complete, runnable DOMQL component recipes covering state, events, rendering, data fetching, and more.
 
 ---
 
@@ -10,32 +10,27 @@ Toggle a boolean and update UI.
 
 ```js
 export const StateToggle = {
-  flexFlow: 'y',
+  flow: 'y',
   gap: 'A',
   state: {
     isOn: false
   },
   Button: {
     tag: 'button',
-    text: (element, state) => (state.isOn ? 'Turn Off' : 'Turn On'),
-    onClick: (event, element, state) => state.toggle('isOn')
+    text: (el, s) => (s.isOn ? 'Turn Off' : 'Turn On'),
+    onClick: (e, el, s) => s.toggle('isOn')
   },
   LabelTag: {
+    flow: 'x',
     align: 'center',
     gap: 'X2',
     Circle: {
       boxSize: 'X2',
-      isActive: (element, state) => state.isOn,
       round: 'C1',
-      '.isActive': {
-        background: 'green'
-      },
-      '!isActive': {
-        background: 'gray'
-      }
+      background: (el, s) => (s.isOn ? 'green' : 'gray')
     },
     P: {
-      text: (element, state) => (state.isOn ? 'ON' : 'OFF')
+      text: (el, s) => (s.isOn ? 'ON' : 'OFF')
     }
   }
 }
@@ -52,18 +47,19 @@ export const Counter = {
   state: {
     count: 0
   },
-  Flex: {
+  Row: {
+    flow: 'x',
     align: 'center',
     gap: 'A',
     Button: {
       text: '+',
-      onClick: (event, element, state) =>
-        state.update({
-          count: state.count + 1
+      onClick: (e, el, s) =>
+        s.update({
+          count: s.count + 1
         })
     },
     P: {
-      text: (element, state) => 'Count: ' + state.count
+      text: (el, s) => 'Count: ' + s.count
     }
   }
 }
@@ -83,13 +79,13 @@ export const ConditionalRender = {
   Button: {
     tag: 'button',
     text: 'Toggle Secret',
-    onClick: (event, element, state) =>
-      state.update({
-        show: !state.show
+    onClick: (e, el, s) =>
+      s.update({
+        show: !s.show
       })
   },
   Secret: {
-    if: (element, state) => state.show,
+    if: (el, s) => s.show,
     P: {
       text: 'The secret content is now visible!'
     }
@@ -108,6 +104,14 @@ export const AsyncFetch = {
   state: {
     buttonText: 'Load Data'
   },
+  fetch: {
+    url: 'https://official-joke-api.appspot.com/jokes/programming/random',
+    auto: false,
+    onSuccess: (data, el, s) => {
+      const joke = Array.isArray(data) ? data[0] : data
+      s.update({ ...joke, buttonText: 'Load Data' })
+    }
+  },
   P: {
     width: 'G',
     text: '{{ setup }}'
@@ -120,16 +124,9 @@ export const AsyncFetch = {
   },
   Button: {
     text: '{{ buttonText }}',
-    onClick: async (event, element, state) => {
-      state.update({ buttonText: 'loading...' })
-      const res = await fetch(
-        'https://official-joke-api.appspot.com/jokes/programming/random'
-      )
-      const data = await res.json()
-      state.update({
-        ...data[0],
-        buttonText: 'Load Data'
-      })
+    onClick: (e, el, s) => {
+      s.update({ buttonText: 'loading...' })
+      el.refetch()
     }
   }
 }
@@ -147,15 +144,15 @@ export const FormInput = {
     name: ''
   },
   Input: {
-    placeholder: 'Enter your name',
-    onInput: (event, element, state) =>
-      state.update({
-        name: element.node.value
+    placeholder: '{{ enterYourName | polyglot }}',
+    onInput: (e, el, s) =>
+      s.update({
+        name: el.node.value
       })
   },
   P: {
-    text: (element, state) =>
-      state.name ? 'Hello, ' + state.name + '!' : 'Waiting for input...'
+    text: (el, s) =>
+      s.name ? 'Hello, ' + s.name + '!' : 'Waiting for input...'
   }
 }
 ```
@@ -174,7 +171,7 @@ export const FormValidation = {
   },
   Input: {
     type: 'email',
-    placeholder: 'Enter email',
+    placeholder: '{{ enterEmail | polyglot }}',
     onInput: (e, el, s) => {
       const val = el.node.value
       const isValid = /^[^@]+@[^@]+\.[^@]+$/.test(val)
@@ -183,8 +180,7 @@ export const FormValidation = {
   },
   P: {
     text: (el, s) => (s.isValid ? 'Valid email' : 'Invalid email'),
-    '.isValid': { color: 'green' },
-    '!isValid': { color: 'red' }
+    color: (el, s) => (s.isValid ? 'green' : 'red')
   }
 }
 ```
@@ -200,15 +196,16 @@ export const TwoWayBinding = {
   state: {
     text: ''
   },
-  Flex: {
+  Row: {
+    flow: 'x',
     gap: 'A',
     Input_1: {
-      placeholder: 'Type here...',
+      placeholder: '{{ typeHere | polyglot }}',
       value: '{{ text }}',
       onInput: (e, el, s) => s.update({ text: el.node.value })
     },
     Input_2: {
-      placeholder: 'Mirrors input 1',
+      placeholder: '{{ mirrorsInput1 | polyglot }}',
       value: '{{ text }}',
       onInput: (e, el, s) => s.update({ text: el.node.value })
     }
@@ -253,16 +250,17 @@ export const Tabs = {
   state: {
     active: 'Home'
   },
-  Flex: {
+  Row: {
+    flow: 'x',
     gap: 'A2',
     children: ['Home', 'Profile', 'Settings'],
     childrenAs: 'state',
     childExtends: 'Button',
     childProps: {
       text: '{{ value }}',
-      onClick: (event, element, state) =>
-        state.parent.update({
-          active: state.value
+      onClick: (e, el, s) =>
+        s.parent.update({
+          active: s.value
         })
     }
   },
@@ -295,13 +293,13 @@ export const Accordion = {
       H6: {
         text: '{{ title }}',
         margin: '0',
-        onClick: (event, element, state) =>
-          state.parent.update({
-            open: state.parent.open === state.title ? null : state.title
+        onClick: (e, el, s) =>
+          s.parent.update({
+            open: s.parent.open === s.title ? null : s.title
           })
       },
       P: {
-        if: (element, state) => state.parent.open === state.title,
+        if: (el, s) => s.parent.open === s.title,
         margin: 'X 0 C1',
         text: '{{ text }}'
       }
@@ -322,7 +320,7 @@ export const TodoApp = {
     tasks: []
   },
   Input: {
-    placeholder: 'New task...',
+    placeholder: '{{ newTask | polyglot }}',
     onKeydown: (e, el, s) => {
       if (e.key === 'Enter') {
         const value = el.node.value.trim()
@@ -347,8 +345,7 @@ export const TodoApp = {
             t.text === s.text ? { ...t, isDone: !t.isDone } : t
           )
         }),
-      '.isDone': { textDecoration: 'line-through' },
-      '!isDone': { textDecoration: 'none' }
+      textDecoration: (el, s) => (s.isDone ? 'line-through' : 'none')
     }
   }
 }
@@ -365,7 +362,8 @@ export const DynamicList = {
   state: {
     items: ['Apples', 'Oranges']
   },
-  Flex: {
+  Row: {
+    flow: 'x',
     gap: 'A',
     Button_Add: {
       text: 'Add Item',
@@ -403,35 +401,27 @@ export const ApiPagination = {
     page: 1,
     data: []
   },
-  scope: {
-    load: async (el, s) => {
-      const res = await fetch(
-        'https://jsonplaceholder.typicode.com/posts?_limit=3&_page=' + s.page
-      )
-      const json = await res.json()
-      s.replace({ data: json })
-    }
+  fetch: {
+    url: (el, s) =>
+      'https://jsonplaceholder.typicode.com/posts?_limit=3&_page=' + s.page,
+    deps: (el, s) => [s.page],
+    onSuccess: (data, el, s) => s.replace({ data })
   },
-  onRender: (el, s) => {
-    el.scope.load(el, s)
-  },
-  Flex: {
+  Row: {
+    flow: 'x',
     gap: 'A',
     Button_Prev: {
       text: 'Prev',
       onClick: (e, el, s) => {
         if (s.page > 1) {
           s.update({ page: s.page - 1, data: [{ title: 'loading' }] })
-          el.scope.load(el, s)
         }
       }
     },
     Button_Next: {
       text: 'Next',
-      onClick: (e, el, s) => {
+      onClick: (e, el, s) =>
         s.update({ page: s.page + 1, data: [{ title: 'loading' }] })
-        el.scope.load(el, s)
-      }
     }
   },
   Ul: {
@@ -503,8 +493,8 @@ export const WebSocketDemo = {
   },
   Button: {
     text: 'Send new message',
-    onClick: (event, element, state) => {
-      element.scope.ws.send('Message at ' + new Date().toLocaleTimeString())
+    onClick: (e, el, s) => {
+      el.scope.ws.send('Message at ' + new Date().toLocaleTimeString())
     }
   }
 }
@@ -522,15 +512,14 @@ export const ThemeSwitcher = {
     theme: 'light'
   },
   Button: {
-    text: (element, state) =>
-      state.theme === 'light' ? 'Go Dark' : 'Go Light',
-    onClick: (event, element, state) =>
-      state.update({
-        theme: state.theme === 'light' ? 'dark' : 'light'
-      })
+    text: (el, s) => (s.theme === 'light' ? 'Go Dark' : 'Go Light'),
+    onClick: (e, el, s) => {
+      const next = s.theme === 'light' ? 'dark' : 'light'
+      s.update({ theme: next })
+      el.call('changeGlobalTheme', next)
+    }
   },
-  Box: {
-    theme: (el, s) => 'document @' + s.theme,
+  Status: {
     P: {
       text: (el, s) => 'Theme: ' + s.theme
     }
@@ -554,14 +543,14 @@ export const FadeAnimation = {
     icon: (el, s) => (s.isVisible ? 'eye' : 'eyeOff'),
     onClick: (e, el, s) => s.toggle('isVisible')
   },
-  Flex: {
-    '.isVisible': { opacity: '1' },
-    '!isVisible': { opacity: '0' },
+  Stage: {
+    flow: 'x',
+    opacity: (el, s) => (s.isVisible ? '1' : '0'),
     transition: 'opacity 0.5s',
     theme: 'dialog',
     boxSize: 'E',
     marginTop: 'A',
-    Box: { margin: 'auto', text: 'Content' }
+    Body: { margin: 'auto', text: 'Content' }
   }
 }
 ```
@@ -583,7 +572,8 @@ export const Stopwatch = {
       if (s.running) s.update({ time: s.time + 1 })
     }, 1000)
   },
-  Flex: {
+  Controls: {
+    flow: 'x',
     gap: 'A',
     Button_Start: {
       text: (el, s) => (s.running ? 'Pause' : 'Start'),
@@ -613,16 +603,16 @@ export const ProgressBar = {
   },
   Button: {
     text: 'Increase',
-    onClick: (event, element, state) =>
-      state.update({ progress: Math.min(state.progress + 10, 100) })
+    onClick: (e, el, s) =>
+      s.update({ progress: Math.min(s.progress + 10, 100) })
   },
   Bar: {
     width: (el, s) => s.progress + '%',
-    height: '20px',
+    height: 'A',
     background: 'green'
   },
   P: {
-    text: (element, state) => 'Progress: ' + state.progress + '%'
+    text: (el, s) => 'Progress: ' + s.progress + '%'
   }
 }
 ```
@@ -638,8 +628,8 @@ export const DragBox = {
   state: {
     dragging: false
   },
-  Box: {
-    boxSize: '90px',
+  Handle: {
+    boxSize: 'D',
     background: 'blue',
     position: 'absolute',
     onMousedown: (e, el, s) => (s.dragging = true),
@@ -784,16 +774,16 @@ export const LocalStorage = {
     s.note = localStorage.getItem('note') || ''
   },
   Textarea: {
-    placeholder: 'Write something...',
+    placeholder: '{{ writeSomething | polyglot }}',
     value: '{{ note }}',
-    onInput: (event, element, state) => {
-      const value = element.node.value
-      state.update({ note: value })
+    onInput: (e, el, s) => {
+      const value = el.node.value
+      s.update({ note: value })
       localStorage.setItem('note', value)
     }
   },
   P: {
-    text: (element, state) => 'Saved: ' + state.note
+    text: (el, s) => 'Saved: ' + s.note
   }
 }
 ```
@@ -832,9 +822,9 @@ Listen for keypress and update state.
 ```js
 export const KeyboardShortcut = {
   state: { key: 'None' },
-  onRender: (el, s) => {
-    window.addEventListener('keydown', (e) => s.update({ key: e.key }))
-  },
+  tabindex: '0',
+  onKeydown: (e, el, s) => s.update({ key: e.key }),
+  onRender: (el, s) => el.node.focus(),
   P: {
     text: (el, s) => 'Last key pressed: ' + s.key
   }
@@ -850,11 +840,9 @@ Track cursor position in real-time.
 ```js
 export const MouseTracker = {
   state: { x: 0, y: 0 },
-  onRender: (el, s) => {
-    window.addEventListener('mousemove', (e) =>
-      s.update({ x: e.clientX, y: e.clientY })
-    )
-  },
+  width: '100%',
+  height: '100vh',
+  onMousemove: (e, el, s) => s.update({ x: e.clientX, y: e.clientY }),
   P: {
     text: (el, s) => 'X: ' + s.x + ', Y: ' + s.y
   }

@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+/**
+ * symbols-mcp-init-rules — drop editor-specific agent-rule files into a Symbols project.
+ *
+ * Usage:
+ *   symbols-mcp-init-rules [project-root]      # defaults to cwd
+ *   symbols-mcp-init-rules --force             # overwrite existing files
+ *   symbols-mcp-init-rules --only=cursor,claude  # restrict to specific editors
+ *   symbols-mcp-init-rules --list              # show what would be written, don't write
+ *   symbols-mcp-init-rules --help              # show usage
+ *
+ * Files written (by editor):
+ *   CLAUDE.md                       — Claude Code, Anthropic-flavored agents
+ *   .cursor/rules/symbols.md        — Cursor (auto-applies on every chat)
+ *   .windsurfrules                  — Windsurf (Codeium)
+ *   .clinerules                     — Cline (VS Code)
+ *   AGENTS.md                       — Codex / Aider / Sourcegraph Cody / Goose / fallback
+ *
+ * All files reference the symbols-mcp tools (`mcp__symbols-mcp__*`) and the strict
+ * ruleset. Idempotent: skips files that already exist (use --force to overwrite).
+ *
+ * Goal: every Symbols project auto-bootstraps any agent that reads project-level
+ * rules — no need to remind Claude/Cursor/Windsurf to "use symbols-mcp" each time.
+ */
+
+'use strict'
+
+const fs = require('node:fs')
+const path = require('node:path')
+
+const args = process.argv.slice(2)
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(fs.readFileSync(__filename, 'utf-8').split('\n').slice(1, 23).join('\n').replace(/^ \*/gm, '').trim())
+  process.exit(0)
+}
+
+const flagForce = args.includes('--force')
+const flagList = args.includes('--list') || args.includes('--dry-run')
+const onlyArg = args.find(a => a.startsWith('--only='))
+const onlyEditors = onlyArg ? onlyArg.slice('--only='.length).split(',').map(s => s.trim().toLowerCase()) : null
+const projectArg = args.find(a => !a.startsWith('-')) || '.'
+const PROJECT = path.resolve(projectArg)
+
+if (!fs.existsSync(PROJECT)) {
+  console.error(`✗ project root does not exist: ${PROJECT}`)
+  process.exit(2)
+}
+
+const TEMPLATES_DIR = path.join(__dirname, '..', 'templates', 'agent-rules')
+
+// (editor key, template relative path, destination relative path in project)
+const TARGETS = [
+  ['claude',   'CLAUDE.md',                    'CLAUDE.md'],
+  ['cursor',   '.cursor/rules/symbols.md',     '.cursor/rules/symbols.md'],
+  ['windsurf', '.windsurfrules',               '.windsurfrules'],
+  ['cline',    '.clinerules',                  '.clinerules'],
+  ['agents',   'AGENTS.md',                    'AGENTS.md'],
+]
+
+const filtered = onlyEditors
+  ? TARGETS.filter(([key]) => onlyEditors.includes(key))
+  : TARGETS
+
+if (!filtered.length) {
+  console.error(`✗ no editors matched --only=${onlyEditors.join(',')}`)
+  console.error(`  available: ${TARGETS.map(([k]) => k).join(', ')}`)
+  process.exit(2)
+}
+
+console.log(`symbols-mcp init-rules`)
+console.log(`Project: ${PROJECT}`)
+console.log(`Mode:    ${flagList ? 'list (no writes)' : (flagForce ? 'force overwrite' : 'idempotent (skip existing)')}`)
+console.log()
+
+let wrote = 0
+let skipped = 0
+let listed = 0
+
+for (const [editor, src, dst] of filtered) {
+  const srcPath = path.join(TEMPLATES_DIR, src)
+  const dstPath = path.join(PROJECT, dst)
+
+  if (!fs.existsSync(srcPath)) {
+    console.error(`  ✗ template missing: ${src} (this is a packaging bug)`)
+    continue
+  }
+
+  if (flagList) {
+    const exists = fs.existsSync(dstPath)
+    console.log(`  [${editor.padEnd(8)}] ${dst} ${exists ? '(EXISTS — would skip)' : '(would write)'}`)
+    listed++
+    continue
+  }
+
+  if (fs.existsSync(dstPath) && !flagForce) {
+    console.log(`  [${editor.padEnd(8)}] ${dst}  SKIP (exists; use --force to overwrite)`)
+    skipped++
+    continue
+  }
+
+  fs.mkdirSync(path.dirname(dstPath), { recursive: true })
+  fs.copyFileSync(srcPath, dstPath)
+  console.log(`  [${editor.padEnd(8)}] ${dst}  ✓ written`)
+  wrote++
+}
+
+console.log()
+if (flagList) {
+  console.log(`Listed ${listed} target(s). Run without --list to write.`)
+} else {
+  console.log(`Wrote ${wrote}, skipped ${skipped}.`)
+  if (skipped > 0) console.log(`Pass --force to overwrite skipped files.`)
+}
+
+console.log()
+console.log(`Next: open this project in your editor — it will auto-load the rules.`)
+console.log(`No more 'use symbols-mcp' reminders.`)

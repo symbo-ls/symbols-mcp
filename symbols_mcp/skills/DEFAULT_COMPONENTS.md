@@ -1,10 +1,11 @@
 # Default Project Template — Complete Component Reference
 
-All components from the default Symbols project template (default.symbo.ls).
+All components from the default Symbols project template (default.symbo.ls) — flat element API, signal-based reactivity.
 Available in every project that includes the default library.
-Reference by PascalCase key name — no imports needed.
+Reference by PascalCase string key — `extends: 'Button'`, `extends: 'IconButton'`, etc. NEVER import.
 
-For project configuration, see PROJECT_STRUCTURE.md. For design system values, see DEFAULT_STYLES.md.
+
+For project configuration, see PROJECT_STRUCTURE.md. For library catalog + design system token defaults, see DEFAULT_PROJECT.md.
 
 ---
 
@@ -20,9 +21,9 @@ export const Accordion = {
   ButtonParagraph: {
     cursor: 'pointer',
     gap: 'D1',
-    onClick: (event, element, state) => {
-      state.update({
-        activeAccordion: !state.activeAccordion
+    onClick: (e, el, s) => {
+      s.update({
+        activeAccordion: !s.activeAccordion
       })
     },
     P: {
@@ -529,7 +530,7 @@ export const Breadcrumb = {
     }
   },
   children: (el, s, ctx) => {
-    const routeArr = (s.root.route || window.top.location.pathname)
+    const routeArr = (s.root.route || '/')
       .split('/')
       .slice(1)
     return routeArr
@@ -709,9 +710,9 @@ export const CardNumberField = {
         outline: 'none'
       },
       onUpdate: (el, s) => {
-        el.node.value = el.props.value(el, s)
+        el.node.value = el.value(el, s)
       },
-      onInput: (ev, el, s, ctx) => {
+      onInput: (e, el, s, ctx) => {
         const index = parseInt(el.parent.key)
         const valueArray = s.value.split('')
         const inputValue = el.node.value
@@ -722,10 +723,10 @@ export const CardNumberField = {
         s.update({
           value: valueArray.join('')
         })
-        ctx.components.FixedNumberField.Input.onInput(ev, el, s, ctx)
+        ctx.components.FixedNumberField.Input.onInput(e, el, s, ctx)
       },
-      onPaste: (ev, el, s) => {
-        console.log(ev)
+      onPaste: (e, el, s) => {
+        console.log(e)
         const handlePastedInput = (event, validationFn) => {
           event.preventDefault()
           const pastedText = event.clipboardData.getData('text/plain')
@@ -740,7 +741,7 @@ export const CardNumberField = {
         const maxLengthPaste = (input, maxLength = 12) => {
           return input.slice(0, maxLength)
         }
-        return handlePastedInput(ev, (text) => {
+        return handlePastedInput(e, (text) => {
           return maxLengthPaste(numericOnlyPaste(text))
         })
       }
@@ -926,9 +927,9 @@ export const CircleButton = {
 ```js
 export const CircleProgress = {
   tag: 'progress',
-  max: ({ props }) => props.max,
-  progress: ({ props }) => props.progress,
-  value: ({ props }) => props.value,
+  max: (el, s) => el.max,
+  progress: (el, s) => el.progress,
+  value: (el, s) => el.value,
   boxSize: 'D D',
   value: 0.73,
   round: '100%',
@@ -1099,7 +1100,7 @@ export const FixedNumberField = {
     style: {
       fontFamily: 'Courier, monospace'
     },
-    onKeydown: (event, element, state) => {
+    onKeydown: (e, el, s) => {
       const numericPattern = /^\d$/
       const navigationKeys = [
         'Backspace',
@@ -1114,22 +1115,22 @@ export const FixedNumberField = {
       ]
       const ctrlShortcuts = ['a', 'c', 'v', 'x']
 
-      const isNumeric = numericPattern.test(event.key)
-      const isNavigationKey = navigationKeys.includes(event.key)
+      const isNumeric = numericPattern.test(e.key)
+      const isNavigationKey = navigationKeys.includes(e.key)
       const isCtrlShortcut =
-        (event.metaKey || event.ctrlKey) && ctrlShortcuts.includes(event.key)
+        (e.metaKey || e.ctrlKey) && ctrlShortcuts.includes(e.key)
 
       // Allow only numeric input, navigation keys, and Ctrl shortcuts
       if (!isNumeric && !isNavigationKey && !isCtrlShortcut) {
-        event.preventDefault()
+        e.preventDefault()
       }
     },
-    onInput: (event, element, state) => {
-      if (element.node.value.length === 0) {
-        element.parent.previousElement()?.Input?.node.focus()
+    onInput: (e, el, s) => {
+      if (el.node.value.length === 0) {
+        el.parent.previousElement()?.Input?.node.focus()
       }
-      if (element.node.value.length > 3) {
-        element.parent.nextElement()?.Input?.node.focus()
+      if (el.node.value.length > 3) {
+        el.parent.nextElement()?.Input?.node.focus()
       }
     }
   },
@@ -1562,7 +1563,7 @@ export const IcontextLink = {
 
 ```js
 export const IconTextSet = {
-  childExtends: ['IconText', 'Flex'],
+  childExtends: 'IconText',
   flow: 'y',
   gap: 'A',
   childProps: {
@@ -1891,7 +1892,7 @@ export const ListingItem = {
         color: 'disabled'
       }
     },
-    onClick: (ev, el, s) => {
+    onClick: (e, el, s) => {
       const isActive = s.isActive
       s.update({
         isActive: !isActive,
@@ -2135,10 +2136,10 @@ export const NumberPicker = {
     Icon: {
       name: 'minus'
     },
-    onClick: (event, element, state) => {
-      if (state.currentValue <= 0) return
-      state.update({
-        currentValue: state.currentValue - 1
+    onClick: (e, el, s) => {
+      if (s.currentValue <= 0) return
+      s.update({
+        currentValue: s.currentValue - 1
       })
     }
   },
@@ -2150,9 +2151,9 @@ export const NumberPicker = {
     Icon: {
       name: 'plus'
     },
-    onClick: (event, element, state) => {
-      state.update({
-        currentValue: state.currentValue + 1
+    onClick: (e, el, s) => {
+      s.update({
+        currentValue: s.currentValue + 1
       })
     }
   },
@@ -2210,8 +2211,8 @@ export const Pagination = {
     Icon: {
       name: 'chevronLeft'
     },
-    onClick: (event, element, state) => {
-      state.update({})
+    onClick: (e, el, s) => {
+      s.update({})
     }
   },
   Flex: {
@@ -2222,7 +2223,7 @@ export const Pagination = {
       round: '100%',
       padding: 'A',
       theme: 'field',
-      isActive: (element, state) => state.active === parseInt(element.key),
+      isActive: (el, s) => s.active === parseInt(el.key),
       '.isActive': {
         theme: 'primary'
       }
@@ -2251,8 +2252,8 @@ export const Pagination = {
     Icon: {
       name: 'chevronRight'
     },
-    onClick: (event, element, state) => {
-      state.update({})
+    onClick: (e, el, s) => {
+      s.update({})
     }
   },
   gap: 'A',
@@ -2298,9 +2299,9 @@ export const Pills = {
 ```js
 export const Progress = {
   tag: 'progress',
-  max: ({ props }) => props.max,
-  progress: ({ props }) => props.progress,
-  value: ({ props }) => props.value,
+  max: (el, s) => el.max,
+  progress: (el, s) => el.progress,
+  value: (el, s) => el.value,
   height: 'X',
   minWidth: 'F3',
   round: 'Y',
@@ -2689,12 +2690,12 @@ export const SearchDropdown = {
       boxSizing: 'border-box',
       border: 'none',
       outline: 'none',
-      onInput: (e, el, state) => {
+      onInput: (e, el, s) => {
         const value = e.target.value.trim().toLowerCase()
-        const filtered = state.data.filter((item) =>
+        const filtered = s.data.filter((item) =>
           item.toLowerCase().includes(value)
         )
-        state.replace({
+        s.replace({
           searchValue: value,
           filtered: filtered
         })
@@ -2708,7 +2709,7 @@ export const SearchDropdown = {
       childProps: {
         padding: 'Z',
         text: '{{ value }}',
-        onClick: (ev, el, s) => {
+        onClick: (e, el, s) => {
           s.parent.update({
             selected: s.value,
             isOpen: false,
@@ -2785,12 +2786,12 @@ export const SearchDropdown_copy = {
       boxSizing: 'border-box',
       border: 'none',
       outline: 'none',
-      onInput: (e, el, state) => {
+      onInput: (e, el, s) => {
         const value = e.target.value.trim().toLowerCase()
-        const filtered = state.data.filter((item) =>
+        const filtered = s.data.filter((item) =>
           item.toLowerCase().includes(value)
         )
-        state.replace({
+        s.replace({
           searchValue: value,
           filtered: filtered
         })
@@ -2804,7 +2805,7 @@ export const SearchDropdown_copy = {
       childProps: {
         padding: 'Z',
         text: '{{ value }}',
-        onClick: (ev, el, s) => {
+        onClick: (e, el, s) => {
           s.parent.update({
             selected: s.value,
             isOpen: false,

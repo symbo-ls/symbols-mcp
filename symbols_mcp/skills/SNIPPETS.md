@@ -1,6 +1,6 @@
 # Symbols Snippets — Production Component Patterns
 
-11 production-tested component patterns. Use as starting points for common UI needs.
+11 production-tested DOMQL component patterns. Use as starting points for common UI needs.
 
 ---
 
@@ -11,6 +11,7 @@ Sticky responsive header with logo, nav links, and mobile menu button.
 ```js
 export const Header = {
   tag: 'header',
+  flow: 'x',
   position: 'sticky',
   top: '0',
   width: '100%',
@@ -33,6 +34,7 @@ export const Header = {
   },
 
   Nav: {
+    flow: 'x',
     gap: 'B',
     align: 'center',
 
@@ -40,7 +42,7 @@ export const Header = {
     childrenAs: 'state',
     childExtends: 'Link',
     childProps: {
-      text: '{{ value }}',
+      text: '{{ value | polyglot }}',
       href: (el, s) => '/' + s.value.toLowerCase(),
       textDecoration: 'none',
       ':hover': { opacity: '.7' },
@@ -107,15 +109,16 @@ export const Hero = {
   },
 
   Actions: {
+    flow: 'x',
     gap: 'A',
     align: 'center',
     Button_Primary: {
-      text: 'Get Started',
+      text: '{{ getStarted | polyglot }}',
       theme: 'primary',
       padding: 'Z2 B'
     },
     Button_Secondary: {
-      text: 'Learn More',
+      text: '{{ learnMore | polyglot }}',
       theme: 'secondary',
       padding: 'Z2 B'
     }
@@ -213,19 +216,20 @@ export const PriceCard = {
     gap: 'X2',
     H: {
       tag: 'h3',
-      text: 'Pro Plan',
+      text: '{{ proPlan | polyglot }}',
       fontSize: 'A2'
     },
     Price: {
+      flow: 'x',
       align: 'end',
       gap: 'X',
-      H2: {
+      Amount: {
         tag: 'span',
         text: '$29',
         fontSize: 'D',
         fontWeight: '800'
       },
-      P: {
+      Per: {
         text: '/month',
         opacity: '.5',
         marginBottom: 'X2'
@@ -243,17 +247,15 @@ export const PriceCard = {
       'Team collaboration'
     ],
     childrenAs: 'state',
-    childExtends: 'Flex',
+    childExtends: 'PricingFeatureRow',   // ← register as a named component (NEVER inline-object — breaks frank serialization + triggers css-in-props text-leak)
     childProps: {
-      align: 'center',
-      gap: 'Z',
-      Icon: { name: 'check', color: 'green', boxSize: 'Z2' },
-      Text: { text: '{{ value }}' }
+      Icon:  { name: 'check', color: 'success', boxSize: 'Z2' },
+      Label: { text: '{{ value | polyglot }}' }
     }
   },
 
   Button: {
-    text: 'Get Started',
+    text: '{{ getStarted | polyglot }}',
     theme: 'primary',
     width: '100%',
     padding: 'Z2'
@@ -285,6 +287,7 @@ export const TestimonialCard = {
   },
 
   Author: {
+    flow: 'x',
     align: 'center',
     gap: 'A',
     Avatar: {
@@ -317,13 +320,14 @@ export const SearchDropdown = {
   position: 'relative',
 
   Input: {
-    placeholder: 'Search...',
+    placeholder: '{{ search | polyglot }}',
     padding: 'Z2 A',
     width: '100%',
     onInput: (e, el, s) => s.update({ query: el.node.value })
   },
 
   Results: {
+    flow: 'y',
     if: (el, s) => s.query.length > 0,
     position: 'absolute',
     top: '100%',
@@ -338,9 +342,8 @@ export const SearchDropdown = {
     children: (el, s) =>
       s.items.filter((i) => i.toLowerCase().includes(s.query.toLowerCase())),
     childrenAs: 'state',
-    childExtends: 'Box',
     childProps: {
-      text: '{{ value }}',
+      text: '{{ value | polyglot }}',
       padding: 'Z A',
       cursor: 'pointer',
       ':hover': { background: 'hover' },
@@ -393,6 +396,7 @@ export const Footer = {
   },
 
   Bottom: {
+    flow: 'x',
     align: 'center space-between',
     borderTop: '1px solid',
     borderTopColor: 'gray3',
@@ -485,16 +489,18 @@ export const AppLayout = {
       { label: 'Settings', icon: 'settings', path: '/settings' }
     ],
     childrenAs: 'state',
-    childExtends: 'Flex',
-    childProps: {
+    childExtends: {
+      flow: 'x',
       align: 'center',
       gap: 'Z',
       padding: 'Z A',
       round: 'Z2',
       cursor: 'pointer',
-      ':hover': { background: 'hover' },
+      ':hover': { background: 'hover' }
+    },
+    childProps: {
       Icon: { name: '{{ icon }}', boxSize: 'Z2' },
-      Text: { text: '{{ label }}' },
+      Label: { text: '{{ label | polyglot }}' },
       onClick: (e, el, s) => el.router(s.path, el.getRoot())
     }
   },
@@ -516,6 +522,10 @@ Auto-dismissing fixed-position notification.
 
 ```js
 export const Toast = {
+  state: {
+    visible: true
+  },
+  flow: 'x',
   align: 'center',
   gap: 'A',
   padding: 'A B',
@@ -526,14 +536,16 @@ export const Toast = {
   zIndex: '1000',
   theme: 'dialog',
   transition: 'opacity 0.3s, transform 0.3s',
+  opacity: (el, s) => (s.visible ? '1' : '0'),
+  if: (el, s) => s.visible || s.fading,
 
   Icon: {
     name: 'check',
     boxSize: 'A'
   },
 
-  Text: {
-    text: 'Operation successful',
+  Label: {
+    text: '{{ operationSuccessful | polyglot }}',
     fontSize: 'Z2'
   },
 
@@ -541,9 +553,9 @@ export const Toast = {
     extends: 'IconButton',
     icon: 'x',
     boxSize: 'A',
-    onClick: (e, el) => {
-      el.parent.node.style.opacity = '0'
-      setTimeout(() => el.parent.update({ if: false }), 300)
+    onClick: (e, el, s) => {
+      s.update({ visible: false, fading: true })
+      setTimeout(() => s.update({ fading: false }), 300)
     }
   }
 }
@@ -571,16 +583,16 @@ export const ContactForm = {
 
   Field_Name: {
     extends: 'Field',
-    label: 'Name',
+    label: '{{ name | polyglot }}',
     Input: {
-      placeholder: 'Your name',
+      placeholder: '{{ yourName | polyglot }}',
       onInput: (e, el, s) => s.update({ name: el.node.value })
     }
   },
 
   Field_Email: {
     extends: 'Field',
-    label: 'Email',
+    label: '{{ email | polyglot }}',
     Input: {
       type: 'email',
       placeholder: 'you@example.com',
@@ -590,16 +602,16 @@ export const ContactForm = {
 
   Field_Message: {
     extends: 'Field',
-    label: 'Message',
+    label: '{{ message | polyglot }}',
     Textarea: {
-      placeholder: 'Your message...',
+      placeholder: '{{ yourMessage | polyglot }}',
       rows: 4,
       onInput: (e, el, s) => s.update({ message: el.node.value })
     }
   },
 
   Button: {
-    text: (el, s) => (s.submitted ? 'Sent!' : 'Send Message'),
+    text: (el, s) => (s.submitted ? el.call('polyglot', 'sent') : el.call('polyglot', 'sendMessage')),
     theme: 'primary',
     width: '100%',
     onClick: async (e, el, s) => {

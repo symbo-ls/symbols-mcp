@@ -1,0 +1,30 @@
+# Symbols.app project — agent rules
+
+This is a Symbols.app / DOMQL v4 project. The `symbols-mcp` MCP server is the source of truth.
+
+## Required workflow
+
+1. Call `mcp__symbols-mcp__get_project_context` FIRST. Treat its `next_step` as authoritative. NEVER hardcode owner / key / creds.
+2. Before generating ANY component, call `mcp__symbols-mcp__get_project_rules`.
+3. Use `mcp__symbols-mcp__generate_component` / `generate_page` for new code.
+4. Validate every component with `mcp__symbols-mcp__audit_component(code)`.
+5. For full audits, use `audit_project()` + `npx -y @symbo.ls/mcp symbols-audit ./symbols`.
+
+## Hard rules
+
+- Flat element API: `el.X` not `el.props.X`. `el.onClick` not `on: { click }`. `(el, s)` reactive sigs.
+- Lowercase child keys NEVER render. PascalCase only.
+- Auto-extend by key: `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to match the component. Multi-instance → `Navbar_1`, `Navbar_2`. Keep `extends:` only for distinct semantic labels, multi-base composition, or nested-child chains.
+- Design-system tokens for ALL values. NO raw px/hex/rgb/hsl/ms.
+  Typography / spacing / timing each have their own sequence — `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`.
+  NO custom-named spacing tokens.
+- Polyglot for all strings: `'{{ key | polyglot }}'`. NO `t` / `tr` — only `polyglot`.
+- Declarative `fetch:` prop. NEVER `window.fetch` / `axios`.
+- Helmet `metadata: {…}`. NEVER `document.title = …`.
+- `el.router()` not `window.location.*`.
+- `changeGlobalTheme()` from `smbls`. NEVER `setAttribute('data-theme')`.
+- Icons: `Icon` component + `designSystem.icons`. `html: '<svg ...>'` is BANNED (Rule 62).
+- No imports between project files. PascalCase auto-extends. `el.call('fn', …)` for functions.
+- No direct DOM manipulation.
+
+Do not write Symbols code from memory. Use `symbols-mcp` tools.

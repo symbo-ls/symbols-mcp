@@ -1,44 +1,48 @@
-# DOMQL v3 Syntax Reference
+# DOMQL Syntax Reference
 
-Authoritative reference for generating correct DOMQL v3 code. Every pattern is derived from real working code.
+Authoritative reference for generating correct DOMQL code. Every pattern is derived from real working code in `smbls`.
+
+> smbls is signal-based. Props are flat on the element (`el.X`, NOT `el.props.X`). Event handlers are flat top-level (`onClick`, NOT `on: { click }`). Reactive prop functions take `(el, s)` — never destructured `({ props, state })`.
 
 ---
 
 ## Element Anatomy
 
-Produce DOMQL elements as plain JS objects. Every key has a specific role:
+DOMQL elements are plain JS objects. Every key has a specific role:
 
 ```js
 export const MyCard = {
-  tag: 'section', // HTML tag (default: div)
+  tag: 'section',                // HTML tag (default: div)
 
-  // CSS props (top-level, promoted via propertizeElement)
+  // CSS props (top-level)
   padding: 'B C',
   gap: 'A',
-  flow: 'column',
+  flow: 'y',
   theme: 'dialog',
   round: 'C',
 
   // HTML attributes (auto-detected by attrs-in-props)
   role: 'region',
-  ariaLabel: 'My card', // camelCase → aria-label
-  aria: { describedby: 'desc' }, // object shorthand → aria-describedby
-  attr: { 'aria-label': ({ props }) => props.label }, // explicit attr block
+  ariaLabel: 'My card',          // camelCase → aria-label
+  aria: { describedby: 'desc' }, // shorthand object → aria-describedby
 
-  // State
+  // State (signal-backed reactive store)
   state: { open: false },
 
-  // Events (v3 top-level)
-  onClick: (event, el, state) => {
-    state.update({ open: !state.open })
-  },
-  onRender: (el, state) => {
-    console.log('rendered')
-  },
+  // Reactive props — function signature is (el, s) or (el, s, ctx)
+  text:    (el, s)    => s.label,
+  hide:    (el, s)    => !s.open,
+  color:   (el, s)    => s.active ? 'primary' : 'gray.5',
 
-  // Children (PascalCase keys)
-  Header: { text: ({ props }) => props.title },
-  Body: { html: ({ props }) => props.content }
+  // Events (flat top-level — DOM events: (e, el, s); lifecycle: (el, s, ctx))
+  onClick:    (e, el, s) => s.update({ open: !s.open }),
+  onKeydown:  (e, el, s) => { if (e.key === 'Escape') s.update({ open: false }) },
+  onInit:     (el, s, ctx) => { el.scope.timer = null },
+  onRender:   (el, s, ctx) => {},
+
+  // Children (PascalCase keys auto-extend matching components)
+  Header: { text: (el, s) => s.title },
+  Body:   { html: (el, s) => s.content }
 }
 ```
 
@@ -47,97 +51,91 @@ export const MyCard = {
 ## Element Lifecycle
 
 ```
-create(props, parent, key, options)
-  |- createElement()          creates bare element
-  |- applyExtends()           merges extends stack (element wins)
-  |- propertizeElement()      routes onXxx events, promotes CSS props
-  |- addMethods()             attaches el.lookup / el.update / etc.
-  |- initProps()              builds props from propsStack
-  +- createNode()
-       |- throughInitialExec()     executes function props
-       |- applyEventsOnNode()      binds element.on.* to DOM
-       +- iterates children -> create() recursively
+create(definition, parent, key, options)
+  ├─ normalize definition (string/number → { text }, null/false → null)
+  ├─ applyExtends()           merges extends chain (definition wins)
+  ├─ flatten props onto el    (definition.props → flat on element)
+  ├─ addMethods()             attaches el.update / el.lookdown / el.call / etc.
+  ├─ createElementState()     wraps state in createStore() signal proxy
+  ├─ evaluate `if`            mark __if true/false; bail early if false
+  ├─ detectTag + cacheNode    create DOM node
+  ├─ triggerLifecycle 'Init'  → fires onInit
+  ├─ registerEffects()        wire reactive effects for function props
+  ├─ applyStaticMixins()      apply text/html/style/attr/data/classlist
+  ├─ registerEvents()         bind onXxx handlers via delegation
+  ├─ createChildren()         recurse for each PascalCase / children
+  ├─ assignNode()             attach to parent in DOM
+  └─ triggerLifecycle 'Create' → 'Complete' → 'Render' → 'RenderRouter'
 ```
 
-`propertizeElement` runs BEFORE `addMethods`. Do not rely on prototype methods during propertization.
-
-### Propertization and Define System
-
-`propertizeElement()` classifies keys between root and `props`. Keys starting with `$` overlap between css-in-props conditionals (`$isActive`) and define handlers (`$router`, deprecated v2 handlers like `$propsCollection`, `$collection`).
-
-Define handlers (`element.define[key]` or `context.define[key]`) must stay at the element root so `throughInitialDefine` can process them. Propertization checks for define handlers BEFORE applying `CSS_SELECTOR_PREFIXES`:
-
-```js
-const defineValue = this.define?.[key]
-const globalDefineValue = this.context?.define?.[key]
-if (isFunction(defineValue) || isFunction(globalDefineValue)) continue
-if (CSS_SELECTOR_PREFIXES.has(firstChar)) {
-  obj.props[key] = value  // move to props for css-in-props
-}
-```
+The `if` effect re-enters the full creation steps the first time it flips false → true.
 
 ---
 
 ## REGISTRY Keys
 
-These keys are handled by DOMQL internally and are NOT promoted to CSS props:
+These are handled by DOMQL internally and are NOT promoted to CSS props:
 
 ```
 attr, style, text, html, data, classlist, state, scope, deps,
-extends, children, content,
-childExtend (deprecated), childExtends, childExtendRecursive (deprecated), childExtendsRecursive,
-props, if, define, __name, __ref, __hash, __text,
-key, tag, query, parent, node, variables, on, component, context
+extends, children, content, childExtends, childExtendsRecursive, childProps, childrenAs,
+props, if, show, hide, value, define, key, tag, query, parent, node,
+variables, component, context, fetch, routes, metadata,
+onInit, onCreate, onComplete, onRender, onRenderRouter, onUpdate, onBeforeUpdate,
+onStateInit, onStateCreated, onStateUpdate, onBeforeStateUpdate,
+onAttachNode, onFrame, onDestroy, onRemove, onDispose,
+onClick, onInput, onChange, onSubmit, onKeydown, onKeyup, onMouseover,
+onBlur, onFocus, onScroll, onResize, … any other onXxx
 ```
 
-Any key NOT in this list and not PascalCase (component) is promoted to `element.props` as a CSS prop.
+Any key NOT in this list and not PascalCase is promoted as a CSS prop.
 
-Always use `childExtends` (plural). The singular `childExtend` is deprecated v2 syntax kept for backwards compatibility.
+> Forbidden keys: `extend`, `childExtend`, `childExtendRecursive`, `props: {}` wrapper, `on: {}` wrapper.
 
 ---
 
 ## Extending and Composing
 
-| Pattern                                      | Syntax                                        |
-| -------------------------------------------- | --------------------------------------------- |
-| Single extend                                | `extends: 'Button'`                           |
-| Multiple (first = highest priority)          | `extends: [Link, RouterLink]`                 |
-| String reference (from `context.components`) | `extends: 'Hoverable'`                        |
-| Multiple strings                             | `extends: ['IconText', 'FocusableComponent']` |
+| Pattern | Syntax |
+| -- | -- |
+| Single extend | `extends: 'Button'` |
+| Multiple (first = highest priority) | `extends: ['Link', 'RouterLink']` |
+| String reference (from `context.components`) | `extends: 'Hoverable'` |
+| Auto-extend by key | `Icon: {...}` auto-extends 'Icon'; `Icon_1: {...}` also auto-extends 'Icon' |
 
 ### Merge Semantics
 
-| Type           | Rule                                             |
-| -------------- | ------------------------------------------------ |
-| Own properties | Always win over extends                          |
-| Objects        | Deep-merged (both sides preserved)               |
-| Functions      | NOT merged; element's function replaces extend's |
-| Arrays         | Concatenated                                     |
+| Type | Rule |
+| -- | -- |
+| Own properties | Always win over extends |
+| Plain objects | Deep-merged (PascalCase children deep-merge child overrides) |
+| Special keys (`childProps`, `attr`, `style`, `scope`, `data`) | Shallow merge {...base, ...override} |
+| Functions | NOT merged; element's function replaces extend's |
+| Arrays | Concatenated where applicable; otherwise replaced |
 
 ---
 
-## CSS Props (Top-Level Promotion)
+## CSS Props (Top-Level)
 
-Place CSS props at the element root. Non-registry, non-PascalCase keys become `element.props`:
+Place CSS props at the element root. Non-registry, non-PascalCase, lowercase keys become CSS props:
 
 ```js
 export const Card = {
-  padding: 'B C', // -> props.padding
-  gap: 'Z', // -> props.gap
-  flow: 'column', // shorthand for flexDirection
-  align: 'center', // NOT flexAlign
+  padding: 'B C',         // spacing token
+  gap: 'Z',
+  flow: 'y',              // shorthand for flexDirection
+  align: 'center',        // alignment shorthand (NOT flexAlign)
   fontSize: 'A',
   fontWeight: '500',
   color: 'currentColor',
   background: 'codGray',
-  round: 'C', // border-radius token
+  round: 'C',             // border-radius token
   opacity: '0.85',
   overflow: 'hidden',
   transition: 'B defaultBezier',
-  transitionProperty: 'opacity, transform',
   zIndex: 10,
-  tag: 'section', // stays at root (REGISTRY)
-  href: '...' // auto-detected as HTML attribute
+  tag: 'section',         // stays at root (REGISTRY)
+  href: '/about'          // auto-detected as HTML attribute on <a>
 }
 ```
 
@@ -146,11 +144,11 @@ export const Card = {
 ```js
 export const Hoverable = {
   opacity: 0.85,
-  ':hover': { opacity: 0.9, transform: 'scale(1.015)' },
-  ':active': { opacity: 1, transform: 'scale(1.015)' },
+  ':hover':         { opacity: 0.9, transform: 'scale(1.015)' },
+  ':active':        { opacity: 1,   transform: 'scale(1.015)' },
   ':focus-visible': { outline: 'solid X blue.3' },
   ':not(:first-child)': {
-    '@dark': { borderWidth: '1px 0 0' },
+    '@dark':  { borderWidth: '1px 0 0' },
     '@light': { borderWidth: '1px 0 0' }
   }
 }
@@ -160,25 +158,38 @@ export const Hoverable = {
 
 Three prefix types for conditional CSS and attributes:
 
-| Prefix | Resolution                              | Example                       |
-| ------ | --------------------------------------- | ----------------------------- |
-| `$`    | Global case from `context.cases`        | `$isSafari: { padding: 'B' }` |
-| `.`    | Props/state first, then `context.cases` | `.isActive: { opacity: 1 }`   |
-| `!`    | Inverted — applies when falsy           | `!isActive: { opacity: 0 }`   |
+| Prefix | Resolution | Example |
+| -- | -- | -- |
+| `$` | Global case from `context.cases` | `$isSafari: { padding: 'B' }` |
+| `.` | Element/state first, then `context.cases` | `'.isActive': { opacity: 1 }` |
+| `!` | Inverted — applies when falsy | `'!isActive': { opacity: 0 }` |
 
-Cases are defined in `symbols/cases.js` and added to `context.cases`. Both CSS props and HTML attributes inside conditional blocks are applied.
+Cases are defined in `cases.js` at the project root and added to `context.cases`. CSS props AND HTML attributes inside conditional blocks are applied.
+
+`.isX` / `'!isX'` / `$isX` blocks are fully reactive — the framework wraps `isX` conditions in `createEffect`, so the matching block re-applies whenever the state read by the condition changes. Use the pattern when two or more CSS props share a single condition; it's cleaner than repeating the same condition across many prop functions.
 
 ```js
+// ✅ Reactive grouped CSS via .isX
 export const Item = {
   opacity: 0.6,
-  '.active': { opacity: 1, fontWeight: '600', aria: { selected: true } },
-  '.disabled': { opacity: 0.3, pointerEvents: 'none', disabled: true },
-  '!active': { ariaHidden: true },
-  $isSafari: { padding: 'B' }
+  isActive: (el, s) => s.root.active === el.key,
+  '.isActive': { opacity: 1, fontWeight: '600', aria: { selected: true } }
 }
+
+// ✅ '!isX' for the inverse branch
+export const Item = {
+  isSelected: (el, s) => s.selectedId === el.key,
+  '.isSelected': { background: 'primary', color: 'white' },
+  '!isSelected': { opacity: 0.6 }
+}
+
+// ✅ $isX for global cases (browser detection from context.cases)
+$isSafari: { paddingTop: 'env(safe-area-inset-top)' }
 ```
 
 ### Raw Style Object (Escape Hatch)
+
+Use `style: {...}` only when you need raw CSS-in-JS rules (`& [...]`, descendant selectors, animation keyframes). Prefer top-level CSS props.
 
 ```js
 export const DropdownParent = {
@@ -196,107 +207,76 @@ export const DropdownParent = {
 ```js
 export const Grid = {
   columns: 'repeat(4, 1fr)',
-  '@tabletSm': { columns: 'repeat(2, 1fr)' },
+  '@tabletS': { columns: 'repeat(2, 1fr)' },
   '@mobileL': { columns: '1fr' },
-  '@dark': { background: 'codGray' },
-  '@light': { background: 'concrete' }
+  '@dark':    { background: 'codGray' },
+  '@light':   { background: 'concrete' }
 }
 ```
 
 ---
 
-## Events
+## Events — Flat `onXxx` Top-Level
 
-### v3 Syntax (Top-Level `onXxx`)
+### Event Signatures
 
-Use top-level `onXxx` handlers. Two signatures exist:
-
-**DOM events** -- signature: `(event, el, state)`:
+DOM events: `(event, el, state)`
 
 ```js
-onClick:     (event, el, state) => { /* ... */ }
-onChange:    (event, el, state) => { /* ... */ }
-onInput:     (event, el, state) => { state.update({ value: event.target.value }) }
-onSubmit:    (event, el, state) => { event.preventDefault() }
-onKeydown:   (event, el, state) => { if (event.key === 'Enter') /* ... */ }
-onMouseover: (event, el, state) => { /* ... */ }
-onBlur:      (event, el, state) => { /* ... */ }
-onFocus:     (event, el, state) => { /* ... */ }
+onClick:     (e, el, s) => {},
+onChange:    (e, el, s) => {},
+onInput:     (e, el, s) => s.update({ value: e.target.value }),
+onSubmit:    (e, el, s) => { e.preventDefault() },
+onKeydown:   (e, el, s) => { if (e.key === 'Enter') {} },
+onMouseover: (e, el, s) => {},
+onBlur:      (e, el, s) => {},
+onFocus:     (e, el, s) => {}
 ```
 
-**Lifecycle events** -- signature: `(el, state)`:
+Lifecycle events: `(el, state, context, options?)`
 
 ```js
-onInit: (el, state) => {
-  /* before render */
-}
-onRender: (el, state) => {
-  /* after render */
-}
-onCreate: (el, state) => {
-  /* after full creation */
-}
-onUpdate: (el, state) => {
-  /* after state/props update */
-}
-onStateUpdate: (el, state) => {
-  /* after state update */
-}
+onInit:        (el, s, ctx)    => { /* before DOM creation */ },
+onAttachNode:  (el, s, ctx)    => { /* DOM node created, not attached */ },
+onCreate:      (el, s, ctx)    => { /* full setup done */ },
+onComplete:    (el, s, ctx)    => { /* alias of onCreate */ },
+onRender:      (el, s, ctx)    => { /* effects + children + DOM ready */ },
+onRenderRouter:(el, s, ctx)    => { /* router-specific post-render */ },
+onUpdate:      (el, s, ctx)    => { /* after el.update() */ },
+onBeforeUpdate:(changes, el, s, ctx) => { /* return false to cancel */ },
+onStateUpdate: (changes, el, s, ctx) => { /* after state change */ },
+onBeforeStateUpdate: (changes, el, s, ctx) => { /* return false to cancel */ },
+onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ }
 ```
 
-### Element Lifecycle Events (Full Signatures)
-
-| Event            | Signature                                           | When                    | Notes                    |
-| ---------------- | --------------------------------------------------- | ----------------------- | ------------------------ |
-| `onInit`         | `(element, state, context, updateOptions)`          | Before init             | Return `false` to break  |
-| `onAttachNode`   | `(element, state, context, updateOptions)`          | After DOM node attached |                          |
-| `onRender`       | `(element, state, context, updateOptions)`          | After render            |                          |
-| `onComplete`     | `(element, state, context, updateOptions)`          | After full creation     |                          |
-| `onBeforeUpdate` | `(changes, element, state, context, updateOptions)` | Before update           | `changes` is first param |
-| `onUpdate`       | `(element, state, context, updateOptions)`          | After update            |                          |
-
-### State Events
-
-| Event                 | Signature                                           | When                | Notes                                      |
-| --------------------- | --------------------------------------------------- | ------------------- | ------------------------------------------ |
-| `onStateInit`         | `(element, state, context, updateOptions)`          | Before state init   | Return `false` to break                    |
-| `onStateCreated`      | `(element, state, context, updateOptions)`          | After state created |                                            |
-| `onBeforeStateUpdate` | `(changes, element, state, context, updateOptions)` | Before state update | Return `false` to prevent; `changes` first |
-| `onStateUpdate`       | `(changes, element, state, context, updateOptions)` | After state update  | `changes` is first param                   |
-
-`onBeforeStateUpdate` and `onStateUpdate` receive `changes` as their FIRST parameter.
-
-### DOMQL Lifecycle Names (Never Bound to DOM)
-
-```
-init, beforeClassAssign, render, renderRouter, attachNode,
-stateInit, stateCreated, beforeStateUpdate, stateUpdate,
-beforeUpdate, done, create, complete, frame, update
-```
+`onBeforeUpdate` / `onStateUpdate` / `onBeforeStateUpdate` receive `changes` as their FIRST parameter.
 
 ### Event Detection Rule
 
-A key is a v3 event handler when:
+A key is an event handler when:
 
 ```js
-key.length > 2 &&
-  key.startsWith('on') &&
-  key[2] === key[2].toUpperCase() && // onClick, onRender -- NOT "one", "only"
+key.length > 2 && key[0] === 'o' && key[1] === 'n' &&
+  key[2] >= 'A' && key[2] <= 'Z' &&     // onClick, onRender — NOT "one", "only"
   isFunction(value)
 ```
+
+Detection is structural (pattern of `onUpper...`), not registry-based — any custom event name like `onCustomThing` works as long as it's a function.
 
 ### Async Events
 
 ```js
-onRender: async (el, state) => {
+onRender: async (el, s) => {
   try {
-    const result = await el.call('fetchData', el.props.id)
-    state.update({ data: result })
+    const result = await el.call('fetchData', s.id)
+    s.update({ data: result })
   } catch (e) {
-    state.update({ error: e.message })
+    s.update({ error: e.message })
   }
 }
 ```
+
+> Modern apps prefer the declarative `fetch:` prop over imperative `onRender + window.fetch`. See SYNTAX → Data Fetching.
 
 ---
 
@@ -308,117 +288,180 @@ onRender: async (el, state) => {
 // Define
 state: { count: 0, open: false, selected: null }
 
-// Read in definitions
-text:     ({ state }) => state.label
-opacity:  ({ state }) => state.loading ? 0.5 : 1
-isActive: ({ key, state }) => state.active === key
+// Read in reactive props — flat (el, s) signature
+text:        (el, s) => s.label,
+opacity:     (el, s) => s.loading ? 0.5 : 1,
+isActive:    (el, s) => s.active === el.key
 
 // Update from events
-onClick: (event, el, state) => {
-  state.update({ on: !state.on })    // partial update
-  state.set({ on: false })           // replace
-  state.reset()                      // reset to initial
-  state.toggle('open')               // toggle boolean
+onClick: (e, el, s) => {
+  s.update({ open: !s.open })   // partial update (deep merge)
+  s.replace({ open: false })    // shallow replace (removes other keys)
+  s.set({ open: false })        // alias for replace
+  s.reset()                     // restore to initial parsed state
+  s.toggle('open')              // flip boolean
+  s.add('items', { id: 1 })     // push to array or merge into object
+  s.remove('selected')          // delete key
+  s.setByPath('user.name', 'X') // dotted path
 }
 ```
 
-### Root State Access
+### Root and Parent State
 
 ```js
-// From events
-const rootState = el.getRootState()
-const user = el.getRootState('user')
+// Read
+const root   = el.getRootState()
+const ctx    = el.getContext()
+const value  = el.getRootState('user')   // root.user
 
-// In definitions
-text: (el) => el.getRootState('currentPage')
+// Update from anywhere
+s.rootUpdate({ activeModal: true })
+s.parentUpdate({ open: false })
+
+// Or via path
+s.root.update({ x: 1 })
+s.parent.update({ y: 2 })
 ```
 
 ### Targeted Updates (Performance)
 
 ```js
-state.root.update(
+s.root.update(
   { activeModal: true },
-  {
-    onlyUpdate: 'ModalCard' // only ModalCard subtree re-renders
-  }
+  { onlyUpdate: 'ModalCard' }    // only ModalCard subtree re-renders
 )
 ```
 
 ---
 
-## State Methods
+## State Methods — Full Reference
 
-| Method                              | Description                                 |
-| ----------------------------------- | ------------------------------------------- |
-| `state.update(value, options?)`     | Deep overwrite, triggers re-render          |
-| `state.set(value, options?)`        | Replace state entirely (removes old values) |
-| `state.reset(options?)`             | Reset to initial values                     |
-| `state.add(value, options?)`        | Add item to array state                     |
-| `state.toggle(key, options?)`       | Toggle boolean property                     |
-| `state.remove(key, options?)`       | Remove property                             |
-| `state.apply(fn, options?)`         | Apply fn that RETURNS new value             |
-| `state.applyFunction(fn, options?)` | Apply fn that MUTATES state directly        |
-| `state.replace(value, options?)`    | SHALLOW replace (nested keys disappear)     |
-| `state.clean(options?)`             | Empty the state                             |
-| `state.parse()`                     | Get purified plain object                   |
-| `state.quietUpdate(value)`          | Update without triggering re-render         |
-| `state.quietReplace(value)`         | Replace without triggering re-render        |
-| `state.destroy(options?)`           | Completely remove state                     |
-| `state.setByPath('a.b.c', value)`   | Update nested by dot-path                   |
-
-`apply()` expects the function to RETURN a new value. `applyFunction()` expects direct MUTATION:
+| Method | Purpose |
+| -- | -- |
+| `s.update(value, opts?)` | Deep merge, triggers reactivity |
+| `s.replace(value, opts?)` | Replace entire state (drops missing keys) |
+| `s.set(value, opts?)` | Alias for replace |
+| `s.clean(opts?)` | Remove all keys |
+| `s.parse()` | Snapshot as plain object |
+| `s.keys()` | Property names |
+| `s.values()` | Property values |
+| `s.destroy(opts?)` | Destroy underlying signal store |
+| `s.add(key, val, opts?)` | Add to array or object |
+| `s.toggle(key, opts?)` | Flip boolean |
+| `s.remove(key, opts?)` | Delete property |
+| `s.setByPath(path, val, opts?)` | Set via dotted path |
+| `s.getByPath(path)` | Read via dotted path |
+| `s.removeByPath(path, opts?)` | Delete via dotted path |
+| `s.setPathCollection(paths, val, opts?)` | Multi-path set |
+| `s.removePathCollection(paths, opts?)` | Multi-path remove |
+| `s.reset(opts?)` | Restore to parsed snapshot |
+| `s.apply(fn, opts?)` | `fn(s)` returns new merged value |
+| `s.applyFunction(fn, opts?)` | `fn(s)` mutates in place, then update |
+| `s.applyReplace(fn, opts?)` | `fn(s)` returns full replacement |
+| `s.quietUpdate(value)` | Update without triggering listeners |
+| `s.quietReplace(value)` | Replace without triggering listeners |
+| `s.rootUpdate(obj, opts?)` | Update root state from anywhere |
+| `s.parentUpdate(obj, opts?)` | Update parent state |
+| `s.root` | Root state reference |
+| `s.parent` | Parent state reference |
 
 ```js
-state.apply((s) => ({ ...s, count: s.count + 1 })) // return
-state.applyFunction((s) => {
-  s.count++
-}) // mutate
+// apply vs applyFunction
+s.apply((cur) => ({ ...cur, count: cur.count + 1 }))   // returns new value
+s.applyFunction((cur) => { cur.count++ })              // mutates in place
 ```
 
 ### State Update Options
 
-| Option                      | Description                           |
-| --------------------------- | ------------------------------------- |
-| `isHoisted`                 | Mark update as hoisted                |
-| `preventHoistElementUpdate` | Prevent hoisted element from updating |
+| Option | Purpose |
+| -- | -- |
+| `onlyUpdate` | Limit re-render to a specific subtree by key |
+| `preventUpdate` | Skip element update |
+| `preventStateUpdate` | Skip state update step |
+| `preventUpdateListener` | Skip update event listeners |
+| `preventUpdateAfter` | Skip post-update hooks |
+| `lazyLoad` | Lazy-load updates |
+| `quiet` | Update store without firing subscribers |
 
-### State Navigation
+### State String References (Path Syntax)
 
 ```js
-state.parent // parent element's state
-state.root // application-level root state
+state: '.'                 // current element's state (parent if no local)
+state: '../path/to/field'  // dotted path from parent
+state: '~/lang'            // dotted path from root
+state: 'fieldName'         // direct lookup in parent state, polyglot fallback
 ```
-
-State as string inherits from parent:
 
 ```js
 // Parent has state: { userProfile: { name: 'John' } }
-state: 'userProfile' // child inherits parent's userProfile key
+// Child:
+state: 'userProfile'   // child inherits the userProfile slice
 ```
+
+If the path doesn't resolve, polyglot translations for the active language are checked.
+
+---
+
+## Reactive Props — Function Signatures
+
+Every reactive prop is `(el, state, context?) => value`:
+
+```js
+// Text content
+text:  (el, s) => s.user.name
+text:  (el, s) => `${s.first} ${s.last}`        // composed
+text:  '{{ hello | polyglot }}'                  // template string (reactive on lang change)
+
+// HTML (use sparingly, NEVER for component composition — use children instead)
+html:  (el, s) => sanitize(s.markdown)
+
+// CSS values
+color:    (el, s) => s.active ? 'primary' : 'gray.5'
+fontSize: (el, s) => s.compact ? 'Y' : 'Z'
+hide:     (el, s) => !s.root.searchOpen
+
+// HTML attributes
+href:        (el, s) => `/user/${s.id}`
+disabled:    (el, s) => s.loading
+placeholder: '{{ search | polyglot }}'
+
+// Conditional rendering
+if:   (el, s) => s.root.modalOpen
+show: (el, s) => s.root.activeView === 'home'
+
+// Value (input/textarea/select — preserves cursor on re-render)
+value: (el, s) => s.formField
+
+// Style object
+style: (el, s) => ({ transform: `translateX(${s.x}px)` })
+```
+
+**Always `(el, s)`. NEVER `({ state })` or `({ props, state })` — those destructured signatures are forbidden.**
 
 ---
 
 ## `attr` (HTML Attributes)
 
-Standard HTML attributes (600+ recognized per tag) are auto-detected by the `attrs-in-props` module and can be placed directly at the element root or in props. Use `attr: {}` ONLY for `data-*`, `aria-*`, and custom non-standard attributes.
+`attrs-in-props` auto-detects 600+ standard HTML attributes per tag — place them at root. Use `attr: {}` ONLY for non-standard or rare attributes.
 
 ```js
 export const Input = {
   tag: 'input',
-  // Standard HTML attributes — placed directly (auto-detected)
-  type: 'text',
-  autocomplete: 'off',
-  placeholder: ({ props }) => props.placeholder,
-  name: ({ props }) => props.name,
-  disabled: ({ props }) => props.disabled || null, // null removes attr
-  value: (el) => el.call('exec', el.props.value, el),
-  required: ({ props }) => props.required,
-  role: 'button',
-  tabIndex: ({ props }) => props.tabIndex,
-  // Non-standard / ARIA — use attr: {}
-  attr: {
-    'aria-label': ({ props }) => props.aria?.label || props.text
-  }
+  // standard attrs at root (auto-detected)
+  type:        (el, s) => s.inputType,
+  autocomplete:'off',
+  placeholder: (el, s) => s.placeholder,
+  name:        (el, s) => s.name,
+  disabled:    (el, s) => s.isDisabled || null,    // null removes attr
+  required:    (el, s) => s.required,
+  role:        'textbox',
+  tabindex:    (el, s) => s.tabIndex,
+  // aria/data shorthand
+  aria: {
+    label:    (el, s) => s.aria?.label || s.text,
+    invalid:  (el, s) => Boolean(s.error)
+  },
+  data: { testId: 'main-input' }
 }
 ```
 
@@ -429,37 +472,40 @@ Return `null` or `undefined` from a prop function to remove the attribute.
 ## `text` and `html`
 
 ```js
-export const Label = { text: ({ props }) => props.label }
+export const Label = { text: (el, s) => s.label }
 export const Badge = { text: 'New' }
-export const Price = { text: ({ state }) => `$${state.amount.toFixed(2)}` }
-export const RichText = { html: ({ props }) => props.html } // XSS risk
+export const Price = { text: (el, s) => `$${s.amount.toFixed(2)}` }
+export const Welcome = { text: '{{ welcome | polyglot }}' }   // template literal — polyglot
+
+// html — XSS risk; ONLY for trusted, sanitized markup. Prefer children.
+export const RichText = { html: (el, s) => s.sanitizedHtml }
 ```
+
+NEVER use `html:` to compose components — use children + `text:` (Rule 31).
 
 ---
 
 ## Children
 
-### Named Children
-
-PascalCase or numeric keys become child elements:
+### Named Children (Auto-Extend by PascalCase)
 
 ```js
 export const Card = {
   flow: 'y',
   Header: {
     flow: 'x',
-    Title: { text: ({ props }) => props.title }
+    Title: { text: (el, s) => s.title }
   },
-  Body: { html: ({ props }) => props.content },
+  Body: { html: (el, s) => s.content },
   Footer: {
     CloseButton: { extends: 'SquareButton', icon: 'x' }
   }
 }
 ```
 
-### `childExtends`
+`Header`, `Body`, `Footer` auto-extend if a registered component matches. `Header` is a default-library component — use a distinctive name like `CardHeader` if you want a clean wrapper without inherited styling.
 
-Extend all direct children. Use a named component string:
+### `childExtends` (One Type for All Children)
 
 ```js
 export const NavList = { childExtends: 'NavLink' }
@@ -473,103 +519,101 @@ Apply to ALL descendants:
 export const Tree = { childExtendsRecursive: { fontSize: 'A' } }
 ```
 
-### `children` (Dynamic Child List)
+### `children` — Static Array
+
+```js
+{ children: [{ text: 'Item 1' }, { text: 'Item 2' }] }
+```
+
+### `children` — Reactive Function
 
 ```js
 export const DropdownList = {
-  children: ({ props }) => props.options || [],
+  children: (el, s) => s.options || [],
   childExtends: 'OptionItem'
 }
 ```
 
 ### `childrenAs`
 
-Control how children data maps to elements:
+Control how data items map to children:
 
-| Value               | Behavior                                         |
-| ------------------- | ------------------------------------------------ |
-| `'props'` (default) | Each item becomes child's `props`                |
-| `'state'`           | Each item becomes child's `state`                |
-| `'element'`         | Each item is used directly as element definition |
+| Value | Behavior |
+| -- | -- |
+| `'props'` (default) | Each item flattened onto the child as props |
+| `'state'` | Each item becomes the child's state |
+| `'element'` | Each item used directly as element definition |
 
 ```js
-{ children: [{ text: 'Hello' }] }                              // -> { props: { text: 'Hello' } }
-{ children: [{ count: 5 }], childrenAs: 'state' }              // -> { state: { count: 5 } }
-{ children: [{ tag: 'span', text: 'Hi' }], childrenAs: 'element' }  // -> { tag: 'span', text: 'Hi' }
+{ children: [{ text: 'Hello' }] }                                       // → flat props
+{ children: [{ count: 5 }], childrenAs: 'state' }                       // → state
+{ children: [{ tag: 'span', text: 'Hi' }], childrenAs: 'element' }      // → definition
 ```
 
-### `state: 'key'` (Narrow State Scope)
+### Reconciliation Keys
 
-Narrow parent state for children:
+When `children` is a function, the framework reconciles by `child.key || childProps?.key || index`. Provide stable keys for collections that re-order:
 
 ```js
+children: (el, s) => s.items.map(it => ({ key: it.id, ...it }))
+```
+
+### `state: 'key'` (Narrow state scope) vs `childrenAs: 'state'`
+
+Both forms are valid. **For reusability, prefer `childrenAs: 'state'`** — the child component (`TeamItem`) reads `s.field` directly without coupling to the parent's state shape, so the same `TeamItem` works for any list whose items match the shape it consumes.
+
+```js
+// ✅ Preferred — childrenAs: 'state'. Child is reusable across any list with `{ name, ... }` items.
+export const TeamList = {
+  state: { members: [] },
+  childExtends: 'TeamItem',
+  children:     (el, s) => s.members,
+  childrenAs:   'state'
+}
+export const TeamItem = {
+  Title: { text: (el, s) => s.name }
+}
+
+// ✅ Also valid — `state: 'key'` narrows scope by binding the child to a parent-state subtree.
+//   Use when the parent state already has the right shape and you don't need the child to be reusable across other lists.
 export const TeamList = {
   state: 'members',
-  childExtends: 'TeamItem',
-  children: ({ state }) => state
+  children:     (el, s) => s,
+  childExtends: 'TeamItem'
 }
-
 export const TeamItem = {
-  state: true, // REQUIRED for children to receive individual state
-  Title: { text: ({ state }) => state.name }
+  state: true,                            // required: the child opts into receiving its own state
+  Title: { text: (el, s) => s.name }
 }
 ```
-
-`state: true` is required on child components reading `({ state }) => state.field` when used with `childExtends`.
 
 ### `content` (Single Dynamic Child)
 
 ```js
-export const Page = { content: ({ props }) => props.page }
+export const Page = { content: (el, s) => s.page }
 ```
 
-### Children as Async
+### `childProps` (Inject Props Into All Named Children)
 
 ```js
-{
-  children: async (element, state, context) => await window.fetch('...endpoint'),
-  childrenAs: 'state',
+export const Layout = {
+  childProps: {
+    onClick: (e) => e.stopPropagation()
+  }
 }
 ```
 
 ---
 
-## Props
+## Boolean / Computed Conditional Props
 
-### Pass and Access
-
-```js
-// Pass (consumer side)
-{ extends: 'Button', props: { text: 'Submit', href: '/dashboard', disabled: false } }
-
-// Access (definition side) — standard attrs auto-detected
-placeholder: ({ props }) => props.placeholder,
-value: (el) => el.props.value,
-disabled: ({ props }) => props.disabled || null,
-text: ({ props }) => props.label
-```
-
-### Boolean/Computed Props
-
-`is*`, `has*`, `use*` prefixes are treated as boolean flags:
+`is*`, `has*`, `use*` prefixes are treated as boolean conditions when followed by a function. Pair with `'.isX'` blocks (Rule 19):
 
 ```js
-isActive: ({ key, state }) => state.active === key
-hasIcon: ({ props }) => Boolean(props.icon)
-useCache: true
-```
-
-### `childProps`
-
-Inject props into all named children:
-
-```js
-export const Layout = {
-  childProps: {
-    onClick: (ev) => {
-      ev.stopPropagation()
-    }
-  }
+export const TabBtn = {
+  isActive: (el, s) => s.activeTab === el.key,
+  '.isActive': { fontWeight: '600', color: 'primary' },
+  text: (el, s) => s.label
 }
 ```
 
@@ -579,20 +623,20 @@ export const Layout = {
 
 ```js
 define: {
-  isActive: (param, el, state, context) => {
-    if (param) el.classList.add('active')
-    else el.classList.remove('active')
+  highlight: (param, el, state, context) => {
+    if (param) el.update({ background: 'highlight' })
   }
 }
 ```
 
 ### Built-In Defines
 
-| Define     | Purpose                               |
-| ---------- | ------------------------------------- |
-| `metadata` | SEO metadata (see SEO-METADATA.md)    |
-| `routes`   | Route definitions for the router      |
-| `$router`  | Render route content into the element |
+| Define | Purpose |
+| -- | -- |
+| `metadata` | SEO metadata (helmet plugin) |
+| `routes` | Route definitions for the router plugin |
+| `fetch` | Declarative data fetching (fetch plugin) |
+| `polyglot` (context) | Polyglot translations and language switching |
 
 ```js
 export const aboutPage = {
@@ -600,7 +644,8 @@ export const aboutPage = {
     title: 'About Us',
     description: (el, s) => s.aboutText,
     'og:image': '/about.png'
-  }
+  },
+  fetch: { from: 'about_page', cache: '1h' }
 }
 ```
 
@@ -610,36 +655,35 @@ export const aboutPage = {
 
 ```js
 export const AuthView = {
-  if: (el, state) => state.isAuthenticated,
-  Dashboard: {
-    /* renders only when true */
-  }
+  if: (el, s) => s.isAuthenticated,
+  Dashboard: { /* renders only when true */ }
 }
 
 export const ErrorMsg = {
-  if: ({ props }) => Boolean(props.error),
-  text: ({ props }) => props.error
+  if: (el, s) => Boolean(s.error),
+  text: (el, s) => s.error
 }
 ```
+
+`if` removes from DOM. For tabs/views, use `show:` / `hide:` (Rule 18).
 
 ---
 
 ## `scope` and `data`
 
 ```js
-// scope: 'state' -- element.scope becomes element.state
+// scope — non-reactive per-instance storage (debounce timers, refs to libraries, etc.)
 export const Form = {
-  scope: 'state',
-  state: { name: '', email: '' }
+  onInit: (el) => { el.scope.lastSubmitTime = 0 }
 }
 
-// data -- non-reactive storage (no re-renders)
+// data — non-reactive shared storage (no re-renders)
 export const Chart = {
   data: { chartInstance: null },
-  onRender: (el) => {
-    el.data.chartInstance = new Chart(el.node, {
-      /* ... */
-    })
+  onRender: (el, s) => {
+    if (el.data.chartInstance) return
+    const lib = el.context.require('chartjs')
+    el.data.chartInstance = new lib(el.node, { /* ... */ })
   }
 }
 ```
@@ -648,57 +692,75 @@ export const Chart = {
 
 ## Element Methods
 
-| Category       | Method                                     | Description                                                                  |
-| -------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| **Navigation** | `el.lookup('key')`                         | Find ancestor by key or predicate                                            |
-|                | `el.lookdown('key')`                       | Find first descendant by key                                                 |
-|                | `el.lookdownAll('key')`                    | Find all descendants by key                                                  |
-|                | `el.spotByPath(['Header', 'Nav', 'Logo'])` | Find by array path                                                           |
-|                | `el.nextElement()`                         | Next sibling                                                                 |
-|                | `el.previousElement()`                     | Previous sibling                                                             |
-|                | `el.getRoot()`                             | Root element                                                                 |
-| **Updates**    | `el.update({ key: value })`                | Deep overwrite element properties                                            |
-|                | `el.set({ key: value })`                   | Set content element                                                          |
-|                | `el.update({ key: value })`                | Update props specifically                                                    |
-| **Content**    | `el.updateContent(newContent)`             | Update content                                                               |
-|                | `el.removeContent()`                       | Remove content                                                               |
-| **State**      | `el.getRootState()`                        | App-level root state                                                         |
-|                | `el.getRootState('key')`                   | Specific key from root state                                                 |
-|                | `el.getContext('key')`                     | Value from element's context                                                 |
-| **DOM**        | `el.setNodeStyles({ key: value })`         | Apply inline styles                                                          |
-|                | `el.remove()`                              | Remove from tree and DOM                                                     |
-| **Context**    | `el.call('fnKey', ...args)`                | Lookup: `context.utils -> functions -> methods -> snippets`                  |
-| **Router**     | `el.router(path, root)`                    | SPA navigation — `root` must be the element with routes (use `el.getRoot()`) |
-| **Debug**      | `el.parse(exclude)`                        | One-level purified plain object                                              |
-|                | `el.parseDeep(exclude)`                    | Deep purified plain object                                                   |
-|                | `el.keys()`                                | List element's own keys                                                      |
-|                | `el.verbose()`                             | Log element in console                                                       |
+| Category | Method | Description |
+| -- | -- | -- |
+| **Navigation** | `el.lookup('Key')` | Find ancestor by key or predicate |
+| | `el.lookdown('Key')` | First descendant by key |
+| | `el.lookdownAll('Key')` | All descendants by key |
+| | `el.spotByPath(['A', 'B'])` | Find by path |
+| | `el.nextElement()` | Next sibling |
+| | `el.previousElement()` | Previous sibling |
+| | `el.getRoot()` | Root element |
+| | `el.getRootState()` / `el.getRootState('key')` | App-level state |
+| | `el.getRootContext()` | Root context |
+| | `el.getContext()` / `el.getContext('key')` | Context (or specific key) |
+| | `el.getDB()` | Alias for root state |
+| | `el.getQuery(path?)` | Read root state by dotted path |
+| | `el.getChildren()` | Direct children array |
+| | `el.getPath()` | Ancestor key chain |
+| **Updates** | `el.update(value, opts?)` | Deep merge update |
+| | `el.setProps(value, opts?)` | Alias for update |
+| | `el.set(content, opts?)` | Replace element's `content` child |
+| | `el.reset(opts?)` | Dispose + recreate from parsed definition |
+| **Content** | `el.removeContent()` | Dispose & remove `content` child |
+| **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
+| | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
+| **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` |
+| **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |
+| **Debug** | `el.parse(exclude)` | Plain object snapshot |
+| | `el.parseDeep(exclude)` | Deep parse including children |
+| | `el.keys()` | Element's own keys |
+| | `el.log(...keys)` | Console.log element or specific keys |
+| | `el.verbose()` | Verbose log |
+| | `el.warn(...)` / `el.error(...)` | Logging helpers |
+| | `el.variables()` | Resolved variables |
+| | `el.getRef()` | Internal `__ref` tracking |
 
 ### Element Update Options
 
-Pass as second argument to `el.update(value, options)`:
-
-| Option                  | Description                         |
-| ----------------------- | ----------------------------------- |
-| `onlyUpdate`            | Only update specific subtree by key |
-| `preventUpdate`         | Prevent element update              |
-| `preventStateUpdate`    | Prevent state update                |
-| `preventUpdateListener` | Skip update event listeners         |
-| `preventUpdateAfter`    | Skip post-update hooks              |
-| `lazyLoad`              | Enable lazy loading for the update  |
+| Option | Purpose |
+| -- | -- |
+| `onlyUpdate` | Limit re-render scope to a key |
+| `preventUpdate` | Skip update |
+| `preventStateUpdate` | Skip state update |
+| `preventUpdateListener` | Skip update listeners |
+| `preventUpdateAfter` | Skip post-update hooks |
+| `lazyLoad` | Lazy-load |
 
 ---
 
-## `el.call()` (Context Function Lookup)
+## `el.call()` — Function Lookup
 
-Lookup order: `context.utils -> context.functions -> context.methods -> context.snippets`
+Lookup order: `context.methods → context.functions → context.utils → element prototype`.
 
 ```js
-el.router(href, el.getRoot(), {}, options) // router is also available as el.router()
-el.call('exec', value, el)
-el.call('isString', value)
-el.call('fetchData', id)
-el.call('replaceLiteralsWithObjectFields', template)
+// functions/findUser.js
+export const findUser = function findUser(s) {
+  return s.users.find(u => u.id === s.activeUserId)
+}
+
+// component
+text:    (el, s) => el.call('findUser', s).name
+onClick: (e, el, s) => el.call('save', s.parse())
+```
+
+Inside lifecycle methods or `this`-bound contexts:
+
+```js
+methods/saveDraft.js:
+export const saveDraft = function saveDraft(payload) {
+  return this.context.sdk.draft.save(payload)
+}
 ```
 
 ---
@@ -711,95 +773,284 @@ el.call('replaceLiteralsWithObjectFields', template)
 // pages/index.js
 export default {
   '/': homePage,
-  '/dashboard': dashboardPage
+  '/dashboard': dashboardPage,
+  '/users/:id': userPage,
+  '/*': notFoundPage
 }
 ```
+
+Dynamic params (`:id`) populate `state.params`. Query strings populate `state.query`.
 
 ### Link Navigation
 
 ```js
 export const NavItem = {
   extends: 'Link',
-  text: ({ props }) => props.label,
-  href: '/dashboard'
+  text: (el, s) => s.label,
+  href: (el, s) => `/${s.slug}`
 }
 ```
 
 ### Programmatic Navigation
 
-Call `event.preventDefault()` BEFORE the router call:
+`event.preventDefault()` BEFORE `el.router(...)`:
 
 ```js
-onClick: (event, el) => {
-  event.preventDefault()
-  el.router(
-    '/dashboard',
-    el.getRoot(),
-    {},
-    {
-      scrollToTop: true,
-      scrollToOptions: { behavior: 'instant' }
-    }
-  )
+onClick: (e, el, s) => {
+  e.preventDefault()
+  el.router(`/profile/${s.userId}`, el.getRoot(), {}, {
+    scrollToTop: true,
+    scrollToOptions: { behavior: 'instant' }
+  })
 }
 ```
 
 ### Custom Router Element (Persistent Layouts)
 
-Configure in `config.js` to render pages inside a specific element:
-
 ```js
 // config.js
 export default {
-  router: {
-    customRouterElement: 'Folder.Content' // dot-separated path from root
-  }
+  router: { customRouterElement: 'Folder.Content' }
 }
 ```
 
-The `/` page defines the persistent layout shell. Sub-pages render inside the target element without destroying the layout.
+The `/` page defines the persistent layout shell. Sub-pages render inside the target without destroying the shell.
+
+### Guards
+
+```js
+const authGuard = ({ element }) =>
+  element.state.root.isLoggedIn ? true : '/login'
+
+el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard] })
+```
 
 ---
 
-## `element.require()` (Cross-Environment Dependency Loading)
+## Data Fetching (`@symbo.ls/fetch`)
+
+Declarative fetch on any element. Caching, dedup, retry, refetch-on-focus, pagination — all built in.
+
+### Setup (`config.js`)
+
+```js
+db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
+// or REST:
+db: { adapter: 'rest', url: 'https://api.example.com',
+      headers: { Authorization: 'Bearer token' },
+      auth: { baseUrl: '…', signInUrl: '/login', sessionUrl: '/me' } }
+// or local:
+db: { adapter: 'local', data: { articles: [] }, persist: true }
+```
+
+### Declarative Fetch
+
+```js
+// minimal
+{ state: 'articles', fetch: true }
+
+// options
+{ state: 'articles',
+  fetch: { params: { status: 'published' }, cache: '5m', limit: 20,
+           order: { by: 'created_at', asc: false } } }
+
+// shorthand
+{ state: 'data', fetch: 'blog_posts' }
+
+// transform
+{ state: { featured: null, items: [] },
+  fetch: { from: 'videos',
+           transform: (data) => ({ featured: data.find(v => v.is_featured), items: data.filter(v => !v.is_featured) }) } }
+
+// select (TanStack-style)
+{ state: { titles: [] },
+  fetch: { from: 'articles', select: (data) => data.map(a => a.title) } }
+
+// dynamic params
+{ state: { item: null },
+  fetch: { method: 'rpc', from: 'get_content_rows',
+           params: (el) => ({ p_id: window.location.pathname.split('/').pop() }) } }
+
+// parallel array of fetches
+{ state: { articles: [], events: [] },
+  fetch: [
+    { from: 'articles', as: 'articles', cache: '5m' },
+    { from: 'events',   as: 'events',   cache: '5m' }
+  ] }
+
+// triggers
+{ fetch: { from: 'articles' } }                                            // on: 'create' (default)
+{ tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit' } }
+{ fetch: { method: 'delete', from: 'items',
+          params: (el) => ({ id: el.state.itemId }), on: 'click' } }
+{ fetch: { from: 'articles',
+          params: (el, s) => ({ title: { ilike: '%' + s.query + '%' } }),
+          on: 'stateChange' } }
+
+// enabled
+{ fetch: { from: 'profile', enabled: (el, s) => !!s.userId } }
+
+// pagination + keepPreviousData
+{ state: { items: [], page: 1 },
+  fetch: { from: 'articles', page: (el, s) => s.page, pageSize: 20, keepPreviousData: true } }
+
+// polling
+{ fetch: { from: 'notifications', refetchInterval: '30s' } }
+```
+
+### Cache
+
+```js
+cache: true                // staleTime 1m, gcTime 5m (default)
+cache: false               // no caching
+cache: '5m'                // 5min stale
+cache: { stale: '1m', gc: '10m' }
+cache: { staleTime: '30s', gcTime: '1h', key: 'custom-key' }
+```
+
+Stale-while-revalidate: stale data served immediately, background refetch swaps it.
+Garbage collection: unused entries cleaned after `gcTime`.
+Deduplication: identical concurrent queries share one network request.
+
+### Retry / Optimistic / Initial / Placeholder
+
+```js
+{ fetch: { from: 'articles', retry: 5 } }
+{ fetch: { from: 'articles', retry: { count: 3, delay: (n) => 1000 * 2 ** n } } }
+{ fetch: { from: 'articles', placeholderData: [] } }
+{ fetch: { from: 'settings', initialData: { theme: 'dark' } } }
+```
+
+> NEVER call `window.fetch` / `axios` from a component. Use `fetch:` declaratively, or a `functions/loadX.js` for imperative flows. (Rule 47.)
+
+---
+
+## Polyglot (`@symbo.ls/polyglot`)
+
+### Setup
+
+```js
+import { polyglotPlugin } from '@symbo.ls/polyglot'
+import { polyglotFunctions } from '@symbo.ls/polyglot/functions'
+
+context.polyglot = {
+  defaultLang: 'en',
+  languages: ['en', 'ka', 'ru'],
+  translations: {
+    en: { hello: 'Hello', search: 'Search', anyTime: 'Any time' },
+    ka: { hello: 'გამარჯობა', search: 'ძიება' },
+    ru: { hello: 'Привет', search: 'Поиск' }
+  }
+  // OR server-backed CMS:
+  // fetch: { rpc: 'get_translations_if_changed', table: 'translations' }
+}
+context.functions = { ...context.functions, ...polyglotFunctions }
+context.plugins   = [polyglotPlugin, …]
+```
+
+### Use in components
+
+```js
+// mustache template (resolved by replaceLiteralsWithObjectFields, reactive)
+{ text: '{{ hello | polyglot }}' }
+{ placeholder: '{{ searchDestinations | polyglot }}' }
+
+// el.call('polyglot', key) — direct lookup (NOT reactive — captures value at evaluation time)
+{ text: (el) => el.call('polyglot', 'hello') }
+
+// per-language state field (e.g. CMS title_en / title_ka)
+{ text: '{{ title_ | getLocalStateLang }}' }
+
+// language switcher
+{ extends: 'Button', text: 'KA',
+  onClick: (e, el) => el.call('setLang', 'ka') }
+
+// current lang
+{ text: (el) => el.call('getLang') }
+```
+
+When `state.root.lang` changes, every fetch request gets an `Accept-Language` header automatically. The header is the **only** injection — fetch does NOT add a `lang` query parameter or RPC argument. If your backend expects `lang` in `params`, set it explicitly: `fetch: { from: 'articles', params: (el, s) => ({ lang: s.root.lang, status: 'published' }) }`.
+
+**Available polyglot functions** (registered automatically when `context.polyglot` is set; do NOT use `t` or `tr` — those don't exist):
+
+| Function | Purpose |
+| -- | -- |
+| `polyglot(key, lang?)` | Translate (used in template literals AND imperative calls) |
+| `getLocalStateLang(prefix)` | Read per-language state field (`state.<prefix>_<activeLang>`) |
+| `getActiveLang()` | Active language code |
+| `getLang()` | Alias for getActiveLang |
+| `setLang(lang)` | Switch language + persist + load remote (async) |
+| `getLanguages()` | Available language codes |
+| `loadTranslations(lang)` | Manually trigger remote load |
+| `upsertTranslation(key, lang, value)` | CMS write (optimistic + persists) |
+
+---
+
+## Helmet — SEO Metadata
+
+```js
+// app.js — global defaults
+export default {
+  metadata: {
+    title: 'My App',
+    description: 'Built with Symbols',
+    'og:image': '/social.png'
+  }
+}
+
+// per page — overrides
+export const about = {
+  metadata: {
+    title: 'About Us',
+    description: 'Learn more about us'
+  }
+}
+
+// dynamic
+export const product = {
+  metadata: (el, s) => ({
+    title: s.product.name,
+    description: s.product.description,
+    'og:image': s.product.image
+  })
+}
+```
+
+Helmet works identically at runtime AND in `smbls brender` SSR.
+
+---
+
+## `el.require()` — Cross-Environment Dependency Loading
 
 ```js
 {
   tag: 'canvas',
-  onRender: async (element, state) => {
-    const Chart = element.require('chartjs')
-    const ctx = element.node.getContext('2d')
-    new Chart(ctx, { type: 'bar', data: { /* ... */ } })
+  onRender: (el, s) => {
+    const Chart = el.require('chartjs')
+    el.data.chart = new Chart(el.node.getContext('2d'), { /* ... */ })
   }
 }
 ```
+
+`el.require()` resolves the dep through whichever runtime is active (Node / browser / brender) without needing imports.
 
 ---
 
 ## Common Patterns
 
-### Loading State
+### Loading State via `fetch:`
 
 ```js
 export const DataList = {
-  state: { items: [], loading: true, error: null },
-  Loader: { if: ({ state }) => state.loading, extends: 'Spinner' },
-  Error: {
-    if: ({ state }) => Boolean(state.error),
-    text: ({ state }) => state.error
-  },
-  Items: {
-    if: ({ state }) => !state.loading && !state.error,
-    children: ({ state }) => state.items,
-    childExtends: 'ListItem'
-  },
-  onRender: async (el, state) => {
-    try {
-      const items = await el.call('fetchItems')
-      state.update({ items, loading: false })
-    } catch (e) {
-      state.update({ error: e.message, loading: false })
-    }
+  state: { items: [] },
+  fetch: { from: 'items', cache: '5m', placeholderData: [] },
+  Loader: { if: (el, s) => s.__loading, extends: 'Spinner' },
+  Error:  { if: (el, s) => Boolean(s.__error), text: (el, s) => s.__error.message },
+  Items:  {
+    if: (el, s) => !s.__loading && !s.__error,
+    children:     (el, s) => s.items,
+    childExtends: 'ListItem',
+    childrenAs:   'state'
   }
 }
 ```
@@ -811,97 +1062,87 @@ export const Menu = {
   state: { active: null },
   childExtends: 'MenuItem',
   childProps: {
-    isActive: ({ key, state }) => state.active === key,
-    '.active': { fontWeight: '600', color: 'primary' },
-    onClick: (ev, el, state) => {
-      state.update({ active: el.key })
-    }
+    isActive: (el, s) => s.active === el.key,
+    '.isActive': { fontWeight: '600', color: 'primary' },
+    onClick: (e, el, s) => s.update({ active: el.key })
   }
 }
 ```
 
-### Modal
+### Modal (using `if:` + transition pattern)
 
 ```js
 export const ModalCard = {
   position: 'absolute',
   align: 'center center',
-  top: 0,
-  left: 0,
-  boxSize: '100% 100%',
+  top: 0, left: 0, boxSize: '100% 100%',
   transition: 'all C defaultBezier',
-  opacity: '0',
-  visibility: 'hidden',
-  pointerEvents: 'none',
-  zIndex: '-1',
+  opacity: '0', visibility: 'hidden', pointerEvents: 'none', zIndex: '-1',
 
   isActive: (el, s) => s.root.activeModal,
   '.isActive': {
-    opacity: '1',
-    zIndex: 999999,
-    visibility: 'visible',
-    pointerEvents: 'initial'
+    opacity: '1', zIndex: 999999, visibility: 'visible', pointerEvents: 'initial'
   },
 
-  onClick: (event, element) => {
-    element.call('closeModal')
-  },
-  childProps: {
-    onClick: (ev) => {
-      ev.stopPropagation()
-    }
-  }
+  onClick: (e, el) => el.call('closeModal'),
+  childProps: { onClick: (e) => e.stopPropagation() }
 }
 ```
+
+### Search + Filter (state-driven, no DOM traversal)
+
+See Rule 32 in RULES.md.
 
 ---
 
 ## Naming Conventions
 
-| Category       | Convention          | Examples                                            |
-| -------------- | ------------------- | --------------------------------------------------- |
-| Components     | PascalCase          | `CustomComponent`, `NavBar`, `UserProfile`          |
-| Properties     | camelCase           | `paddingInlineStart`, `fontSize`, `backgroundColor` |
-| Repeating keys | Snake_Case suffixes | `Li_1`, `Li_2`, `Li_One`                            |
+| Category | Convention | Examples |
+| -- | -- | -- |
+| Components | PascalCase | `CustomComponent`, `NavBar`, `UserProfile` |
+| Properties | camelCase | `paddingInlineStart`, `fontSize`, `backgroundColor` |
+| Repeating keys | `_suffix` | `Li_1`, `Li_2`, `Li_One` (auto-extend by base name) |
 
 ---
 
-## Reserved Keywords
-
-These keys are handled by the DOMQL engine and are NOT CSS props or child components:
+## Reserved Keywords (Not CSS, Not Children)
 
 ```
-key, extends, extend, childExtends, childExtend, childExtendsRecursive,
-childProps, props, state, tag, query, data, scope, children, childrenAs,
-context, attr, style, text, html, content, classlist, root, deps,
-if, define, on, fetch, component, routes, $router, variables,
-__name, __ref, __hash, __text, parent, node
+key, extends, childExtends, childExtendsRecursive, childProps, childrenAs,
+state, scope, data, attr, style, text, html, content, classlist, class,
+tag, query, parent, node, context, define, props, deps,
+if, show, hide, value, fetch, routes, metadata, variables, component,
+__name, __ref, __hash, __text,
+onInit, onCreate, onComplete, onRender, onRenderRouter,
+onUpdate, onBeforeUpdate, onStateInit, onStateCreated,
+onStateUpdate, onBeforeStateUpdate, onAttachNode, onFrame,
+onDestroy, onRemove, onDispose,
+onClick, onInput, onChange, onSubmit, onKeydown, onKeyup,
+onMouseover, onMouseout, onBlur, onFocus, onScroll, onResize, …
 ```
 
-All other keys: lowercase/camelCase = CSS props, PascalCase = child components.
+All other keys: lowercase / camelCase = CSS prop, PascalCase = child component.
 
 ---
 
-## Finding DOMQL Elements in Browser DOM
+## Finding DOMQL Elements in the DOM (Debug Only)
 
-Every DOMQL-managed DOM node has `.ref` pointing to its DOMQL element:
+DOMQL DOM nodes carry `.ref` pointing to the DOMQL element:
 
 ```js
 const domqlElement = someNode.ref
-domqlElement.key // element key name
-domqlElement.props // current props
-domqlElement.state // element state
-domqlElement.parent // parent DOMQL element
-
-// Find by key
-for (const node of document.querySelectorAll('*')) {
-  if (node.ref?.key === 'ModalCard') {
-    /* ... */ break
-  }
-}
-
-// Debug CSS state
-ref.__ref.__class // CSS object input to Emotion
-ref.__ref.__classNames // generated Emotion class names
-window.getComputedStyle(ref.node).opacity
+domqlElement.key      // element key name
+domqlElement.text     // current text (flat)
+domqlElement.state    // state proxy
+domqlElement.parent   // parent element
 ```
+
+Debug CSS:
+
+```js
+domqlElement.__ref.__class       // CSS object input
+domqlElement.__ref.__classNames  // generated class names
+window.getComputedStyle(domqlElement.node).opacity
+```
+
+> Production code uses `el.lookdown('Key')` / `el.lookup('Key')` — never `document.querySelector`.

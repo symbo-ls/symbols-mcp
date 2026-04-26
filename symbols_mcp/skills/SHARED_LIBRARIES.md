@@ -8,6 +8,27 @@ sharedLibraries allows projects to inherit components, functions, methods, state
 
 ---
 
+## Parcel tree-shaking — shared components need `sideEffects: true`
+
+When a shared-package component is referenced ONLY by DOMQL string-key lookup at runtime (e.g. `AppAssistant: {}` at the app root), Parcel's tree-shaker may strip the component because the static analysis can't prove the export is used. Symptom: an empty `<div data-key="Foo"></div>` with no class, no children, no merged props.
+
+Fix: put a `package.json` at the root of any shared-package directory with `"sideEffects": true`.
+
+```json
+{
+  "name": "@symbo.ls/editor-shared",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./context.js",
+  "sideEffects": true
+}
+```
+
+After adding, do a full Parcel restart on every downstream app: `rm -rf .parcel-cache dist`, then respawn the dev server so the module graph re-analyzes under the new flag. See RULES.md Rule 57 for defense-in-depth (inlining positioning props at the consumer site).
+
+---
+
 ## Key Format: `owner/key`
 
 All shared library identifiers use the `owner/key` format. Default owner is `system`.

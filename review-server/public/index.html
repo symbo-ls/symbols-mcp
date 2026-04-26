@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Symbols MCP — Review Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>📚</text></svg>">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/languages/javascript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/languages/json.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/languages/bash.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/languages/xml.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <header class="sb-header">
+      <h1>📚 symbols-mcp <span class="badge">v4 review</span></h1>
+      <div class="counts" id="counts"></div>
+    </header>
+    <input id="filter" type="search" placeholder="Filter files…" autocomplete="off">
+    <nav id="filelist" class="filelist"></nav>
+    <footer class="sb-footer">
+      <button id="exportBtn" type="button">Export comments</button>
+      <a href="/api/comments" target="_blank">Raw JSON ↗</a>
+    </footer>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h2 id="filetitle">Select a file</h2>
+        <div class="meta" id="filemeta"></div>
+      </div>
+      <div class="topbar-right">
+        <button id="prevBtn" type="button" title="Previous file (k)">‹ Prev</button>
+        <button id="nextBtn" type="button" title="Next file (j)">Next ›</button>
+        <button id="markedBtn" type="button" class="primary" title="Toggle rendered markdown / source">Toggle source</button>
+      </div>
+    </div>
+    <article id="content" class="content"></article>
+  </main>
+
+  <aside class="comments">
+    <header class="cm-header">
+      <h2>Comments</h2>
+      <div class="filter-row">
+        <button class="chip active" data-status="all">All</button>
+        <button class="chip" data-status="open">Open</button>
+        <button class="chip" data-status="resolved">Resolved</button>
+      </div>
+    </header>
+    <div id="commentlist" class="commentlist"></div>
+  </aside>
+
+  <div id="popover" class="popover hidden">
+    <div class="popover-quote" id="popQuote"></div>
+    <textarea id="popText" placeholder="Write a comment for Claude…" rows="3"></textarea>
+    <div class="popover-actions">
+      <button id="popCancel" type="button">Cancel</button>
+      <button id="popSave" type="button" class="primary">Save (⌘ + Enter)</button>
+    </div>
+  </div>
+</div>
+<script src="app.js" type="module"></script>
+</body>
+</html>

@@ -4,6 +4,265 @@ These are mandatory technical rules for the DOMQL/Symbols runtime. Violating any
 
 ---
 
+## Reactivity Map — what gets a `createEffect` wrapper
+
+`registerEffects` and `applyConditionals` in `packages/element/src/create.js` decide which prop functions are reactive:
+
+| Prop | Reactive? | Notes |
+|------|-----------|-------|
+| `text` (string with `{{}}` template OR function) | ✅ | Re-renders text when state changes |
+| `html` (function) | ✅ | Re-renders innerHTML |
+| `value` (function) | ✅ | Re-applies to input/textarea/select; preserves cursor |
+| `style` (function) | ✅ | Re-applies whole style object |
+| `attr.*` (function-valued) | ✅ | Per-attribute reactive effect |
+| `if` (function) | ✅ | Re-evaluates; remove / re-attach DOM node (kills CSS transitions on each toggle) |
+| Function values for keys in `CSS_PROPS_REGISTRY` (color, background, padding, gap, fontSize, fontWeight, hide, show, etc.) | ✅ | Each property gets a reactive effect |
+| Function values for keys in `DEFAULT_CSS_PROPERTIES_LIST` (raw CSS pass-through props) | ✅ | Each property gets a reactive effect |
+| Function values for tag-recognized HTML attributes (src, href, etc.) at root | ✅ | Reactive per-attribute |
+| `isX` conditional (function) + `'.isX'` / `'!isX'` blocks | ✅ | Block re-applies whenever the state read by `isX` changes |
+| `$isX` global cases from `context.cases` | ✅ | Block re-applies whenever the case condition's reads change |
+| `extends` chain | ❌ | Resolved once at element creation |
+| Other custom non-CSS function props | ❌ | Tracked in `__exec` but never wrapped — only run on explicit `el.update()` |
+
+### Practical implications
+
+- For grouped reactive CSS that shares one condition, use the `isX` + `'.isX'` / `'!isX'` block pattern. It's the canonical way to express a state-driven appearance change without repeating the same condition across many prop functions.
+- For animated show/hide use `hide:` (or `show:`) — these reactively toggle `display`. Using `if:` for animation destroys / re-creates the DOM node which kills CSS transitions.
+- Lifecycle hooks (`onInit`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`) fire ONCE per element creation. To respond to subsequent state changes, use `onUpdate(el, s, ctx)` or `onStateUpdate(changes, el, s, ctx)`, OR (preferred) just declare reactive prop functions and let the framework subscribe.
+
+### Pattern comparison
+
+```js
+// ✅ Grouped reactive CSS via .isX (preferred when 2+ props share a condition)
+export const Item = {
+  background: 'transparent',
+  color: 'currentColor',
+  isActive: (el, s) => s.active === el.key,
+  '.isActive': { background: 'primary', color: 'white' }
+}
+
+// ✅ Direct reactive CSS prop functions (also reactive)
+export const Item = {
+  background: (el, s) => s.active === el.key ? 'primary' : 'transparent',
+  color:      (el, s) => s.active === el.key ? 'white' : 'currentColor'
+}
+
+// ✅ '!isX' for the inverse branch
+export const Row = {
+  isSelected: (el, s) => s.selectedId === el.key,
+  '.isSelected': { background: 'primary' },
+  '!isSelected': { opacity: 0.6 }
+}
+```
+
+---
+
+## Three router patterns (use Pattern A; B+C are legacy)
+
+Older projects ship with one of three router setups. Pattern A is the canonical form for new work — Patterns B/C exist only for back-compat with legacy projects.
+
+### Pattern A — Empty `app.js` + framework routing (PREFERRED)
+
+Routes defined in `pages/index.js`; framework wires everything via `triggerLifecycle('RenderRouter')` → `onRouterRenderDefault`:
+
+```js
+// app.js
+export default {}                                  // or { Modals: {} }, root-level chrome only
+
+// pages/index.js
+import { home }  from './home.js'
+import { about } from './about.js'
+export default { '/': home, '/about': about }
+```
+
+### Pattern B — Layout + `Folder` nesting (LEGACY)
+
+Inline `define` block, custom `router` function, sets `Top/Cnt/Bottom` slots. Brittle — `Folder.set({ [route]: {...} })` plumbing fails since `el.set()` returns `undefined` today.
+
+### Pattern C — Layout + simple `Content` slot (LEGACY)
+
+Uses `el.call('router', ...)` from `onRender`. **Crashes on every route change** with `Cannot read properties of undefined (reading 'node')` because `el.set()` today returns `undefined` rather than the new element.
+
+**Always prefer Pattern A unless you have a documented reason for custom routing.**
+
+### Anti-patterns to delete on sight
+
+```js
+// ❌ Legacy "deployed-mermaid" workaround — remove from any template that still has it.
+//    The framework auto-fires onRenderRouter via triggerLifecycle('RenderRouter').
+//    setTimeout polling for empty content slot is brittle cargo code.
+onRender: (el, s) => {
+  setTimeout(() => el.onRenderRouter(el, s), 0)
+  setTimeout(() => el.onRenderRouter(el, s), 50)
+  setTimeout(() => el.onRenderRouter(el, s), 200)
+}
+
+// ❌ Manual polyglot fallback through window.Smbls — also legacy.
+//    createDomql.js auto-registers polyglotPlugin when context.polyglot is set.
+if (window.Smbls?.polyglotPlugin) ctx.plugins.push(window.Smbls.polyglotPlugin)
+
+// ❌ Capturing click listeners on document — intercept SPA links before router gets them.
+document.addEventListener('click', handler, true)
+```
+
+### SPA routing rules
+
+- `<a>` tags with `onClick` handlers MUST call `e.preventDefault()`, otherwise the browser does a full page reload.
+- Don't add capturing click listeners on `document` — they intercept link clicks before the router gets them.
+- Don't roll your own `pushState`/`popstate` plumbing. The framework already wires `onpopstate` via `onpopstateRouter(element, context)`.
+- For programmatic nav: `el.router(path, el.getRoot())`. For declarative links: `extends: 'Link', href: '/path'`.
+
+---
+
+## Multi-app isolation — primary vs secondary apps
+
+When multiple apps share a page (canvas + iframe project, editor + preview), each gets full design-system isolation:
+
+### Primary vs secondary detection
+
+`prepareDesignSystem` detects secondary apps via the `_designSystemInitialized` flag and creates an isolated scratch config via `createConfig(key, designSystem, { cleanBase: true })`. Each isolated config has:
+
+- Separate `cssVars` / `cssMediaVars`
+- Own `themeRoot` (scoped to app's root element)
+- Own `varPrefix` for CSS variable namespacing
+- `scopeSelector` = `[data-smbls-app="<key>"]`
+- Own `document` (for iframes)
+
+`cleanBase: true` prevents the primary's already-processed tokens from bleeding into secondary apps — without it, an editor's brand theme would override the embedded project's design system.
+
+### `pushConfig` / `popConfig` mechanism
+
+The framework's config stack ensures `getActiveConfig()` returns the right config in every code path:
+
+| Code path | Scoping mechanism |
+|-----------|-------------------|
+| Element creation (`applyCssInProps`) | `pushConfig(context.designSystem)` at function entry |
+| Reactive effects (function-valued CSS props) | `pushConfig` inside each `createEffect` |
+| Reactive conditionals (`.X` / `!X` blocks) | `pushConfig` inside the conditional effect |
+| Event handlers (delegated + non-delegated) | `pushConfig` in `delegate.js → wrappedHandler` |
+| Async event handlers | Config stays pushed until the returned Promise settles via `.finally()` |
+| Lifecycle hooks (onCreate, onRender, onMount, …) | `pushConfig` in `triggerLifecycle` |
+| `onFrame` loop | `pushConfig` in each `requestAnimationFrame` tick |
+
+**What the framework cannot wrap:** project code that schedules work via `setTimeout`, `setInterval`, or `queueMicrotask` — those create new call stacks with no active config. Capture context up-front instead:
+
+```js
+// ❌ Timer callback loses config scope
+onClick: (ev, el) => {
+  setTimeout(() => {
+    el.call('someFunction')   // getActiveConfig() returns global singleton
+  }, 100)
+}
+
+// ✅ Capture context up-front; access design system, document, window through it
+onClick: (ev, el) => {
+  const ctx = el.context
+  setTimeout(() => {
+    // ctx.designSystem, ctx.document, ctx.window are stable references
+  }, 100)
+}
+```
+
+### CSS prefix derivation
+
+Secondary apps auto-derive a single `cssPrefix` from the app key:
+
+```
+cssPrefix = key.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6)
+```
+
+Used for both atomic class names AND CSS custom properties. Examples:
+
+| Key | cssPrefix | Atomic class | CSS var |
+|-----|-----------|--------------|---------|
+| `<no key>` (primary) | `''` | `._w-100` | `--theme-X-color` |
+| `myapp` | `myapp` | `._myapp_w-100` | `--myapp-theme-X-color` |
+| `dashboard` | `dashbo` | `._dashbo_w-100` | `--dashbo-theme-X-color` |
+| `client-portal` | `client` | `._client_w-100` | `--client-theme-X-color` |
+
+Primary apps use no prefix → identical output to single-app pages, fully backward compatible.
+
+### `themeRoot` per-app
+
+Each app's `themeRoot` points to its own root element:
+
+```
+Primary:    CONFIG.themeRoot = document.documentElement
+Secondary:  CONFIG.themeRoot = doc.querySelector(`[data-smbls-app="<key>"]`)
+```
+
+`changeGlobalTheme(theme)` writes `data-theme` to `CONFIG.themeRoot`, so each app's active theme is independent.
+
+### CSS injection isolation
+
+`getActiveDocument()` resolves the target document from the active scratch config (`config.document`), set per-app in `prepareDesignSystem`. A per-document `WeakMap` cache in `@symbo.ls/css` ensures each document gets its own `<style data-smbls>` element.
+
+`setActiveDocument(doc)` still exists as a backward-compat shim — new code should use `pushConfig` with a config that already carries `document`.
+
+---
+
+## smbls root app `extends:` does NOT inherit properties
+
+The root element returned by `create(app, context)` (smblsapp) bypasses the key-based auto-extend that children go through. `extends: 'Foo'` at the top level does NOT merge `Foo`'s properties onto the root — only direct properties declared on the root object apply.
+
+```js
+// ❌ AppShell properties don't land on root
+export default {
+  extends: 'AppShell',   // parsed but not merged onto root
+  // ...
+}
+
+// ✅ Spread a styles object instead
+import { appShellStyles } from '.../AppShell.js'
+export default {
+  extends: 'Page',
+  ...appShellStyles,
+  // ... app overrides
+}
+```
+
+Lifecycle behaviors (e.g., `onCreate` path-sync) should be exported as helper functions and registered in `functions/` so each app's `onCreate` calls them via `el.call('installAppShellSync', s)`. Signature: `function (s) { const el = this; ... }` — `el.call` sets `this` to the element.
+
+Component-based `AppShell` with `extends: 'Page'` still works fine for non-root uses (anywhere a child key auto-extends).
+
+---
+
+## Parcel tree-shakes runtime-only shared components — set `sideEffects: true`
+
+A shared-package component referenced ONLY by DOMQL string-key lookup at runtime (e.g. `AppAssistant: {}` at the app root) gets tree-shaken by Parcel. Symptom: an empty `<div data-key="Foo"></div>` with no class names, no children, no merged props.
+
+**Why:** Parcel's dev server runs production-style tree-shaking. When a module is reached through `export *` barrels → `import * as` namespaces and is then accessed only by string-key at runtime (through `sharedLibraries` → `context.components`), the tree-shaker can't prove the export is used and strips it.
+
+**Fix:** Put a `package.json` at the root of the shared package directory with `"sideEffects": true`:
+
+```json
+{
+  "name": "@symbo.ls/editor-shared",
+  "version": "4.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./context.js",
+  "sideEffects": true
+}
+```
+
+After adding, do a full Parcel restart on every downstream app (`rm -rf .parcel-cache dist`, respawn portless) so the module graph re-analyzes under the new `sideEffects` flag.
+
+### Defense-in-depth for overlay components
+
+Even with `sideEffects: true`, any registry-resolution failure causes overlays like `AppAssistant` to fall into normal grid flow. If the shell uses `grid-template-rows: auto 1fr`, a failed-merge `AppAssistant` with `position: static` auto-places into row 2, stealing the `1fr` track. Mitigate by inlining positioning props at the consumer site, not just in the shared component:
+
+```js
+AppAssistant: {
+  position: 'fixed', top: '0', right: '0',
+  height: '100dvh', zIndex: '10000'
+}
+```
+
+These inline props live in the app's own object literal — never tree-shaken, no registry lookup. If the shared component merges, its definition layers on top. If it doesn't, the element still renders fixed-positioned (just empty) instead of collapsing layout.
+
+---
+
 ## CSS-in-Props Resolution Order
 
 Every property on an element is resolved top-down through this pipeline. The first match wins:
@@ -43,20 +302,25 @@ This same rule applies to sub-component overrides in nested children.
 
 ## Event Handler Signatures
 
-There are exactly two signatures. Using the wrong one shifts all parameters silently.
+There are exactly two shape categories. Using the wrong one shifts all parameters silently.
 
 | Event type | Signature | Examples |
 |------------|-----------|----------|
-| Lifecycle events | `(element, state)` | `onInit`, `onRender`, `onUpdate` |
-| DOM events | `(event, element, state)` | `onClick`, `onInput`, `onKeydown` |
+| Lifecycle events | `(el, state, context, options?)` | `onInit`, `onAttachNode`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`, `onUpdate`, `onFrame` |
+| State events | `(changes, el, state, context, options?)` | `onBeforeUpdate`, `onStateUpdate`, `onBeforeStateUpdate` (changes is FIRST) |
+| DOM events | `(event, el, state)` | `onClick`, `onInput`, `onKeydown`, `onSubmit`, `onMouseover`, `onScroll` |
 
 **Common bug:** Writing `(event, el, s)` in a lifecycle handler. The first arg is actually the element, so `s` becomes `undefined`.
 
 ```js
-// CORRECT
-onInit: (el, s) => {}
-onClick: (event, el, s) => {}
+// ✅ CORRECT
+onInit:   (el, s, ctx) => {}
+onUpdate: (el, s, ctx) => {}
+onStateUpdate: (changes, el, s, ctx) => {}
+onClick:  (e, el, s) => {}
 ```
+
+> Flat at BOTH declaration and runtime read: declare `onClick: fn` (NEVER `on: { click: fn }`); read `el.onClick` (NEVER `el.on.click`).
 
 ---
 
@@ -345,15 +609,19 @@ Any property NOT in this registry, NOT a CSS property, and NOT a valid HTML attr
 
 ---
 
-## Dynamic HTML Attributes — Three Equivalent Paths
+## Dynamic HTML Attributes — flat is canonical
 
-Dynamic (function) attribute values work at root level, inside `props:`, and inside `attr: {}`. All three paths call `exec()` on function values — they are executed, not stringified:
+The flat (root-level) form is the canonical declaration. The framework still tolerates the legacy `props: {}` wrapper for back-compat (it is flattened onto the element at runtime), but **never write it that way in new code**. Reactive attribute functions work at root level and (rarely) inside `attr: {}` for non-standard attrs:
 
 ```js
-// All three are equivalent — all work correctly:
-Input: { type: (el, s) => s.inputType }                    // root level
-Input: { props: { type: (el, s) => s.inputType } }         // inside props
-Input: { attr: { type: (el, s) => s.inputType } }          // inside attr
+// ✅ canonical — flat at root
+Input: { type: (el, s) => s.inputType }
+
+// 🟡 tolerated for legacy code — props: {} is flattened at runtime; never declare this way in new code
+Input: { props: { type: (el, s) => s.inputType } }
+
+// ✅ for truly non-standard attrs only
+Input: { attr: { 'x-custom': (el, s) => s.flag } }
 
 // Flow: root/props → filterAttributesByTagName → element.attr → exec() → setAttribute
 ```
