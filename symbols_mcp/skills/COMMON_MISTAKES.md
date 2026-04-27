@@ -906,6 +906,106 @@ export const Pricing = {
 
 ---
 
+## 34. Never `window.*` for inter-component or cross-cutting context sharing
+
+**`window.*` writes are BANNED in DOMQL components.** smbls is signal-based. Anything written to `window` is not reactive, not scoped, not garbage-collected on unmount, and leaks across every app running in the same tab (canvas, workspace, preview all share one `window` during dev).
+
+### Anti-pattern examples (never write this)
+
+```js
+// ❌ WRONG — writing context onto window
+onInit: (el, s) => { window.smblsApp = el.getRoot() }
+onClick: (e, el, s) => { window.activeProject = s.project }
+
+// ❌ WRONG — reading context from window in another component
+onInit: (el) => {
+  const p = window.activeProject    // not reactive, leaks across iframes
+  el.getRootState().update({ project: p })
+}
+
+// ❌ WRONG — raw DOM API instead of DOMQL element traversal
+onRender: (el) => {
+  const btn = document.querySelector('.submit-btn')    // bypasses DOMQL
+  btn.disabled = true
+}
+
+// ❌ WRONG — direct document.title write (use metadata: prop)
+onRender: (el, s) => { document.title = s.project.name }
+
+// ❌ WRONG — document.createElement (use declarative DOMQL children)
+onRender: (el) => {
+  const div = document.createElement('div')
+  div.textContent = 'hello'
+  el.node.appendChild(div)
+}
+```
+
+### Why `window.*` is wrong
+
+- Not reactive — smbls is signal-based; `window.foo = x` does not trigger re-renders
+- Pollutes global namespace — collides with browser extensions, third-party scripts, sibling iframe apps
+- Holds GC references forever — prevents teardown cleanup on app unmount
+- Implicit/undocumented API — anyone who reads it creates a hidden contract that breaks silently
+- Cross-app contamination — canvas, workspace, and preview load in the same Chrome tab during dev; `window.foo` from one leaks into the others
+
+### The 4 canonical channels — pick the right one
+
+| Channel | Scope | Reactive | Use when |
+|---|---|---|---|
+| **`state`** | Single element + reactive children | Yes (signal-backed store) | Component-local mutable data (`state: { open: false, count: 0 }`) — primary mechanism for component state |
+| **`scope`** | Component subtree (parent to descendants) | No (instance storage) | Non-reactive per-instance data: debounce timers, chart instances, refs. `el.scope.timer = null` in `onInit`, clean up in `onRemove` |
+| **`globalScope`** / root state | Entire app (every component reads same value) | Yes (signal) | App-wide UI state that is NOT business data (active theme, sidebar open/closed, current modal id) — update via `s.rootUpdate({...})` or `el.getRootState().update({...})` |
+| **`context`** | Passed at `create(app, context)` boot | No (config-like) | Project-level config + registered functions (`context.functions`, `context.designSystem`, `context.db`) |
+
+### Correct patterns for each channel
+
+```js
+// ✅ state — component-local reactive data
+export const Counter = {
+  state: { count: 0 },
+  text: (el, s) => s.count,
+  onClick: (e, el, s) => s.update({ count: s.count + 1 })
+}
+
+// ✅ scope — non-reactive per-instance storage (debounce, timers, library refs)
+export const SearchInput = {
+  onInit: (el) => { el.scope.debounceTimer = null },
+  Input: {
+    onInput: (e, el, s) => {
+      clearTimeout(el.scope.debounceTimer)
+      el.scope.debounceTimer = setTimeout(() => {
+        el.getRootState().update({ query: e.target.value })
+      }, 200)
+    }
+  },
+  onRemove: (el) => { clearTimeout(el.scope.debounceTimer) }
+}
+
+// ✅ root state (replaces window.activeProject)
+// In context.js / state.js:
+state: { activeProject: null }
+
+// In one component — set it:
+onClick: (e, el, s) => { el.getRootState().update({ activeProject: s.project }) }
+
+// In another component anywhere in the tree — read it:
+text: (el, s) => s.root.activeProject?.name || 'No project'
+
+// ✅ context — boot-time config, accessed read-only at runtime
+onInit: (el, s, ctx) => {
+  const apiKey = ctx.db.key         // read-only; never write back to ctx
+  el.call('initSDK', apiKey)
+}
+```
+
+### Allowed exceptions (very narrow)
+
+- `window.location` reads (read-only) — but prefer `el.router(path, el.getRoot())` for navigation
+- `window.addEventListener` for genuine browser events (`resize`, `beforeunload`, `hashchange`) — bind in `onInit`, clean up in `onRemove`
+- Formal devtools hooks following the React pattern (`__REDUX_DEVTOOLS_EXTENSION__`, `__SMBLS_DEVTOOLS_GLOBAL_HOOK__`) — opt-in only, gated by `if (window.__HOOK__)`, never an unconditional write
+
+---
+
 ## 32. `db.createClient` MUST NOT be in `config.js` / `context.db` — bundle strips it
 
 The supabase adapter dynamic-imports `@supabase/supabase-js` at runtime. Mermaid's bundle script (`mermaid/src/bundle.js:65-66`) explicitly strips `createClient` from published JSON because functions don't survive frank serialization.

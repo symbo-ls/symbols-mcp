@@ -231,6 +231,131 @@ export const Layout = {
 
 ---
 
+## Sharing State Across Components
+
+**Never use `window.*` to share state between components.** DOMQL provides 4 first-class channels. Use the decision tree below to pick the right one.
+
+### Decision tree
+
+```
+Is the data needed only by THIS component and its direct children?
+  → YES → use state: { ... }
+
+Is the data an instance-level, non-reactive detail (timer, chart ref, debounce handle)?
+  → YES → use el.scope.X in onInit; clean up in onRemove
+
+Is the data app-wide and needs to trigger re-renders anywhere in the tree?
+  → YES → put it in root state / globalScope; read via s.root.X or el.getRootState()
+
+Is the data boot-time config (design system, db credentials, registered functions)?
+  → YES → pass as context at create(app, context); read via el.getContext() — never mutate at runtime
+```
+
+### Channel quick reference
+
+| Channel | Scope | Reactive | Typical use |
+|---|---|---|---|
+| `state` | Element + its reactive children | Yes — signals drive re-renders | Counter, form field, open/closed, selected item |
+| `scope` | Element instance only | No — plain JS object | Debounce timer, chart library instance, RAF handle |
+| Root state (`s.root.*`) | Entire app | Yes | Active project, current user, active modal id, sidebar open/closed |
+| `context` | Entire app (boot-time only) | No | `context.functions`, `context.designSystem`, `context.db` credentials |
+
+### Pattern A — component-local state
+
+```js
+// ✅ Accordion: open/closed is local to this component
+export const Accordion = {
+  state: { open: false },
+  Header: {
+    onClick: (e, el, s) => s.parent.toggle('open')
+  },
+  Body: {
+    if: (el, s) => s.open
+  }
+}
+```
+
+### Pattern B — scope for non-reactive instance data
+
+```js
+// ✅ Debounce timer lives on el.scope — never on window
+export const SearchInput = {
+  onInit: (el) => { el.scope.debounceTimer = null },
+  onRemove: (el) => { clearTimeout(el.scope.debounceTimer) },
+  Input: {
+    onInput: (e, el) => {
+      clearTimeout(el.scope.debounceTimer)
+      el.scope.debounceTimer = setTimeout(() => {
+        el.getRootState().update({ query: e.target.value })
+      }, 200)
+    }
+  }
+}
+```
+
+### Pattern C — app-wide reactive state (replaces window.*)
+
+```js
+// In state.js (or context.js initializer)
+export default { activeProject: null, currentUser: null, sidebarOpen: false }
+
+// Component A — set it
+export const ProjectCard = {
+  onClick: (e, el, s) => {
+    el.getRootState().update({ activeProject: s.project })
+  }
+}
+
+// Component B — anywhere in the tree, reads reactively
+export const ProjectTitle = {
+  text: (el, s) => s.root.activeProject?.name || 'No project selected'
+}
+
+// Component C — reading root state in a reactive prop
+export const Sidebar = {
+  hide: (el, s) => !s.root.sidebarOpen
+}
+```
+
+### Pattern D — context for boot-time config
+
+```js
+// config.js (or wherever you call create())
+create(app, {
+  functions: { ...myFunctions },
+  designSystem: myDesignSystem,
+  db: { adapter: 'supabase', url: '...', key: '...' },
+  plugins: [fetchPlugin, routerPlugin]
+})
+
+// Anywhere in a component — READ only, never write back
+onInit: (el, s, ctx) => {
+  const adapter = ctx.db.adapter
+  el.call('initAdapter', adapter)
+}
+```
+
+### Anti-patterns — never do this
+
+```js
+// ❌ window.* — not reactive, leaks across apps, not garbage-collected
+window.activeProject = project
+window.smblsApp = el.getRoot()
+const p = window.activeProject
+
+// ❌ document.querySelector — bypasses DOMQL, breaks SSR
+const btn = document.querySelector('.submit-btn')
+
+// ❌ document.createElement — imperative DOM outside DOMQL
+const div = document.createElement('div')
+el.node.appendChild(div)
+
+// ❌ document.title write — use metadata: prop
+document.title = s.project.name
+```
+
+---
+
 ## Accessibility
 
 ### Semantic Atoms First

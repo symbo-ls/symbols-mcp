@@ -694,6 +694,8 @@ export const Chart = {
 }
 ```
 
+> **For inter-component sharing, see PATTERNS.md § Sharing State Across Components.** Use `state` (reactive local), `el.scope` (non-reactive instance), root state via `s.root.*` / `el.getRootState()` (reactive app-wide), or `context` (boot-time config). **Never `window.*`.** Writing to `window` is not reactive, leaks across apps sharing the same browser tab, and prevents garbage collection on unmount.
+
 ---
 
 ## Element Methods
