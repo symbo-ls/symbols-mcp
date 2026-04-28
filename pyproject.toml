@@ -3,6 +3,7 @@ name = "symbols-mcp"
 version = "1.1.6"
 description = "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference"
 readme = "README.md"
+license = "CC-BY-NC-4.0"
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]>=1.9.0",
