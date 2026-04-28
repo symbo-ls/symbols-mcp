@@ -1154,13 +1154,16 @@ This means `import * as functions from './functions/index.js'` in `context.js` n
 | Topic | Doc |
 |---|---|
 | Design system + theme contract | [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) |
+| Modern plugin stack (fetch / polyglot / helmet / router / scratch / **analyze**) | [`MODERN_STACK.md`](./MODERN_STACK.md) |
+| Shared libraries (link vs destDir, drift, smbls libs CLI) | [`SHARED_LIBRARIES.md`](./SHARED_LIBRARIES.md) |
 | Fetch | `plugins/fetch/README.md` |
 | Polyglot (i18n) | `plugins/polyglot/README.md` |
 | Helmet (SEO) | `plugins/helmet/README.md` |
 | Brender (SSR) | `plugins/brender/README.md` |
 | Frank (JSON ↔ FS) | `plugins/frank/README.md` |
+| Analyze (runtime audit logger) | `plugins/analyze/README.md` |
 | Router | `plugins/router/README.md` + `packages/smbls/src/router.js` |
-| CLI | `packages/cli/bin/*.js` |
+| CLI | `packages/cli/bin/*.js` (top-level `smbls libs`: `bin/libs/README.md`) |
 | Element create flow | `packages/element/src/create.js` |
 | Scratch (design system) | `packages/scratch/src/` |
 | Design system tokens | each project's `symbols/designSystem/` + `packages/default-config/` |

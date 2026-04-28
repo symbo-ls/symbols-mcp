@@ -603,13 +603,13 @@ The MCP tools are universal across editors. The shell column is your fallback wh
 
 ## Transport modes
 
-The server speaks two transports:
+The server speaks three transports:
 
 ### stdio (default)
 
 Editors spawn the process and talk over stdin/stdout. No network, no port. Used by every editor config above.
 
-### SSE (HTTP-based)
+### SSE (self-hosted HTTP)
 
 Run as a long-lived server that any HTTP MCP client can hit:
 
@@ -624,6 +624,56 @@ Then connect from claude.ai / a remote client / a custom integration to `http://
 | `MCP_TRANSPORT` | `stdio` | `stdio` or `sse` |
 | `MCP_HOST` | `127.0.0.1` | Bind address for SSE |
 | `MCP_PORT` | `8080` | Bind port for SSE |
+
+### Streamable HTTP (hosted worker)
+
+The official Symbols-hosted edge worker — no install, no process to keep alive, latency-optimized via Cloudflare's edge network. Speaks the [MCP Streamable HTTP transport](https://modelcontextprotocol.io/) and exposes plain REST helpers alongside.
+
+| Env | URL |
+|---|---|
+| Production | `https://symbols-mcp.symbols.workers.dev` |
+| Dev / next | `https://symbols-mcp-dev.nika-980.workers.dev` |
+
+Configure any MCP-aware editor with the `url` form (no `command` / `args`):
+
+```json
+{
+  "mcpServers": {
+    "symbols-mcp": {
+      "url": "https://symbols-mcp.symbols.workers.dev"
+    }
+  }
+}
+```
+
+Useful REST endpoints (all return JSON):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Discovery — name, version, has_project_context |
+| `GET /health` | Liveness check |
+| `GET /tools` | List all tools |
+| `POST /tools/<name>` | Invoke one tool, body is the tool args |
+| `GET /resources` | List skill / reference resources |
+| `GET /resources/read?uri=<uri>` | Read a single resource |
+
+#### Project context — `?owner=&key=`
+
+The hosted worker accepts project identity as URL parameters and uses them to fetch the live project context from the Symbols KV cache. Pass them on every MCP request:
+
+```
+https://symbols-mcp.symbols.workers.dev/?owner=acme&key=storefront
+```
+
+Equivalent legacy form (slash-separated, accepted for backward-compat):
+
+```
+https://symbols-mcp.symbols.workers.dev/?project_key=acme/storefront
+```
+
+When project context is found, every tool that takes an active-project argument (`generate_component`, `generate_page`, `convert_*`, `get_project_context`, `save_to_project`, `publish`, `push`) automatically scopes to that project — components, pages, design-system tokens, state, and functions are surfaced into the prompt so generations match the project's actual surface area, not generic defaults.
+
+Project identity is canonical `${owner}/${key}` per [§45](../server/CLAUDE.md) — bare keys can collide across owners, the worker resolves through the 2-segment route `/core/projects/key/:owner/:projectSlug`. The legacy compound `owner--slug` shape is normalized for older clients.
 
 ---
 

@@ -1,18 +1,18 @@
-# Migration Rules: DOMQL v2 → v3 → v4 & Framework → Symbols
+# Migration Rules — legacy nested-syntax → smbls 3.14.0 (flat element API) & Framework → Symbols
 
 Apply these transformation rules when migrating code. Each rule is a BEFORE/AFTER pair.
 
-> **Current target is v4 (smbls@3.14.0).** Most projects migrating from React/Vue/Angular jump straight to v4. Read Part 0 (v3 → v4) first if you're already on v3.
+> **Current target is `smbls@3.14.0`** (flat element API, signal-based reactivity). Most projects migrating from React/Vue/Angular adopt this API directly. If you're upgrading from an older nested-syntax codebase, read Part 0 first.
 
 ---
 
-## Part 0: DOMQL v3 → v4 (signal-based, flat element API)
+## Part 0: legacy nested-syntax → flat element API
 
-v4 reorganizes the element runtime around signals and flattens both props and event handlers onto the element directly. v3 wrappers (`props: {}`, `on: {}`) and v3 nested access (`el.props.X`, `el.on.X`) are REMOVED.
+The current element runtime is built around signals. Props and event handlers are flat directly on the element. Legacy nested wrappers (`props: {}`, `on: {}`) and nested access (`el.props.X`, `el.on.X`) are REMOVED.
 
 ### Rule Summary
 
-| What changed | v3 (REMOVE) | v4 (USE INSTEAD) |
+| What changed | Legacy (REMOVE) | Current (USE INSTEAD) |
 | -- | -- | -- |
 | Reactive prop signature | `({ props, state }) => ...` | `(el, s) => ...` (or `(el, s, ctx)`) |
 | Element prop reads | `el.props.text` | `el.text` (flat) |
@@ -25,7 +25,7 @@ v4 reorganizes the element runtime around signals and flattens both props and ev
 
 ### Rule 0.1: Flatten reactive prop signatures
 
-BEFORE (v3):
+BEFORE (legacy):
 ```js
 {
   text: ({ props, state }) => state.user.name,
@@ -34,7 +34,7 @@ BEFORE (v3):
 }
 ```
 
-AFTER (v4):
+AFTER (current):
 ```js
 {
   text: (el, s) => s.user.name,
@@ -45,14 +45,14 @@ AFTER (v4):
 
 ### Rule 0.2: Flatten event reads at runtime
 
-BEFORE (v3):
+BEFORE (legacy):
 ```js
 onClick: (e, el) => el.on.click(e)        // never used in practice but flagged anyway
 const handler = el.on.click
 const text = el.props.text
 ```
 
-AFTER (v4):
+AFTER (current):
 ```js
 onClick: (e, el) => el.onClick(e)
 const handler = el.onClick
@@ -61,9 +61,9 @@ const text = el.text
 
 ### Rule 0.3: Use the modern smbls stack — declarative fetch / polyglot / helmet / router
 
-v4 ships a coherent set of plugins. Migrating means replacing imperative one-offs with declarative props. See Rules 47–52 in RULES.md.
+smbls 3.14.0 ships a coherent set of plugins. Migrating means replacing imperative one-offs with declarative props. See Rules 47–52 in RULES.md.
 
-BEFORE (imperative v3 patterns):
+BEFORE (legacy imperative patterns):
 ```js
 ArticleList: {
   state: { items: [], loading: true },
@@ -91,7 +91,7 @@ NavLink: {
 }
 ```
 
-AFTER (v4 modern stack):
+AFTER (modern stack):
 ```js
 ArticleList: {
   state: 'articles',
@@ -117,31 +117,31 @@ NavLink: {
 ### Rule 0.4: Hardcoded user-facing strings → polyglot
 
 ```js
-// v3 (hardcoded English)
+// Legacy (hardcoded English)
 { placeholder: 'Search', text: 'Submit', label: 'Welcome back' }
 
-// v4 (polyglot)
+// Current (polyglot)
 { placeholder: '{{ search | polyglot }}', text: '{{ submit | polyglot }}', label: '{{ welcomeBack | polyglot }}' }
 ```
 
 ### Rule 0.5: Theme writes → `changeGlobalTheme()`
 
 ```js
-// v3 (or earlier — bypasses framework)
+// Legacy (bypasses framework)
 document.documentElement.setAttribute('data-theme', 'dark')
 
-// v4 (proper)
+// Current (proper)
 import { changeGlobalTheme } from 'smbls'
 changeGlobalTheme('dark', context.designSystem)   // 2nd arg = optional targetConfig (cross-app)
 ```
 
 ---
 
-## Part 1: DOMQL v2 → v3 (still applies; v3 → v4 above adds the rest)
+## Part 1: DOMQL v2 → flat element API (still applies; Part 0 above adds the rest)
 
 ### Rule Summary
 
-| What changed | v2 (REMOVE) | v3 (USE INSTEAD; v4 still uses these) |
+| What changed | v2 (REMOVE) | Current (USE INSTEAD) |
 | -- | -- | -- |
 | CSS props wrapper | `props: { padding: 'A' }` | `padding: 'A'` (at root) |
 | Events wrapper | `on: { click: fn }` | `onClick: fn` (at root) |
@@ -297,14 +297,14 @@ AFTER:
 
 ### Rule 6: PascalCase-only child elements
 
-In v3 and v4, only PascalCase keys create child elements. Lowercase keys are treated as CSS properties.
+Only PascalCase keys create child elements. Lowercase keys are treated as CSS properties.
 
 BEFORE (v2):
 ```js
 { div: {} }   // creates <div>
 ```
 
-AFTER (v3 / v4):
+AFTER (current):
 ```js
 { div: {} }   // treated as a plain prop, NOT rendered
 { Div: {} }   // creates a child element (equivalent to { extends: 'Div' })
@@ -312,7 +312,7 @@ AFTER (v3 / v4):
 
 ### Rule 7: Replace array spread with `children` array
 
-Array spread creates numeric keys (`0`, `1`, `2`...) which v3/v4 treat as CSS properties. Always use `children` array.
+Array spread creates numeric keys (`0`, `1`, `2`...) which the framework treats as CSS properties. Always use `children` array.
 
 BEFORE:
 ```js
@@ -578,7 +578,7 @@ AFTER:
 
 ---
 
-## Part 4: v4 Component Template
+## Part 4: Component Template (smbls 3.14.0)
 
 Use this as the base template for every new component:
 
@@ -599,7 +599,7 @@ export const ComponentName = {
   // DOM events
   onClick: (e, el, s) => {},
 
-  // Conditional cases (.isX / '!isX' / $isX) — reactive in v4. Use whenever multiple CSS
+  // Conditional cases (.isX / '!isX' / $isX) — reactive. Use whenever multiple CSS
   // props share a single condition; the block re-applies whenever the state read by isX changes.
   isActive: (el, s) => s.active,
   '.isActive': { background: 'primary', color: 'white' },
@@ -629,21 +629,21 @@ export const ComponentName = {
 | Async data fetch                        | `onRender: async (el, s) => { ... s.update({data}) }`                         |
 | State persistence                       | Functions that read/write to localStorage/cookie                              |
 
-Async state pattern (v4):
+Async state pattern (smbls 3.14.0):
 
 ```js
-// ✅ Modern v4 — declarative fetch (preferred)
+// ✅ Modern — declarative fetch (preferred)
 export const DataView = {
   state: 'data',
   fetch: { from: 'items', params: (el, s) => ({ id: s.id }), placeholderData: null }
 }
 
-// ✅ Modern v4 — imperative with el.call (when fetch: doesn't fit)
+// ✅ Modern — imperative with el.call (when fetch: doesn't fit)
 export const DataView = {
   state: { data: null, loading: true, error: null },
   onRender: async (el, s) => {
     try {
-      const data = await el.call('fetchData', el.id)   // flat el.X access in v4
+      const data = await el.call('fetchData', el.id)   // flat el.X access
       s.update({ data, loading: false })
     } catch (e) {
       s.update({ error: e.message, loading: false })

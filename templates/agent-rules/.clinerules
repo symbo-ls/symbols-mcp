@@ -1,6 +1,6 @@
 # Symbols.app project — agent rules
 
-This is a Symbols.app / DOMQL v4 project. The `symbols-mcp` MCP server is the source of truth.
+This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP server is the source of truth.
 
 ## Required workflow
 

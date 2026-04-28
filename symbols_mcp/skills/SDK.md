@@ -34,7 +34,7 @@ const sdk = new SDK({
   timeout: 30000,
   retryAttempts: 3,
   debug: false,                             // toggles logger output
-  useNewServices: true,                     // default; selects v4 service implementations
+  useNewServices: true,                     // default; selects modern service implementations
   tracking: { enabled: false }              // see Tracking
 })
 

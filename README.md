@@ -40,7 +40,21 @@ No API keys required for documentation tools. Project management tools require a
 | `audit_component` | **Inline VALIDATOR** for a single component string. Returns violations + warnings (≈1K chars). Use during generation. Pass `include_playbook=True` to also dump the AUDIT.md playbook. |
 | `audit_project` | Returns the **multi-phase project audit PLAYBOOK** (instructions for the agent — Phase 0 setup → Phase 5 report). Pair with `bin/symbols-audit` CLI for the static-audit phase. |
 
-For filesystem-wide regex sweeps the package ships a CLI: `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings).
+For filesystem-wide audits the package ships a CLI: `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings). Under the hood it runs `frank-audit audit --strict` — the audit core is now [`@symbo.ls/frank-audit`](https://github.com/symbo-ls/smbls/tree/main/plugins/frank-audit), the AST-based engine that owns the canonical 59-rule registry, prescription generation, and verify-or-rollback fixers.
+
+`lib/audit.js` is preserved as a backward-compat shim that delegates to frank-audit (subprocess CLI, or the `/audit-content` HTTP endpoint when `FRANK_AUDIT_URL` is set). The legacy programmatic API stays callable for non-CLI consumers (the `@symbo.ls/cli`, the MCP HTTP worker, web/edge clients):
+
+```js
+const {
+  auditContent,         // audit one component string (delegates to frank-audit)
+  auditFiles,           // audit a list of {path, content}
+  auditDirectory,       // walk a symbols/ dir via `frank-audit audit <dir>`
+  mergeFindings,        // preserve status across runs
+  summarize,            // breakdown by severity / category / origin
+} = require('@symbo.ls/mcp/lib/audit')
+```
+
+Findings drift vs the old regex output is expected and correct — frank-audit detects more issues with higher accuracy. Field names stay the same (file, line, rule, severity, category, snippet, suggested_fix). To inspect the rule registry, query frank-audit directly: `npx frank-audit explain <id>`.
 
 ### Project Management & Publishing
 
@@ -88,6 +102,7 @@ For filesystem-wide regex sweeps the package ships a CLI: `npx -y @symbo.ls/mcp 
 | `symbols://skills/migration` | Migration guide for legacy projects + React/Angular/Vue → Symbols |
 | `symbols://skills/audit` | Full audit playbook (Phase 0–5, executable end-to-end) |
 | `symbols://skills/common-mistakes` | Wrong vs correct DOMQL patterns with zero-tolerance enforcement |
+| `symbols://skills/frankability` | Patterns that survive `frank.toJSON` — every `@symbo.ls/frank-audit` rule with wrong vs canonical examples |
 | `symbols://skills/learnings` | Framework internals, technical gotchas, deep runtime knowledge |
 | `symbols://skills/cookbook` | Cookbook of small reactive recipes (toggle, fetch, modal, tabs, etc.) |
 | `symbols://skills/snippets` | Production-ready component snippets (nav, hero, pricing card, footer, etc.) |

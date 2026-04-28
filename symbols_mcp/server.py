@@ -6,10 +6,92 @@ import os
 import json
 import logging
 import re
+import subprocess
+import shutil
 from pathlib import Path
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
+
+# ---------------------------------------------------------------------------
+# frank-audit subprocess bridge
+# ---------------------------------------------------------------------------
+# All audit / fix / verify / prescription work delegates to the
+# @symbo.ls/frank-audit Node CLI. Single source of truth for Symbols
+# project audit rules across stdio (this server) and HTTPS (the Node
+# proxy). When the CLI is unreachable, audit_component / audit_project
+# return a structured error rather than silently downgrading to the old
+# regex path.
+
+FRANK_AUDIT_BIN = os.getenv("FRANK_AUDIT_BIN", "frank-audit")
+FRANK_AUDIT_URL = os.getenv("FRANK_AUDIT_URL")  # optional HTTP fallback
+
+def _run_frank_audit(*args, stdin_data=None, timeout=120):
+    """Shell out to frank-audit CLI. Returns parsed JSON dict.
+
+    On error, returns { "ok": False, "error": {...} } in the same envelope
+    shape frank-audit emits — callers can treat success and failure
+    uniformly.
+    """
+    cmd = [FRANK_AUDIT_BIN, *args]
+    if "--json" not in args:
+        cmd.append("--json")
+    try:
+        result = subprocess.run(
+            cmd,
+            input=stdin_data,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {
+            "schema": "frank-audit/1.0",
+            "ok": False,
+            "error": {
+                "code": "E_FRANK_AUDIT_NOT_FOUND",
+                "message": f"frank-audit CLI not found (looked for: {FRANK_AUDIT_BIN}). Install with: npm i -g @symbo.ls/frank-audit",
+                "category": "user-error",
+                "retryable": False,
+            },
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "schema": "frank-audit/1.0",
+            "ok": False,
+            "error": {
+                "code": "E_FRANK_AUDIT_TIMEOUT",
+                "message": f"frank-audit timed out after {timeout}s",
+                "category": "transient",
+                "retryable": True,
+            },
+        }
+    if result.returncode != 0 and not result.stdout:
+        return {
+            "schema": "frank-audit/1.0",
+            "ok": False,
+            "error": {
+                "code": "E_FRANK_AUDIT_FAILED",
+                "message": f"frank-audit exited {result.returncode}: {result.stderr[:500]}",
+                "category": "permanent",
+                "retryable": False,
+            },
+        }
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        return {
+            "schema": "frank-audit/1.0",
+            "ok": False,
+            "error": {
+                "code": "E_FRANK_AUDIT_BAD_OUTPUT",
+                "message": f"frank-audit emitted invalid JSON: {e}",
+                "category": "internal",
+                "retryable": False,
+                "details": {"stdout": result.stdout[:500], "stderr": result.stderr[:500]},
+            },
+        }
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -59,7 +141,15 @@ mcp = FastMCP(
         "breaks theme color resolution, breaks Brender SSR, breaks sprite deduping).\n"
         "- NO imports between project files. Reference components by PascalCase key, call functions via `el.call('fn', …)`.\n"
         "- NO direct DOM manipulation (`document.querySelector`, `addEventListener`, `classList`, `innerHTML`, "
-        "`setAttribute`, `el.node.style.X = …`, `parentNode` traversal — all forbidden).\n\n"
+        "`setAttribute`, `el.node.style.X = …`, `parentNode` traversal — all forbidden).\n"
+        "- **Frankability** (so frank.toJSON survives serialization): mutable module-state (`let`/`var`) lives in "
+        "`globalScope.js`, not at the top of a component file. Helpers/constants used in 2+ files live in "
+        "`globalScope.js`. Constants used by one component live as `scope: { X }` on the component. Factory "
+        "closures must surface captures via `scope: { X }` on the returned object. Files must live in "
+        "frank-discovered slots (`components/`, `pages/`, `functions/`, `methods/`, `snippets/`, `designSystem/`, "
+        "`files/`, `assets/`) — `utils/` / `lib/` / `helpers/` are silently dropped from publish. See "
+        "FRANKABILITY.md (`symbols://skills/frankability`) for the full rule reference and verify with "
+        "`smbls frank-audit` to see findings (and `--fix` for verify-or-rollback auto-fixes) before shipping.\n\n"
         # ── BOOTSTRAPPING NOTE ─────────────────────────────────────────────────
         "If the project root has no `CLAUDE.md` / `.cursor/rules/` / `.windsurfrules` / `.clinerules`, "
         "suggest the user run `npx @symbo.ls/mcp init-rules` (or equivalent) to drop editor-specific rule "
@@ -101,101 +191,6 @@ def _load_agent_instructions() -> str:
 # Audit helpers (deterministic rule checking)
 # ---------------------------------------------------------------------------
 
-_V2_PATTERNS = [
-    (r"\bextend\s*:", "FORBIDDEN: use 'extends' (plural) instead of 'extend'"),
-    (r"\bchildExtend\s*:", "FORBIDDEN: use 'childExtends' (plural) instead of 'childExtend'"),
-    (r"\bon\s*:\s*\{", "FORBIDDEN: flatten event handlers as top-level onX (e.g. onClick, onInit) — never wrap in on: {}"),
-    (r"\bprops\s*:\s*\{(?!\s*\})", "FORBIDDEN: flatten props directly on the component — never wrap in props: {}"),
-    (r"\bel\.props\.\w+", "FORBIDDEN: use flat el.X (e.g. el.text) instead of el.props.X — props are flat on the element"),
-    (r"\bel\.on\.\w+", "FORBIDDEN: use flat el.onX (e.g. el.onClick) instead of el.on.event — event handlers are flat on the element"),
-    (r"\(\s*\{\s*props\s*[,}]", "FORBIDDEN reactive prop signature: use (el, s) — never destructure ({ props })"),
-    (r"\(\s*\{\s*state\s*[,}]", "FORBIDDEN reactive prop signature: use (el, s) — never destructure ({ state })"),
-    (r"\(\s*\{\s*key\s*,\s*state", "FORBIDDEN reactive prop signature: use (el, s) — derive key via el.key"),
-    (r"\bisActive\s*:\s*\(\s*\{\s*key", "FORBIDDEN isActive signature: use (el, s) and reference el.key — not destructured key"),
-]
-
-_RULE_CHECKS = [
-    (r"\bimport\s+.*\bfrom\s+['\"]\.\/", "FORBIDDEN: No imports between project files — reference components by PascalCase key name"),
-    (r"\bexport\s+default\s+\{", "Components should use named exports (export const Name = {}), not default exports"),
-    (r"\bfunction\s+\w+\s*\(.*\)\s*\{[\s\S]*?return\s*\{", "Components must be plain objects, not functions that return objects"),
-    (r"\bextends\s*:\s*(?!['\"])\w+", "FORBIDDEN: extends must be a quoted string name (extends: 'Name'), not a variable reference — register in components/ and use string lookup (Rule 10)"),
-    (r"extends\s*:\s*['\"]Flex['\"]", "Replace extends: 'Flex' with flow: 'x' or flow: 'y' — do NOT just remove it, the element needs flow to stay flex (Rule 26)"),
-    (r"extends\s*:\s*['\"]Box['\"]", "Remove extends: 'Box' — every element is already a Box (Rule 26)"),
-    (r"extends\s*:\s*['\"]Text['\"]", "Remove extends: 'Text' — any element with text: is already Text (Rule 26)"),
-    (r"\bchildExtends\s*:\s*\{", "FORBIDDEN: childExtends must be a quoted string name, not an inline object — register as a named component (Rule 10/61). Inline-object childExtends inflates frank-serialized JSON, breaks key resolution, and triggers the css-in-props text-leak bug. Extract to components/ and reference by string."),
-    # Redundant extends — key name already matches extends target. Capture group 1 = key, group 2 = quoted name.
-    (r"^\s+([A-Z][a-zA-Z0-9_]*)\s*:\s*\{[^}]*\bextends\s*:\s*['\"]\1['\"]", "AUTO-EXTEND BY KEY: `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to the component name — DOMQL extends by key automatically. Multi-instance? `Navbar_1`, `Navbar_2` (auto-extends from the part before `_`). Keep `extends:` only when the wrapper carries genuinely distinct semantic meaning, needs multi-base composition (`extends: ['Hgroup', 'Form']`), or chains a nested-child reference (`extends: 'AppShell > Sidebar'`) (Rule 6)."),
-    (r"(?:padding|margin|gap|width|height|fontSize|borderRadius|minWidth|maxWidth|minHeight|maxHeight|top|left|right|bottom|letterSpacing|lineHeight|borderWidth|outlineWidth)\s*:\s*['\"]?\d+(?:\.\d+)?px", "FORBIDDEN: No raw px values — use a sequence-generated token (e.g. `'A'`, `'B'`, `'B1'`) from the matching family (typography for fontSize/lineHeight/letterSpacing, spacing for padding/margin/gap/width/height/etc.). Same letter resolves to different values per family — `padding: 'B'` ≠ `fontSize: 'B'`. NO custom-named spacing tokens — sequence only (Rule 28)"),
-    (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]#[0-9a-fA-F]", "Use design system color tokens (primary, secondary, white, gray.5) instead of hardcoded hex colors (Rule 27)"),
-    (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]rgb", "Use design system color tokens instead of hardcoded rgb/rgba values (Rule 27)"),
-    (r"(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['\"]hsl", "Use design system color tokens instead of hardcoded hsl/hsla values (Rule 27)"),
-    # Rule 62 — html: '<svg ...>' for icons is BANNED (the strictest icon enforcement)
-    (r"\bhtml\s*:\s*['\"`]\s*<svg\b", "CRITICAL FORBIDDEN: html: '<svg ...>' for icons is BANNED — use Icon component referencing designSystem.icons by name. Inline SVG via html: bypasses the design system, breaks theme color resolution, breaks Brender SSR, breaks sprite deduping, breaks @dark icon swaps (Rule 29 / Rule 62)"),
-    (r"<svg[\s>]", "FORBIDDEN: Use the Icon component for SVG icons — store SVGs in designSystem/icons, never inline (Rule 29 / Rule 62)"),
-    (r"tag\s*:\s*['\"]svg['\"]", "CRITICAL FORBIDDEN: tag: 'svg' inline component is BANNED — store SVGs in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
-    (r"tag\s*:\s*['\"]path['\"]", "CRITICAL FORBIDDEN: tag: 'path' inline component is BANNED — store SVG paths in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
-    (r"tag\s*:\s*['\"](?:circle|rect|polygon|polyline|ellipse|line)['\"]", "CRITICAL FORBIDDEN: inline SVG primitive elements are BANNED — store the full SVG in designSystem/icons and use the Icon component (Rule 29 / Rule 62)"),
-    (r"extends\s*:\s*['\"]Svg['\"][^}]*\bhtml\s*:", "CRITICAL FORBIDDEN: extends: 'Svg' with html: SVG markup is BANNED for icons — use the Icon component + designSystem.icons. Svg is reserved for decorative/structural backgrounds, NOT icons (Rule 29 / Rule 62)"),
-    (r"extends\s*:\s*['\"]Svg['\"]", "Use Icon component for icons, not Svg — Svg is only for decorative/structural SVGs, never for icons (Rule 29 / Rule 62)"),
-    (r"\biconName\s*:", "FORBIDDEN: Use icon: not iconName: — the prop is icon: 'name' matching a key in designSystem/icons (Rule 29)"),
-    (r"document\.createElement\b", "FORBIDDEN: No direct DOM manipulation — use DOMQL declarative object syntax instead (Rule 30)"),
-    (r"\.querySelector\b", "FORBIDDEN: No DOM queries — reference elements by key name in the DOMQL object tree (Rule 30)"),
-    (r"\.appendChild\b", "FORBIDDEN: No direct DOM manipulation — nest children as object keys or use children array (Rule 30)"),
-    (r"\.removeChild\b", "FORBIDDEN: No direct DOM manipulation — use if: (el, s) => condition to show/hide (Rule 30)"),
-    (r"\.insertBefore\b", "FORBIDDEN: No direct DOM manipulation — use children array ordering (Rule 30)"),
-    (r"\.innerHTML\s*=", "FORBIDDEN: No direct DOM manipulation — use text: or html: prop (Rule 30)"),
-    (r"\.classList\.", "FORBIDDEN: No direct class manipulation — use isX + '.isX' pattern (Rule 19/30)"),
-    (r"\.setAttribute\b", "FORBIDDEN: No direct DOM manipulation — set attributes at root level in DOMQL (Rule 30)"),
-    (r"\.addEventListener\b", "FORBIDDEN: No direct event binding — use onX props: onClick, onInput, etc. (Rule 30)"),
-    (r"\.style\.\w+\s*=", "FORBIDDEN: No direct style manipulation — use DOMQL CSS-in-props (Rule 30)"),
-    (r"html\s*:\s*\(?.*\)?\s*=>\s*", "FORBIDDEN: Never use html: as a function returning markup — use DOMQL children, nesting, text:, and if: instead (Rule 31)"),
-    (r"return\s*`<\w+", "FORBIDDEN: Never return HTML template literals — use DOMQL declarative children and nesting (Rule 31)"),
-    (r"style\s*=\s*['\"`]", "FORBIDDEN: No inline style= strings in html — use DOMQL CSS-in-props (Rule 31)"),
-    (r"window\.innerWidth", "FORBIDDEN: No window.innerWidth checks — use @mobileL, @tabletS responsive breakpoints (Rule 31)"),
-    (r"\.parentNode\b", "FORBIDDEN: No DOM traversal — use state and reactive props instead of walking the DOM tree (Rule 32)"),
-    (r"\.childNodes\b", "FORBIDDEN: No DOM traversal — use state-driven children with if: props (Rule 32)"),
-    (r"\.textContent\b", "FORBIDDEN: No DOM property access — use state and text: prop (Rule 32)"),
-    (r"Array\.from\(\w+\.children\)", "FORBIDDEN: No DOM child iteration — use state arrays with children/childExtends and if: filtering (Rule 32)"),
-    (r"\.style\.display\s*=", "FORBIDDEN: No style.display toggling — use show:/hide: to toggle visibility or if: to remove from DOM (Rule 32)"),
-    (r"\.style\.cssText\s*=", "FORBIDDEN: No direct cssText — use DOMQL CSS-in-props (Rule 32)"),
-    (r"\.dataset\.", "FORBIDDEN: No dataset manipulation — use state and attr: for data-* attributes (Rule 32)"),
-    (r"\.remove\(\)", "FORBIDDEN: No DOM node removal — use if: (el, s) => condition to conditionally render (Rule 32)"),
-    (r"el\.node\.\w+\s*=", "FORBIDDEN: No direct el.node property assignment — use DOMQL props (placeholder:, value:, text:, etc.). Reading el.node is fine (Rule 39), writing is not (Rule 32)"),
-    (r"document\.getElementById\b", "FORBIDDEN: No document.getElementById — use el.lookdown('key') to find DOMQL elements (Rule 40)"),
-    (r"document\.querySelectorAll\b", "FORBIDDEN: No document.querySelectorAll — use el.lookdownAll('key') to find DOMQL elements (Rule 40)"),
-    (r"el\.parent\.state\b", "FORBIDDEN: Never use el.parent.state — with childrenAs: 'state', use s.field directly (Rule 36)"),
-    (r"el\.context\.designSystem\b", "FORBIDDEN: Never read designSystem from el.context in props — use token strings directly (Rule 38)"),
-    (r"^const\s+\w+\s*=\s*(?:\(|function)", "FORBIDDEN: No module-level helper functions — move to functions/ and call via el.call('fnName') (Rule 33)"),
-    (r"^let\s+\w+\s*=", "FORBIDDEN: No module-level variables — use el.scope for local state, functions/ for helpers (Rule 33)"),
-    (r"^var\s+\w+\s*=", "FORBIDDEN: No module-level variables — use el.scope for local state, functions/ for helpers (Rule 33)"),
-    (r"window\.location\.href\s*=", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
-    (r"window\.location\.assign\b", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
-    (r"window\.location\.replace\b", "FORBIDDEN: No window.location for navigation — use el.router(path, el.getRoot()) (Rule 42)"),
-    (r"attr\s*:\s*\{\s*href\s*:", "FORBIDDEN: Never put href in attr — use extends: 'Link' with href as a direct prop (Rule 41)"),
-    (r"\b(?:COLOR|THEME|TYPOGRAPHY|SPACING|TIMING|FONT_FAMILY|ICONS|SHADOW|MEDIA|GRID|ANIMATION|RESET|GRADIENT)\s*[=:{]", "FORBIDDEN: UPPERCASE design system keys are banned — use lowercase (color, theme, typography, spacing, etc.) (Rule 0)"),
-    (r"'@\w+\s+[:.]", "FORBIDDEN: Never chain CSS selectors — use nesting: '@dark': { ':hover': {} } not '@dark :hover' (Rule 44)"),
-    # Modern smbls stack enforcement
-    (r"\bwindow\.fetch\b", "FORBIDDEN: Never call window.fetch directly in components — use the declarative fetch: prop (@symbo.ls/fetch) or wrap in functions/ + el.call (Rule 47)"),
-    (r"\baxios\s*\.\s*\w+\(", "FORBIDDEN: Never use axios in components — use the declarative fetch: prop (@symbo.ls/fetch) or functions/ + el.call (Rule 47)"),
-    (r"\$\.ajax\s*\(", "FORBIDDEN: jQuery-style ajax is banned — use the declarative fetch: prop (@symbo.ls/fetch) (Rule 47)"),
-    (r"document\.title\s*=", "FORBIDDEN: Never set document.title directly — define metadata via @symbo.ls/helmet (metadata: { title: ... }) (Rule 49)"),
-    (r"document\.head\.append", "FORBIDDEN: Never inject into document.head — use @symbo.ls/helmet metadata (Rule 49)"),
-    (r"document\.documentElement\.setAttribute\s*\(\s*['\"]data-theme", "FORBIDDEN: Never write data-theme directly — use changeGlobalTheme() from @symbo.ls/scratch (Rule 50)"),
-    (r"matchMedia\s*\(\s*['\"]\(prefers-color-scheme", "FORBIDDEN: Never read prefers-color-scheme manually — the framework owns theme resolution (Rule 50). Use @dark / @light CSS blocks instead."),
-    (r"globalTheme\s*:\s*['\"](?:dark|light)['\"]", "FORBIDDEN: Never store globalTheme in root state — it is a context-level concern (Rule 50)"),
-    (r"\.addEventListener\s*\(\s*['\"]storage['\"]", "FORBIDDEN: No raw 'storage' event listeners in components — use el.scope cleanup or a functions/ helper (Rule 30)"),
-    (r"localStorage\s*\.\s*(?:setItem|getItem|removeItem)", "WARNING: Direct localStorage in components is discouraged — for language use el.call('setLang', …) (polyglot persists), for theme use changeGlobalTheme(), for app data use state + fetch plugin's local adapter (Rule 47/48/50)"),
-    # Polyglot enforcement (flag obvious user-facing English strings — heuristic)
-    (r"placeholder\s*:\s*['\"][A-Z][a-z]+\s+[a-z]+", "WARNING: User-facing placeholder appears hardcoded — wrap in '{{ key | polyglot }}' template or use el.call('polyglot', 'key'). NOTE: there is NO `t` or `tr` function — only `polyglot`. (Rule 48)"),
-    # Direct el.node writes (re-statement, more explicit)
-    (r"el\.node\.value\s*=\s*", "FORBIDDEN: Never assign to el.node.value directly — use the value: prop (Rule 32/39)"),
-    (r"el\.node\.style\b", "WARNING: Direct el.node.style access — prefer DOMQL CSS-in-props. Reading is fine; writing is not (Rule 39)"),
-    # el.scope is for instance-local non-reactive storage; el.fetch is reserved by the framework
-    (r"\.fetch\s*=\s*function", "WARNING: Element method 'fetch' is reserved by @symbo.ls/fetch — declare custom helpers in functions/ instead"),
-    # Raw HTML composition is banned (Rule 31)
-    (r"=>\s*`<\w+", "FORBIDDEN: Reactive prop function returning a template-literal HTML string is banned — use DOMQL children, text:, if: (Rule 31)"),
-    (r"^\s*const\s+(?!_)[a-z]\w*\s*=\s*\([^)]*\)\s*=>", "WARNING: Module-level helper outside the export is lost during platform serialization — move to functions/ and call via el.call() (Rule 33)"),
-]
 
 
 # ---------------------------------------------------------------------------
@@ -552,27 +547,73 @@ def _build_changes_and_schema(data: dict) -> tuple[list, list, list]:
 
 
 def _audit_code(code: str) -> dict:
-    """Run deterministic compliance checks on component code."""
+    """Run frank-audit's content audit on a single source string.
+
+    Delegates to @symbo.ls/frank-audit (Node CLI) — single source of truth
+    for Symbols audit rules. Falls back to an empty-result structure if
+    frank-audit is unreachable, with a clear `unavailable` flag so callers
+    can warn the user rather than silently passing.
+    """
+    # Use audit-content via the CLI: stdin = code, args ask for the inline
+    # form. Older frank-audit versions don't expose a CLI subcommand for
+    # pure content (stdin in), so we work around by writing to a temp file.
+    # New (preferred): use the HTTP server's /audit-content endpoint when
+    # FRANK_AUDIT_URL is set. Otherwise temp-file via the fs CLI.
+    import tempfile
+    if FRANK_AUDIT_URL:
+        try:
+            r = httpx.post(f"{FRANK_AUDIT_URL}/audit-content", json={"code": code, "file": "<inline>"}, timeout=15)
+            r.raise_for_status()
+            payload = r.json()
+            return _convert_findings_to_legacy(payload)
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning("frank-audit HTTP audit-content failed: %s", e)
+            # fall through to CLI
+
+    # Write code to a temp file in a dummy components/ dir so the CLI sees it
+    with tempfile.TemporaryDirectory(prefix="frank-audit-") as tmp:
+        comp_dir = Path(tmp) / "components"
+        comp_dir.mkdir()
+        (comp_dir / "Inline.js").write_text(code, encoding="utf-8")
+        (Path(tmp) / "state.js").write_text("export default {}", encoding="utf-8")
+        result = _run_frank_audit("audit", str(tmp))
+
+    return _convert_findings_to_legacy(result)
+
+
+def _convert_findings_to_legacy(payload: dict) -> dict:
+    """Convert frank-audit JSON payload to the legacy {violations,warnings,score}
+    shape audit_component callers expect."""
+    if payload.get("ok") is False:
+        err = payload.get("error", {})
+        return {
+            "passed": False,
+            "score": 0,
+            "violations": [{
+                "line": 0,
+                "severity": "error",
+                "message": f"[frank-audit unavailable: {err.get('code', 'unknown')}] {err.get('message', '')}",
+            }],
+            "warnings": [],
+            "summary": f"frank-audit unavailable: {err.get('code', 'unknown')}",
+            "unavailable": True,
+        }
+    findings = payload.get("findings", [])
     violations = []
     warnings = []
-
-    for pattern, message in _V2_PATTERNS:
-        matches = list(re.finditer(pattern, code))
-        for m in matches:
-            line_num = code[:m.start()].count("\n") + 1
-            violations.append({"line": line_num, "severity": "error", "message": message})
-
-    for pattern, message in _RULE_CHECKS:
-        matches = list(re.finditer(pattern, code))
-        for m in matches:
-            line_num = code[:m.start()].count("\n") + 1
-            level = "error" if "FORBIDDEN" in message else "warning"
-            target = violations if level == "error" else warnings
-            target.append({"line": line_num, "severity": level, "message": message})
-
+    for f in findings:
+        sev = f.get("severity")
+        entry = {
+            "line": f.get("line", 0),
+            "severity": "error" if sev == "critical" else "warning",
+            "message": f"[{f.get('ruleId')}] {f.get('message')}",
+        }
+        if sev == "critical":
+            violations.append(entry)
+        else:
+            warnings.append(entry)
     total_issues = len(violations) + len(warnings)
     score = max(1, 10 - total_issues)
-
     return {
         "passed": len(violations) == 0,
         "score": score,
@@ -595,6 +636,8 @@ def get_project_rules() -> str:
     - FRAMEWORK.md (authoritative — project structure, plugins, theming, SSR, publish)
     - DESIGN_SYSTEM.md (authoritative — design-system contract + token catalog)
     - RULES.md (62 strict rules — flat API, signal reactivity, design tokens, polyglot, fetch, helmet, theme, reusability, icons)
+    - FRANKABILITY.md (every `@symbo.ls/frank-audit` rule with wrong vs canonical examples — patterns that survive frank.toJSON serialization, so generated code is provably frankable from the start)
+    - FRANK_FIX_WORKFLOW.md (LLM reference card for the prescription → edit-op flow — the strict 8-kind contract for `apply_frankability_edit_ops`)
     - DEFAULT_PROJECT.md (recommended baseline design-system values + the default-library catalog)
 
     Violations cause silent failures — black page, nothing renders, or a working app
@@ -606,8 +649,10 @@ def get_project_rules() -> str:
     framework = _read_skill("FRAMEWORK.md")
     design_system = _read_skill("DESIGN_SYSTEM.md")
     rules = _load_agent_instructions()
+    frankability = _read_skill("FRANKABILITY.md")
+    frank_fix_workflow = _read_skill("FRANK_FIX_WORKFLOW.md")
     default_project = _read_skill("DEFAULT_PROJECT.md")
-    return f"{framework}\n\n---\n\n{design_system}\n\n---\n\n{rules}\n\n---\n\n{default_project}"
+    return f"{framework}\n\n---\n\n{design_system}\n\n---\n\n{rules}\n\n---\n\n{frankability}\n\n---\n\n{frank_fix_workflow}\n\n---\n\n{default_project}"
 
 
 @mcp.tool()
@@ -663,7 +708,7 @@ def generate_component(
         description: What the component should do and look like.
         component_name: PascalCase name for the component.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "MODERN_STACK.md", "COOKBOOK.md", "DEFAULT_PROJECT.md")
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COOKBOOK.md", "DEFAULT_PROJECT.md")
     return f"""# Generate Component: {component_name}
 
 ## Description
@@ -736,7 +781,7 @@ def generate_page(
     context = _read_skills(
         "FRAMEWORK.md", "DESIGN_SYSTEM.md",
         "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md",
-        "MODERN_STACK.md",
+        "MODERN_STACK.md", "FRANKABILITY.md",
         "PATTERNS.md", "SNIPPETS.md", "COMPONENTS.md", "DEFAULT_PROJECT.md",
     )
     return f"""# Generate Page: {page_name}
@@ -796,7 +841,7 @@ def convert_react(source_code: str) -> str:
     Args:
         source_code: The React/JSX source code to convert.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "MIGRATION.md", "SYNTAX.md", "MODERN_STACK.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "MIGRATION.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
     return f"""# Convert React → Symbols DOMQL
 
 ## Source Code to Convert
@@ -844,7 +889,7 @@ def convert_html(source_code: str) -> str:
     Args:
         source_code: The HTML/CSS source code to convert.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
+    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
     return f"""# Convert HTML → Symbols DOMQL
 
 ## Source Code to Convert
@@ -954,6 +999,400 @@ Passed: {'Yes' if result['passed'] else 'No'}
 
 
 @mcp.tool()
+async def audit_and_fix_frankability(
+    symbols_dir: str,
+    mode: str = "report",
+    aggressive: bool = False,
+    max_iterations: int = 20,
+    ctx: Context = None,
+) -> str:
+    """Run frank-audit and optionally apply fixes — supports a sampling-driven
+    LLM loop that resolves findings the mechanical fixer can't safely handle.
+
+    Modes:
+      'report'    — run audit, list findings, do not modify files
+      'safe-fix'  — apply mechanical fixes with verify-or-rollback safety
+                    (every applied fix is verified against frank.toJSON; regressions roll back)
+      'full'      — run safe-fix first, THEN drive an LLM loop via MCP sampling
+                    over the remaining prescriptions:
+                      1. prescribe_frankability_fixes(dir) → JSON prescriptions
+                      2. for each prescription (capped by max_iterations):
+                         a. ctx.session.create_message() with the strict
+                            edit-op contract prompt
+                         b. parse the LLM's JSON response
+                         c. apply_frankability_edit_ops with verify-or-rollback
+                         d. one retry on malformed JSON
+                      3. report aggregate (mechanical + LLM fixes)
+                    Requires the host to support MCP sampling (Claude Code does;
+                    some hosts don't — falls back gracefully to safe-fix mode
+                    with a warning when ctx.session is unavailable).
+
+    Args:
+        symbols_dir: Absolute path to the symbols/ directory.
+        mode: 'report' | 'safe-fix' | 'full'
+        aggressive: With safe-fix or full, also apply medium-confidence fixes.
+        max_iterations: Cap on LLM-driven prescriptions in 'full' mode (default 20).
+
+    Returns: JSON-stringified result with schema, opId, findings, applied/skipped,
+             rolledBack, baseline, finalState, and (in 'full' mode) llmRounds[].
+    """
+    if mode not in ("report", "safe-fix", "full"):
+        return json.dumps({"ok": False, "error": {"code": "E_BAD_MODE", "message": "mode must be 'report' | 'safe-fix' | 'full'"}})
+
+    audit_result = _run_frank_audit("audit", symbols_dir)
+    if audit_result.get("ok") is False:
+        return json.dumps(audit_result, indent=2)
+
+    if mode == "report":
+        return json.dumps(audit_result, indent=2)
+
+    # safe-fix and full both run the mechanical fix first
+    fix_args = ["fix", symbols_dir]
+    if aggressive:
+        fix_args.append("--aggressive")
+    fix_result = _run_frank_audit(*fix_args)
+    if fix_result.get("ok") is False:
+        return json.dumps(fix_result, indent=2)
+
+    if mode == "safe-fix":
+        return json.dumps(fix_result, indent=2)
+
+    # mode == "full": LLM-driven prescription loop via MCP sampling
+    if ctx is None or not hasattr(ctx, "session") or ctx.session is None:
+        # Sampling unavailable — return safe-fix result with a note
+        fix_result["llmLoopSkipped"] = "MCP sampling not available in this host; call prescribe_frankability_fixes + apply_frankability_edit_ops manually"
+        return json.dumps(fix_result, indent=2)
+
+    rx_payload = _run_frank_audit("prescriptions", symbols_dir)
+    if rx_payload.get("ok") is False:
+        return json.dumps({**fix_result, "prescriptionsError": rx_payload.get("error")}, indent=2)
+
+    prescriptions = rx_payload.get("prescriptions", [])[:max_iterations]
+    llm_rounds = []
+    llm_applied = 0
+    llm_skipped = 0
+    llm_errors = 0
+
+    for rx in prescriptions:
+        round_result = await _run_llm_prescription_round(symbols_dir, rx, ctx)
+        llm_rounds.append(round_result)
+        if round_result.get("status") == "applied":
+            llm_applied += 1
+        elif round_result.get("status") == "skipped":
+            llm_skipped += 1
+        else:
+            llm_errors += 1
+
+    return json.dumps({
+        **fix_result,
+        "llmRounds": llm_rounds,
+        "llmSummary": {
+            "prescriptionsConsidered": len(prescriptions),
+            "applied": llm_applied,
+            "skipped": llm_skipped,
+            "errors": llm_errors,
+        },
+    }, indent=2)
+
+
+def _build_prescription_prompt(rx: dict) -> str:
+    """The LLM-facing prompt for one prescription. Strict JSON output expected."""
+    finding = rx.get("finding", {})
+    src = rx.get("sourceContext") or []
+    related = rx.get("relatedFiles") or []
+
+    src_lines = "\n".join(
+        f"{l['line']:>5}  {'> ' if l.get('isFinding') else '  '}{l['text']}"
+        for l in src
+    ) if src else "(no source context available)"
+
+    related_lines = "\n".join(
+        f"  - {r['file']}:{r['line']} ({r['role']})"
+        for r in related[:8]
+    ) if related else "  (none)"
+
+    return f"""You are applying ONE Symbols-project fix. Return JSON only.
+
+# Finding
+Rule: {finding.get('ruleId')} ({finding.get('ruleName', '')})
+File: {finding.get('file')}:{finding.get('line')}
+Severity: {finding.get('severity')} · Confidence: {finding.get('confidence')} · Risk: {finding.get('risk')}
+Message: {finding.get('message')}
+Refusal reason: {finding.get('refusalReason') or '(automated fixer refused — needs LLM judgment)'}
+
+# Source context
+{src_lines}
+
+# Related files
+{related_lines}
+
+# Edit-op contract (STRICT — return ONLY this shape)
+{{
+  "ops": [
+    // one or more of these op kinds:
+    {{ "kind": "removeImport",       "file": "...", "specifier": "...", "source": "..." }},
+    {{ "kind": "moveFile",           "from": "...", "to": "..." }},
+    {{ "kind": "addToIndexFile",     "dir": "...", "filename": "..." }},
+    {{ "kind": "addToGlobalScope",   "name": "...", "value": <json>, "valueIsCode": false }},
+    {{ "kind": "removeTopLevelDecl", "file": "...", "name": "..." }},
+    {{ "kind": "addElementScope",    "file": "...", "componentName": "...", "key": "...", "value": <json>, "valueIsCode": false }},
+    {{ "kind": "replaceTokenValue",  "file": "...", "line": <n>, "oldValue": "...", "newValue": "..." }},
+    {{ "kind": "skip",               "reason": "..." }}
+  ],
+  "reasoning": "one sentence on what you decided and why"
+}}
+
+Decision protocol:
+- If you can determine a safe fix → emit ops that resolve the finding.
+- If intent is unclear or context is insufficient → emit a single skip op with a reason.
+- NEVER return prose outside the JSON. NEVER invent op kinds. NEVER embed JS in `value` unless you also set `valueIsCode: true`.
+
+Frank-audit will validate every op before applying. Verify-or-rollback runs after — you don't need to verify yourself."""
+
+
+async def _run_llm_prescription_round(symbols_dir: str, rx: dict, ctx) -> dict:
+    """One sampling round: prompt the LLM, parse, validate, apply. Returns
+    a structured round-result for the caller's report."""
+    from mcp.types import SamplingMessage, TextContent
+
+    prompt = _build_prescription_prompt(rx)
+    rx_id = rx.get("id", "unknown")
+
+    # Sampling call. One retry on malformed JSON (max 2 attempts total).
+    parsed_ops = None
+    last_error = None
+    raw_response = None
+    for attempt in range(2):
+        try:
+            msg = SamplingMessage(role="user", content=TextContent(type="text", text=prompt))
+            result = await ctx.session.create_message(
+                messages=[msg],
+                max_tokens=2000,
+                system_prompt="You are a focused codemod. Output only the JSON object specified. No prose.",
+            )
+            raw_response = result.content.text if hasattr(result.content, "text") else str(result.content)
+            try:
+                parsed_ops = json.loads(raw_response)
+                break
+            except json.JSONDecodeError as e:
+                last_error = f"malformed JSON: {e}"
+                if attempt == 0:
+                    # Re-prompt with the validator error
+                    prompt = prompt + f"\n\n# Your previous output was invalid JSON: {e}. Return JSON only."
+                    continue
+        except Exception as e:  # pylint: disable=broad-except
+            last_error = f"sampling failed: {e}"
+            break
+
+    if parsed_ops is None:
+        return {"prescriptionId": rx_id, "status": "error", "reason": last_error or "sampling produced no ops"}
+
+    ops = parsed_ops.get("ops") if isinstance(parsed_ops, dict) else parsed_ops
+    if not isinstance(ops, list) or not ops:
+        return {"prescriptionId": rx_id, "status": "error", "reason": "LLM emitted no ops"}
+
+    # Special case: single skip op
+    if len(ops) == 1 and ops[0].get("kind") == "skip":
+        return {
+            "prescriptionId": rx_id,
+            "status": "skipped",
+            "reason": ops[0].get("reason", "LLM declined to fix"),
+            "llmReasoning": parsed_ops.get("reasoning"),
+        }
+
+    # Apply via subprocess. Write to temp file.
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump({"ops": ops}, tmp)
+        ops_path = tmp.name
+    try:
+        apply_result = _run_frank_audit("apply-edits", symbols_dir, "--ops", ops_path)
+    finally:
+        try: os.unlink(ops_path)
+        except OSError: pass
+
+    if apply_result.get("ok") is False:
+        return {
+            "prescriptionId": rx_id,
+            "status": "error",
+            "reason": apply_result.get("error", {}).get("message", "apply-edits failed"),
+            "llmReasoning": parsed_ops.get("reasoning"),
+        }
+    if apply_result.get("rolledBack"):
+        return {
+            "prescriptionId": rx_id,
+            "status": "skipped",
+            "reason": "applied edit ops would have regressed against baseline — rolled back",
+            "llmReasoning": parsed_ops.get("reasoning"),
+            "baseline": apply_result.get("baseline"),
+            "finalState": apply_result.get("finalState"),
+        }
+    return {
+        "prescriptionId": rx_id,
+        "status": "applied",
+        "applied": apply_result.get("applied"),
+        "skipped": len(apply_result.get("skipped", [])),
+        "llmReasoning": parsed_ops.get("reasoning"),
+        "opCount": len(ops),
+    }
+
+
+@mcp.tool()
+def prescribe_frankability_fixes(symbols_dir: str) -> str:
+    """Generate LLM-ready prescriptions for frank-audit findings that can't be auto-fixed.
+
+    Each prescription contains:
+      - finding (rule, file, line, refusal reason)
+      - sourceContext (~30 lines around the finding)
+      - relatedFiles (other places that mention the same symbol)
+      - **proposedOps** — array of edit ops the rule's helper logic produced
+        (e.g. FA304 already mapped 36px → 'C2' from the project's spacing
+        scale; FA301 already matched the closest palette token). The agent
+        can submit these verbatim to apply_frankability_edit_ops, or modify
+        before submitting.
+      - explanation (the rule's docs)
+      - safetyCheck (verify command run after apply)
+
+    Workflow for the agent:
+      1. Call this tool to get prescriptions.
+      2. Inspect each `proposedOps` array. Either submit verbatim or modify.
+         For findings with no proposedOps (structural refactors like FA2xx
+         multifile-helpers, FA5xx DOM bans), construct your own ops from
+         the 12 strict op kinds:
+           removeImport | moveFile | addToIndexFile | addToGlobalScope |
+           removeTopLevelDecl | addElementScope | replaceTokenValue |
+           renameObjectKey | removeObjectKey | setObjectProperty |
+           addDesignToken | skip
+      3. Call apply_frankability_edit_ops(symbols_dir, ops) — frank-audit
+         validates every op, snapshots, applies, runs verify, rolls back on
+         regression. Failed ops return structured details (E_OLDVALUE_NOT_FOUND
+         with actualLine, E_KEY_NOT_FOUND with availableKeys, etc.) so you
+         can retry intelligently.
+      4. Repeat until prescriptions are exhausted or no progress.
+
+    Args:
+        symbols_dir: Absolute path to the symbols/ directory.
+
+    Returns: JSON with schema version, opId, list of prescriptions.
+    """
+    return json.dumps(_run_frank_audit("prescriptions", symbols_dir), indent=2)
+
+
+@mcp.tool()
+def apply_frankability_edit_ops(symbols_dir: str, ops_json: str) -> str:
+    """Apply LLM-generated edit ops to a Symbols project with verify-or-rollback.
+
+    Pass `ops_json` as a JSON string of either:
+      - { "ops": [...] }
+      - or just an array of op objects.
+
+    Each op must be one of the 8 strict kinds (see prescribe_frankability_fixes).
+    The applier validates every op, snapshots affected files, applies, runs
+    frank.toJSON to verify, and rolls back if the result regresses against
+    the pre-apply state.
+
+    Args:
+        symbols_dir: Absolute path to the symbols/ directory.
+        ops_json: JSON string containing the edit ops.
+
+    Returns: JSON with applied/skipped/rolledBack/baseline/finalState.
+    """
+    import tempfile
+    try:
+        ops = json.loads(ops_json)
+    except json.JSONDecodeError as e:
+        return json.dumps({"ok": False, "error": {"code": "E_BAD_JSON", "message": f"ops_json is not valid JSON: {e}"}})
+    # Write to temp file for the CLI
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump(ops, tmp)
+        ops_path = tmp.name
+    try:
+        return json.dumps(_run_frank_audit("apply-edits", symbols_dir, "--ops", ops_path), indent=2)
+    finally:
+        try: os.unlink(ops_path)
+        except OSError: pass
+
+
+@mcp.tool()
+def verify_frankability(symbols_dir: str) -> str:
+    """Verify a Symbols project bundles cleanly via frank.toJSON.
+
+    Independent of audit/fix — runs the same round-trip that apply-edits uses
+    after every mutation, but as a standalone check. Useful for the agent to
+    confirm a project is in a known-good state before starting a fix loop, or
+    after a series of manual edits.
+
+    Returns: JSON with { ok, bundleable, scanIssues, ... }.
+    """
+    return json.dumps(_run_frank_audit("verify", symbols_dir), indent=2)
+
+
+@mcp.tool()
+def rollback_frankability(symbols_dir: str, op_id: str) -> str:
+    """Restore a Symbols project to its state before a specific op ran.
+
+    Every apply-edits run snapshots affected files under
+    `<symbols_dir>/.frank-audit/snapshots/<opId>/` before mutating. Use this
+    to undo a specific op (or a chain by walking backwards through opIds
+    listed by `snapshots_frankability`).
+
+    Args:
+        symbols_dir: Absolute path to the symbols/ directory.
+        op_id: The opId to roll back to (from a prior apply-edits result).
+
+    Returns: JSON with { ok, restored: [...filePaths], opId }.
+    """
+    return json.dumps(_run_frank_audit("rollback", op_id, symbols_dir), indent=2)
+
+
+@mcp.tool()
+def snapshots_frankability(symbols_dir: str) -> str:
+    """List recent snapshotted opIds for a Symbols project.
+
+    Each entry corresponds to a frank-audit op that wrote files. Pass an
+    opId to `rollback_frankability` to restore that op's pre-state.
+
+    Returns: JSON with { ok, opIds: [{ opId, timestamp, files }] }.
+    """
+    return json.dumps(_run_frank_audit("snapshots", symbols_dir), indent=2)
+
+
+@mcp.tool()
+def frankability_log(symbols_dir: str, limit: int = 50) -> str:
+    """Tail the audit log for a Symbols project.
+
+    Returns the most recent NDJSON entries from `<symbols_dir>/.frank-audit/log`.
+    Each entry records audit/fix/apply-edits/rollback events with opId,
+    timestamp, and outcome — useful for understanding history without
+    re-running ops.
+
+    Args:
+        symbols_dir: Absolute path to the symbols/ directory.
+        limit: Maximum number of entries to return (default 50).
+
+    Returns: JSON with { ok, entries: [...] }.
+    """
+    return json.dumps(_run_frank_audit("log", "--limit", str(limit), symbols_dir), indent=2)
+
+
+@mcp.tool()
+def explain_frankability_rule(rule_id: str) -> str:
+    """Return the documentation block for a specific frank-audit rule.
+
+    Each rule (FA001 through FA902) has an `explain()` method that returns a
+    human-readable description, examples of the bad/good patterns, and the
+    rationale. Use this when an agent encounters an unfamiliar finding and
+    needs context before deciding on a fix.
+
+    Args:
+        rule_id: The rule ID (e.g. 'FA301', 'FA806').
+
+    Returns: JSON with { ok, ruleId, name, severity, description, explanation }.
+    """
+    return json.dumps(_run_frank_audit("explain", rule_id), indent=2)
+
+
+@mcp.tool()
 def get_cli_reference() -> str:
     """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`).
 
@@ -970,7 +1409,7 @@ def get_cli_reference() -> str:
 
 @mcp.tool()
 def get_sdk_reference() -> str:
-    """Returns the complete `@symbo.ls/sdk` v4 API reference.
+    """Returns the complete `@symbo.ls/sdk` API reference (3.14.0).
 
     Mirrors `sdk/SDK_FOR_MCP.md`. Covers all 24 services with full method lists:
     auth, collab, project, plan, subscription, file, payment, dns, branch, pullRequest,
@@ -2066,7 +2505,7 @@ def get_cli() -> str:
 
 @mcp.resource("symbols://skills/sdk")
 def get_sdk() -> str:
-    """`@symbo.ls/sdk` v4 — all 24 services + lifecycle, BaseService contract, TokenManager, environment matrix, rootBus, validation surface, federation primitive, permissions reference. Authoritative; mirrors sdk/SDK_FOR_MCP.md."""
+    """`@symbo.ls/sdk` (3.14.0) — all 24 services + lifecycle, BaseService contract, TokenManager, environment matrix, rootBus, validation surface, federation primitive, permissions reference. Authoritative; mirrors sdk/SDK_FOR_MCP.md."""
     return _read_skill("SDK.md")
 
 
@@ -2092,6 +2531,18 @@ def get_shared_libraries() -> str:
 def get_common_mistakes() -> str:
     """Common mistakes reference — wrong vs correct DOMQL patterns (flat el.X, flat onX, design tokens, polyglot, fetch, helmet) with zero tolerance."""
     return _read_skill("COMMON_MISTAKES.md")
+
+
+@mcp.resource("symbols://skills/frankability")
+def get_frankability() -> str:
+    """**FRANKABILITY CONTRACT** — patterns that survive `frank.toJSON` serialization. Lists every rule from `@symbo.ls/frank-audit` (sibling-imports, module-scope state, factory closures, flat-syntax, scope movers) with the wrong pattern and the canonical replacement. Read this before generating any component or page so the output starts frankable. Frank's bundle-time fixer recovers many violations automatically; frank-audit (`smbls frank-audit` / `--fix`) cleans the source so what you commit matches what ships."""
+    return _read_skill("FRANKABILITY.md")
+
+
+@mcp.resource("symbols://skills/frank-fix-workflow")
+def get_frank_fix_workflow() -> str:
+    """**LLM REFERENCE CARD** for the frank-audit prescription → edit-op flow. Documents the 3-tool sequence (`audit_and_fix_frankability` → `prescribe_frankability_fixes` → `apply_frankability_edit_ops`), the strict 8-kind edit-op JSON contract (`removeImport`, `moveFile`, `addToIndexFile`, `addToGlobalScope`, `removeTopLevelDecl`, `addElementScope`, `replaceTokenValue`, `skip`), the decision protocol per prescription, validation feedback codes, the verify-or-rollback safety guarantee, and a worked FA205 factory-closure example. Read this when answering frank-audit prescriptions — the orchestrator parses your reply as a single JSON object."""
+    return _read_skill("FRANK_FIX_WORKFLOW.md")
 
 
 @mcp.resource("symbols://reference/spacing-tokens")

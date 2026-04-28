@@ -687,7 +687,7 @@ spacing: { ratio: 1.618, subSequence: true }
 
 ### `flow:` and `align:` shorthands
 
-Both are valid in v4+ (resolved by the shorthand plugin / scratch transforms):
+Both are valid (resolved by the shorthand plugin / scratch transforms):
 
 - `flow: 'y'` ≡ `flexFlow: 'column'`
 - `flow: 'x'` ≡ `flexFlow: 'row'`

@@ -1,4 +1,4 @@
-# Modern smbls Stack — `fetch` / `polyglot` / `helmet` / `router` / `scratch`
+# Modern smbls Stack — `fetch` / `polyglot` / `helmet` / `router` / `scratch` / `analyze`
 
 Every non-trivial Symbols app uses this coherent set of plugins. Each plugin replaces an entire class of imperative one-offs with a declarative prop or function call. **NEVER reimplement what these plugins already do** — that's a "no hacks, no workarounds" violation.
 
@@ -14,6 +14,7 @@ Every non-trivial Symbols app uses this coherent set of plugins. Each plugin rep
 | `@symbo.ls/router` | SPA routing, guards, dynamic params, query parsing, scroll mgmt | `el.router(path, el.getRoot())` + `routes:` map | Rule 42 |
 | `@symbo.ls/scratch` (theme runtime) | Design system runtime, `changeGlobalTheme()` | `changeGlobalTheme(name, targetConfig?)` (import from `smbls`) + `context.globalTheme` | Rule 50 |
 | `@symbo.ls/brender` | SSR / SSG static rendering with prefetch and hydration | `smbls brender` CLI + `renderPage(data, route, opts)` | (helmet + fetch are prefetched here) |
+| `@symbo.ls/analyze` | Runtime audit logger — errors, warnings, browser events, network, session replay | `analyze: true|{...}` on `create()` + `context.analyze.query()` | (errors/warnings on by default; browser/network opt-in) |
 
 ---
 
@@ -684,6 +685,125 @@ Param routes (`/blog/:id`) are skipped during static generation — they require
 
 ---
 
+## `@symbo.ls/analyze` — runtime audit logger
+
+Errors, warnings, lifecycle traces, browser events, network calls, and session replay. Designed for smbls's declarative model so the runtime is the source of truth.
+
+Auto-registered when `analyze: true|{...}` is passed to `create()`. **Errors and warnings are on by default**; everything else is opt-in.
+
+```js
+import { create } from 'smbls'
+
+create(App, {
+  analyze: true   // → errors + warnings, redact → enrich → summarize → [console, memory]
+})
+```
+
+### What gets captured
+
+| Category | Default | Notes |
+|---|---|---|
+| `errors` | **on** | `window.onerror`, `unhandledrejection`, lifecycle handler throws, `el.error()` |
+| `warnings` | **on** | `el.warn()` and framework warnings |
+| `pointer` | off | clicks, throttled pointermove, contextmenu |
+| `keyboard` | off | key codes + modifiers, never values |
+| `forms` | off | input/change/submit; values masked by default |
+| `scroll` | off | throttled |
+| `viewport` | off | resize, orientationchange, visibilitychange + initial snapshot |
+| `network` | off | fetch + XHR + chained smbls fetch events (cache key, mode, durationMs) |
+| `performance` | off | LCP, CLS, INP, longtasks, paint |
+| `navigation` | off | route changes via `renderRouter` |
+| `console` | off | `console.{log,warn,error,debug}` proxy |
+| `lifecycle` / `state` / `updates` | debug only | smbls internals — high volume |
+
+### Hydration gate
+
+The plugin sits in `context.plugins` from creation but is **dormant** until `app.onCreate` fires (`packages/smbls/src/index.js`). At that point `context.analyze.activate(context)` runs:
+
+1. Drains the pre-ready buffer (only error events are buffered before activation)
+2. Attaches browser-event listeners (per the enabled categories)
+3. Wraps `window.fetch` and XHR (when network capture is on)
+
+Pre-hydration errors still surface. Pre-hydration `info`/`debug` events are dropped.
+
+### Network capture chains with `@symbo.ls/fetch`
+
+`runFetch` and `runMutation` in `plugins/fetch/index.js` call `context.analyze.emitNetwork({ phase, mode, from, method, cacheKey, durationMs, ... })` at start/success/error. The call is a no-op when analyze isn't installed, so projects without analyze pay nothing.
+
+When analyze is installed AND `network: true` is set, the events are smbls-aware (they include the cache key, mode, and lang suffix). `window.fetch` and XHR are also wrapped to catch non-smbls traffic.
+
+### Session replay (smbls-native)
+
+Conventional session replay (rrweb, FullStory) records DOM mutations. Because smbls owns the rendering pipeline, replay only needs:
+
+```
+replay payload  =  initial state snapshot
+                +  input event log (clicks, keys, forms, viewport)
+                +  state mutations  (the stateUpdate hook)
+```
+
+Restart the app with the snapshot, replay events in order, DOM regenerates itself. Tiny payload, perfect fidelity.
+
+```js
+analyze: {
+  level: 'info',
+  capture: { replay: true },
+  sinks: [{ type: 'memory', max: 5000 }]
+}
+// later: context.analyze.replay() → { initialSnapshot, events }
+```
+
+### Transformer pipeline + sinks
+
+```
+hook fires → build event → transformers[] → sinks[]
+```
+
+Built-in transformers (string names):
+- `redact` — always-first PII scrubber. Disable with `redact: false`.
+- `enrich` — adds session, route, viewport, app id (default).
+- `summarize` — replaces raw element refs and Error instances with safe slices (default).
+- `dedupe`, `sample` — opt-in.
+
+Built-in sinks:
+- `console` — pretty + color. Saves originals so console proxy doesn't recurse.
+- `memory` — ring buffer queryable via `context.analyze.query({ level, type, sinceMs })`.
+- `beacon` — batched POST + `sendBeacon` fallback on `pagehide`.
+
+### Debug mode
+
+```js
+analyze: { debug: true }                 // config
+// or URL param:
+//   ?analyze=debug   → enables lifecycle + state + updates + console capture
+//   ?analyze=off     → disables analyze entirely
+// or runtime:
+context.analyze.setLevel('debug')
+context.analyze.setCapture('updates', true)
+```
+
+### Element-core integration (load-bearing)
+
+Two small framework changes:
+
+1. `packages/element/src/create.js` — lifecycle handler throws now go through `triggerLifecycle('error', element, { hook, error })` instead of bare `console.error`. The framework still falls back to `console.error` when no plugin handled the hook.
+2. `packages/element/src/methods.js` — `el.warn()` and `el.error()` emit through `context.analyze` first, then fall through to the original env-gated console.warn / throw.
+
+`packages/utils/function.js` — `runPluginHook` now returns `true` when at least one plugin handled the hook.
+
+### Element targeting via `data-key`
+
+Click/key/form events reference the DOMQL key path (e.g. `App > Sidebar > MenuItem_3`) by walking up `data-key` DOM attributes (set by element/create.js for every keyed element). Stable across renders. Falls back to a CSS selector when the node isn't owned by a DOMQL tree.
+
+### Privacy defaults
+
+- `redact` always runs first; cannot be reordered.
+- `<input type="password">`, `<input type="hidden">`, and fields matching `/email|token|secret|ssn|card|cvv|pin|otp/i` are never recorded.
+- Form values masked by default. Opt in per-field with `data-analyze="track"`. Never track with `data-analyze="skip"`.
+- Mask strategies: `'mask'` (`***`), `'hash'` (`#<hex>`), `'redact'` (drop the field entirely).
+
+---
+
 ## Strict no-hacks rule
 
 If a framework feature already exists for a problem, you MUST use it:
@@ -694,5 +814,6 @@ If a framework feature already exists for a problem, you MUST use it:
 - Need to navigate? → `el.router()` (NOT `window.location`)
 - Need to switch theme? → `changeGlobalTheme()` (NOT `setAttribute('data-theme')`)
 - Need to render server-side? → brender (NOT custom SSR)
+- Need observability? → analyze (NOT `try/catch` + `console.error` everywhere)
 
 If the framework feature has a gap, **fix the framework** — don't paper over it in the project (per CLAUDE.md "no hacks, no workarounds").

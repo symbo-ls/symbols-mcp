@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Symbols.app project — agent rules
 
-This is a Symbols.app / DOMQL v4 project. The `symbols-mcp` MCP server is the source of truth for framework rules, syntax, design system, audit playbook, and platform tools.
+This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP server is the source of truth for framework rules, syntax, design system, audit playbook, and platform tools.
 
 ## Required workflow
 

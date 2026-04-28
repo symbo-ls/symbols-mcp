@@ -1021,3 +1021,52 @@ db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_
 // dependencies.js
 export default { '@supabase/supabase-js': 'latest' }
 ```
+
+---
+
+## 34. Shared library `destDir:` clobbers a real source folder — use `link:` instead
+
+`destDir: "../brand"` in `symbols.json.sharedLibraries` does NOT mean "use this folder as source." It means **"scaffold the cloud payload INTO this folder"** — and `scaffoldSharedLibraries` calls `toFS(lib, libDir, { overwrite: true })` on every fetch. If `../brand` is a real source-of-truth folder, fetch will overwrite it.
+
+```json
+// ❌ Wrong — pointing destDir at a real source clobbers it on next fetch
+{ "sharedLibraries": { "acme/brand": { "destDir": "../brand" } } }
+
+// ✅ Right — `link` means "use this source, never write to it"
+{ "sharedLibraries": { "acme/brand": { "link": "../brand" } } }
+```
+
+Or use the CLI: `smbls libs link ../brand` (auto-derives the key from the target's `symbols.json` and writes both `symbols.json` and `sharedLibraries.js`).
+
+`destDir` is still legitimate when relocating a CLOUD scaffold target to a custom local path. It's only dangerous when pointed at a real source folder.
+
+See `SHARED_LIBRARIES.md` for the full mode model + drift detector.
+
+---
+
+## 35. `el.warn()` / `el.error()` and lifecycle throws now flow through the analyze plugin
+
+If `analyze: true` is set on `create()`:
+
+- `el.warn(...)` and `el.error(...)` emit through `context.analyze` BEFORE falling through to env-gated `console.warn` / throw.
+- Lifecycle handler throws (`onClick`, `onUpdate`, etc.) emit through `triggerLifecycle('error', element, { hook, error })` instead of bare `console.error`. The framework still falls back to `console.error` when no plugin handled the hook.
+
+This means the `try/catch + console.error` cargo cult that some legacy code used to "make sure errors show up" is actively counterproductive — it bypasses the analyze pipeline. Just let exceptions bubble; analyze captures them.
+
+```js
+// ❌ Wrong — bypasses analyze, ends up double-logged when analyze is on
+onClick: (e, el, s) => {
+  try { doRiskyThing() } catch (err) { console.error('Click failed:', err) }
+}
+
+// ✅ Right — let it throw; analyze captures with element context
+onClick: (e, el, s) => {
+  doRiskyThing()
+}
+
+// ✅ Also right — explicit warn through el.warn, which routes through analyze
+onClick: (e, el, s) => {
+  if (!s.user) return el.warn('No user — bailing')
+  doRiskyThing()
+}
+```
