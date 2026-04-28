@@ -1845,7 +1845,7 @@ Put a `package.json` at the root of the shared package directory with `"sideEffe
 ```json
 {
   "name": "@symbo.ls/editor-shared",
-  "version": "4.0.0",
+  "version": "3.14.0",
   "private": true,
   "type": "module",
   "main": "./context.js",

@@ -140,10 +140,23 @@ smbls project environments publish <env>      Publish project to a specific envi
 
 smbls project pipeline promote <from> <to>    Promote content between environments
 
-smbls project libs list                       List linked shared libs
+smbls project libs list                       List linked shared libs (cloud project record)
 smbls project libs available                  List available shared libs on platform
-smbls project libs add <lib...>               Add one or more shared libs
-smbls project libs remove <lib...>            Remove one or more shared libs
+smbls project libs add <lib...>               Add lib(s) — cloud project record only
+smbls project libs remove <lib...>            Remove lib(s) — cloud project record only
+```
+
+### Shared libraries (local + cloud, two-file sync)
+
+The top-level `smbls libs` group edits BOTH `symbols.json.sharedLibraries` AND `sharedLibraries.js` in lockstep, and best-effort syncs the cloud project record when authed. Prefer this over `smbls project libs ...` for new flows — it's a strict superset.
+
+```
+smbls libs status                             Show declared libs, JS imports, and drift
+smbls libs link <path>                        Link a sibling project as a shared library
+smbls libs unlink <key>                       Remove a linked entry
+smbls libs add <key>[@version]                Add cloud lib + run fetch + cloud-sync (if authed)
+smbls libs remove <key>                       Remove a lib (cloud or linked)
+smbls libs list                               List declared libs with their mode (linked/cloud)
 
 smbls project members list                    List project members
 smbls project members add <email>             Add existing user by email
@@ -387,7 +400,7 @@ Each subcommand file is registered by importing it in the `bin/<family>.js` pare
 - Don't manually `rm -rf .symbols_local/`. Use `smbls clean` (preserves credentials, removes stale snapshots/locks).
 - Don't pass auth tokens via `--token` flag in shared logs. Use `SYMBOLS_AUTH_TOKEN` env var instead — it doesn't appear in `ps`/process listings.
 - Don't use `--no-next` casually. It targets `api.symbols.app` (production), and any push/publish there is real-user-visible. Default to `next` for development.
-- Don't rely on the global `smbls` binary version matching the monorepo `@symbo.ls/cli@4.0.0` — they may drift. Use `smbls --version` to check.
+- Don't rely on the global `smbls` binary version matching the monorepo `@symbo.ls/cli@3.14.0` — they may drift. Use `smbls --version` to check.
 - Don't combine `--all` with `--env` on `smbls publish`. `--env` overrides `--all`; the combination silently uses `--env` only.
 
 ---

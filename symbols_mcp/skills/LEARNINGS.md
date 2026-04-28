@@ -238,7 +238,7 @@ A shared-package component referenced ONLY by DOMQL string-key lookup at runtime
 ```json
 {
   "name": "@symbo.ls/editor-shared",
-  "version": "4.0.0",
+  "version": "3.14.0",
   "private": true,
   "type": "module",
   "main": "./context.js",
@@ -661,3 +661,36 @@ Sidebar: { hide: (el, s) => !s.open }
 ```
 
 Use `hide` for toggling visibility. Use `if` for removing from DOM entirely. For animated show/hide, use the opacity pattern (see COMMON_MISTAKES #16).
+
+---
+
+## Lifecycle handler errors are now plugin-routed
+
+Before: `triggerLifecycle()` in `packages/element/src/create.js` swallowed handler throws with raw `console.error('[DOMQL] Lifecycle "${key}" error:', err)`.
+
+After: handler throws are routed through `triggerLifecycle('error', element, { hook, error })` so plugins (notably `@symbo.ls/analyze`) can capture them with full element context. The framework still falls back to `console.error` when no plugin handled the hook (`runPluginHook` now returns `true` when at least one plugin defined the named hook).
+
+Practical implication: `el.warn()` and `el.error()` calls also emit through `context.analyze` first, then fall through to the original env-gated console.warn / throw. So the analyze plugin sees both lifecycle throws AND explicit element warnings without any project-level plumbing.
+
+Files:
+- `packages/element/src/create.js` — `triggerLifecycle` catch block
+- `packages/element/src/methods.js` — `elWarn` / `elError` wrappers around `_warn` / `_error`
+- `packages/utils/function.js` — `runPluginHook` returns `boolean`
+
+---
+
+## `data-key` is the DOMQL → DOM back-reference
+
+Element/create.js sets `node.setAttribute('data-key', element.key)` for every keyed element. This is the **only** DOM-side marker that links a DOM node back to its DOMQL element identity. There is no `node.__ref.element` or `node.__domqlElement` — anything that walks a DOM event target up to find the owning DOMQL component must use `data-key`.
+
+The analyze plugin's browser-event capture builds key paths (e.g. `App > Sidebar > MenuItem_3`) by walking `parentNode` and reading each ancestor's `data-key`.
+
+---
+
+## sharedLibraries.js is the runtime authority; symbols.json is metadata
+
+The runtime imports and merges shared libraries from `<project>/sharedLibraries.js` (the ESM module). `symbols.json.sharedLibraries` is the metadata that describes what *should* be imported. They drift in real-world projects (see `workspace/packages/marketplace`, `workspace/packages/canvas` — both have hand-edited JS files that don't match the JSON declarations).
+
+`smbls libs status` is the drift detector. `smbls libs link <path>` writes both files in lockstep.
+
+Linked entries (`mode: 'linked'` via the new `link:` field) are **never** scaffolded by `smbls fetch` — `scaffoldSharedLibraries` skips them so the user-managed source folder is never clobbered. This is the safe alternative to `destDir:` (which scaffolds with `overwrite: true`).

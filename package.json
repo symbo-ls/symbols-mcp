@@ -1,10 +1,11 @@
 {
   "name": "@symbo.ls/mcp",
-  "version": "4.0.0",
+  "version": "3.14.0",
   "description": "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference",
   "mcpName": "io.github.symbo-ls/symbols-mcp",
   "files": [
     "bin/",
+    "lib/",
     "symbols_mcp/skills/",
     "templates/agent-rules/"
   ],
@@ -12,6 +13,11 @@
     "symbols-mcp": "./bin/symbols-mcp.js",
     "symbols-audit": "./bin/symbols-audit",
     "symbols-mcp-init-rules": "./bin/symbols-mcp-init-rules"
+  },
+  "exports": {
+    ".": "./bin/symbols-mcp.js",
+    "./lib/audit": "./lib/audit.js",
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",

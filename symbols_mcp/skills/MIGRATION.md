@@ -2,7 +2,7 @@
 
 Apply these transformation rules when migrating code. Each rule is a BEFORE/AFTER pair.
 
-> **Current target is v4 (smbls@4.0.0).** Most projects migrating from React/Vue/Angular jump straight to v4. Read Part 0 (v3 → v4) first if you're already on v3.
+> **Current target is v4 (smbls@3.14.0).** Most projects migrating from React/Vue/Angular jump straight to v4. Read Part 0 (v3 → v4) first if you're already on v3.
 
 ---
 
