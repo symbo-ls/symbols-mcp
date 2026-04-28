@@ -22,8 +22,22 @@ echo "Bumping $CURRENT → $NEW"
 
 # Update versions
 sed -i '' "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml
-sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/g" server.json
-sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW\"/" package.json
+
+# server.json: top-level + pypi entry track pyproject; npm entry tracks package.json
+NPM_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')
+python3 - <<EOF
+import json
+p = "server.json"
+d = json.load(open(p))
+d["version"] = "$NEW"
+for pkg in d.get("packages", []):
+    if pkg.get("registryType") == "pypi":
+        pkg["version"] = "$NEW"
+    elif pkg.get("registryType") == "npm":
+        pkg["version"] = "$NPM_VERSION"
+json.dump(d, open(p, "w"), indent=2)
+open(p, "a").write("\n")
+EOF
 
 # Build Python package
 rm -f dist/symbols_mcp-${CURRENT}*
@@ -38,8 +52,12 @@ fi
 uv publish --token "$TOKEN"
 
 # Publish to npm
-chmod +x bin/symbols-mcp.js
-npm publish --access public
+if [ -z "$SKIP_NPM" ]; then
+  chmod +x bin/symbols-mcp.js
+  npm publish --access public
+else
+  echo "Skipping npm publish (SKIP_NPM set)"
+fi
 
 # Generate .mcpb bundle
 ./generate-mcpb.sh
