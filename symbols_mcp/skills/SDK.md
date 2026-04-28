@@ -1,4 +1,4 @@
-# SDK_FOR_MCP — `@symbo.ls/sdk` v4.0.0
+# SDK_FOR_MCP — `@symbo.ls/sdk` v3.14.0
 
 Authoritative reference for any MCP server, automation agent, or programmatic
 consumer that drives `@symbo.ls/sdk`. Lists every public method on every
@@ -12,7 +12,7 @@ event bus, the federation primitive, and the validation surface.
 
 ## Quick reference
 
-- **Package**: `@symbo.ls/sdk` (v4.0.0)
+- **Package**: `@symbo.ls/sdk` (v3.14.0)
 - **Entry**: `src/index.js` exports `SDK` (default) + factory functions per service + `environment`
 - **Subpath exports**: `@symbo.ls/sdk/environment`, `@symbo.ls/sdk/federation`, `@symbo.ls/sdk/utils/services`
 - **Backends**: HTTP via `${apiUrl}/core/*`, WebSocket via `socketUrl`, Workspace data via `${apiUrl}/workspace/*`
