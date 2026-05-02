@@ -421,9 +421,44 @@ Files written:
 
 After running the command, open the project — every editor that supports MCP + project rules now bootstraps the workflow automatically. **No more "use symbols-mcp" reminders.**
 
-### Layer 3 — Optional: claude-mem-style plugin (advanced)
+### Layer 3 — Claude Code hooks (enforcement, installed by default)
 
-If you need behavior beyond what MCP + rules can do (e.g. a git pre-commit hook that runs `bin/symbols-audit`, or a slash command that auto-runs the audit playbook), you can write an editor plugin. For Symbols this is overkill — Layers 1+2 already cover the bootstrapping need. Skip unless you have a specific automation requirement.
+Layers 1–2 are **best-effort** — long contexts dilute system instructions and project rule files, and the agent can drift. For **Claude Code only**, `init-rules` also installs a hooks layer that the harness enforces directly. Hooks run as bash scripts before/after specific tool calls; their exit code can block, allow, or inject context.
+
+Three hooks are installed by default at `.claude/hooks/`:
+
+| Hook | Trigger | Effect |
+|---|---|---|
+| `symbols-mcp-require.sh`  | PreToolUse `Edit\|Write\|MultiEdit`  | **BLOCKS** Edit/Write on any `*.js`/`*.ts(x)`/`*.jsx`/`*.mjs`/`*.cjs` inside a directory tree containing `symbols.json`, until the session has called `mcp__symbols-mcp__get_project_rules` (or `get_project_context`/`generate_component`/`audit_component`). The block is enforced by Claude Code itself — there is no way to skip it from inside the conversation. |
+| `symbols-mcp-reminder.sh` | UserPromptSubmit                     | On every user prompt, if cwd is inside a Symbols project, injects the MUST-DO sequence and the FA-rule cheatsheet (FA001/101/102/105/106/201/204/206/207/208/209/210/513/514) as additional context. CLAUDE.md gets diluted in long contexts; per-turn injection doesn't. |
+| `symbols-mcp-audit.sh`    | PostToolUse `Edit\|Write\|MultiEdit` | After every JS edit inside a Symbols project, runs `frank-audit` plus an inline FA-rule pattern check on the modified file and surfaces violations back to Claude. Forces an immediate fix loop without trusting the agent to remember to audit. |
+
+Files installed alongside CLAUDE.md:
+
+```
+.claude/settings.json                       # wires the three hooks via $CLAUDE_PROJECT_DIR
+.claude/hooks/symbols-mcp-require.sh        # PreToolUse  — block edit until rules loaded
+.claude/hooks/symbols-mcp-reminder.sh       # UserPromptSubmit — per-turn directive
+.claude/hooks/symbols-mcp-audit.sh          # PostToolUse — frank-audit + FA-rule check
+```
+
+**Skip the hooks install:**
+
+```bash
+npx -y @symbo.ls/mcp init-rules --no-hooks
+```
+
+**Disable individual hooks at runtime** (e.g. paste-heavy session, CI):
+
+```bash
+SYMBOLS_MCP_REQUIRE_RULES=0   # disables the PreToolUse block
+SYMBOLS_MCP_REMINDER=0        # disables the per-turn injection
+SYMBOLS_MCP_POST_AUDIT=0      # disables the post-write audit
+```
+
+**Requirements:** `bash` and `jq` on `PATH` (standard on macOS / most Linux distros). `frank-audit` is invoked via `npx -y --no-install @symbo.ls/frank-audit`; if it's not installed, the inline regex pattern check still runs.
+
+**Why it works:** hooks are the only enforcement Claude cannot bypass. Prompt instructions and rule files are advice the model may or may not follow under context pressure; hooks are imperative gates the harness enforces before/after every tool call.
 
 ### Verifying the bootstrap
 
@@ -435,6 +470,8 @@ After running `init-rules`, sanity-check by asking your editor's agent: _"Build 
 4. Call `audit_component` on the result before saving
 
 If the agent skips step 1 or 2, the rule files weren't picked up — check the editor's settings. If the agent doesn't have the symbols-mcp tools at all, see [Editor configurations](#editor--client-configurations).
+
+**Verifying the Claude Code hooks layer:** in a new Claude Code session inside a Symbols project, ask the agent to edit a `.js` file directly without first invoking any `mcp__symbols-mcp__*` tool. The PreToolUse hook should print a `🚫 BLOCKED` message naming the project root and the file, listing the MUST-DO sequence. Once the agent calls `get_project_rules` (or `get_project_context`), subsequent edits proceed normally. Edit a file with a known FA violation (e.g. `text: ({ state }) => state.x`) and the PostToolUse hook surfaces an `[symbols-mcp post-write audit]` message listing the FA-rule IDs.
 
 ---
 

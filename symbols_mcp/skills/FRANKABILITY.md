@@ -271,6 +271,182 @@ export const ChartView = {
 }
 ```
 
+Defensive destructure for ESM/CJS-shaped packages (some packages expose the
+named export under `default`; both forms occur in the wild):
+
+```js
+const mod = await import('motion')
+const animate = mod.animate || mod.default?.animate
+```
+
+Never use `require('pkg')` synchronously inside a handler — sync require
+emits a bundle-internal `require_X()` call that frank's rewriter handles
+case-by-case but cannot recover universally. Always async `import()`.
+
+#### FA207 — Nested `function name () {}` declarations get hoisted out of handlers
+
+esbuild hoists nested function declarations to module scope, then frank's
+classifyFreeVars promotes them to `globalScope.X`. The promotion strips the
+closure — captured locals become undefined at runtime.
+
+```js
+// ❌ Bad — nested function decl, captured `topBar` lost at runtime
+onRender: (el) => {
+  const topBar = el.TopBar.node
+  function readBaseHeight () {
+    return topBar.offsetHeight
+  }
+  function onScroll () { /* ... */ }
+}
+
+// ✅ Good — const arrow form (cannot be hoisted)
+onRender: (el) => {
+  const topBar = el.TopBar.node
+  const readBaseHeight = () => topBar.offsetHeight
+  const onScroll = () => { /* ... */ }
+}
+```
+
+Rule of thumb: inside any `onRender` / `onClick` / `onInit` handler, every
+nested helper MUST be `const X = () => { ... }`. Never `function X () {}`.
+
+#### FA208 — `globalScope.js` helpers MUST NOT cross-import from peer modules
+
+When `globalScope.js` imports from `./config.js` AND a sibling like
+`functions/fetch.js` ALSO imports the same name from `./config.js`, esbuild
+de-duplicates with a rename (`getApiUrl` → `getApiUrl2`), which then can't be
+resolved by frank's classifyFreeVars and surfaces as
+`__scope.getApiUrl2 is not a function` at runtime.
+
+```js
+// ❌ Bad — globalScope.js shares config imports with peer modules
+import { getApiUrl, GOOGLE_CLIENT_ID } from './config.js'
+export const initGoogleOneTap = async () => { /* uses getApiUrl */ }
+
+// ✅ Good — globalScope.js inlines its own private copies
+const _GOOGLE_CLIENT_ID = '...'
+const _resolveApiUrl = () => { /* inlined logic */ }
+export const initGoogleOneTap = async () => { /* uses _resolveApiUrl */ }
+```
+
+When a page imports a globalScope export AND uses it as a bare reference,
+prefer the import form so esbuild keeps the canonical name:
+
+```js
+// pages/main.js
+import { initGoogleOneTap } from '../globalScope.js'
+export const main = {
+  onRender: async (el, s) => { initGoogleOneTap() }
+}
+```
+
+#### FA209 — `dependencies.js` is the runtime importmap, NOT a build-time manifest
+
+Mermaid generates a `<script type="importmap">` from `dependencies.js`. Only
+declare packages you `await import('X')` at runtime. Build-time-only tools
+(`@symbo.ls/freestyler`, build plugins, etc.) listed here will 404 from
+esm.sh and surface as runtime CDN errors.
+
+```js
+// ❌ Bad — build-time tool in deps
+export default {
+  '@symbo.ls/freestyler': '4.0.0',
+  'motion': 'latest'
+}
+
+// ✅ Good — only runtime dynamic-import targets
+export default {
+  'motion': 'latest',
+  'ninja-keys': '1.2.2'
+}
+```
+
+#### FA210 — Bypass-mode / mock-auth handlers must guard `el.node` and `s.parent` / `s.root`
+
+If the project has any local-dev auth bypass (`?bypass=true`, mock auth,
+etc.), any handler that touches `el.node` or reads `s.parent` / `s.root`
+must guard. Mock data paths frequently render before the real shadow DOM
+attaches.
+
+```js
+// ❌ Bad — assumes el.node + shadowRoot + s.parent are populated
+onRender: async (el, s) => {
+  const fleet = window.fleet || s.parent.fleet || s.root.fleet || []
+  el.node.shadowRoot.innerHTML = ''
+}
+
+// ✅ Good — defensive at every step
+onRender: async (el, s) => {
+  const fleet = window.fleet || s.parent?.fleet || s.root?.fleet || []
+  if (!el.node) return
+  if (!el.node.shadowRoot) return
+  el.node.shadowRoot.innerHTML = ''
+}
+```
+
+---
+
+### Banned runtime APIs (FA5xx — extends DOM-traversal family)
+
+#### FA513 — Never call `window.update(...)` / `document.update(...)`
+
+`update()` is a DOMQL element method, not a `window`/`document` method.
+Calling it on the global object throws at runtime.
+
+```js
+// ❌ Never
+window.update({ onScroll })
+
+// ✅ Declarative (preferred) — declare on the page/root
+export const main = {
+  onScroll: (e, el, s) => { /* ... */ }
+}
+
+// ✅ Imperative — addEventListener
+window.addEventListener('scroll', fn, { passive: true })
+```
+
+#### FA514 — Never use module-side-effect bridges
+
+```js
+// ❌ Never — frank strips top-level side effects
+window.__myProjectInit = initFunction
+// later in handler:
+window.__myProjectInit?.()
+
+// ✅ Use a bare reference; frank will rewrite to __scope.initFunction
+//   and resolve via globalScope
+initFunction()
+```
+
+---
+
+## Frank's automatic rewrites (informational — you can rely on these)
+
+Phase 2 framework patches recover several patterns AT JSON-GENERATION time.
+You don't need to anticipate them, but understanding them helps explain
+audit warnings and bundle output:
+
+- `Promise.resolve().then(() => __toESM(require_X(), [n]))` → `import('<pkg>')`
+- `Promise.resolve().then(() => (init_X(), Y_exports))` → `import('<pkg>')`
+  (init/exports identifiers vary — multi-entry ESM packages)
+- Bundle-comment / inline-tag scan maps esbuild identifiers to package
+  names from `// node_modules/<pkg>/...` comments AND inline tags
+  `__esm({"node_modules/<pkg>/..."() {...}})` and
+  `__esm({"stub-external:<pkg>"() {...}})`.
+- `scopeRewriter` rewrites bare references to `__scope.X` and chains
+  `el.scope` → `context.globalScope` via prototype.
+- No-param arrow → `el` injection at rewrite time (so `el.scope` is
+  reachable even when source declares `() => ...`).
+- `async` modifier preserved when arrow→function conversion happens for
+  globalScope helpers calling peer keys.
+- `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
+  swallow async user-code rejections (won't crash frank).
+
+These cover *many* of the historical FA206-class violations automatically,
+but generating dynamic imports up front (FA206) avoids the round-trip and
+keeps local-dev parity with prod.
+
 ---
 
 ## Quick reference — placement decision
@@ -283,7 +459,44 @@ export const ChartView = {
 | Constant used by 1 component | `scope: { X }` on that component |
 | Factory closure variable | `scope: { X }` on the returned object |
 | Single-use helper inside one component | inline as a method on the component, or `scope: { fn }` |
-| NPM package used inside a handler | dynamic `await import('pkg')` inside the handler |
+| Nested helper inside `onRender`/`onClick`/etc. | `const X = () => {}` — never `function X () {}` (FA207) |
+| NPM package used inside a handler | dynamic `await import('pkg')` inside the handler (FA206) |
+| Helpers in `globalScope.js` that need shared config | inline private copies with `_` prefix (FA208) |
+| Runtime importmap entry | `dependencies.js` — runtime-only (FA209) |
+| Build-time tool (e.g. freestyler) | NEVER `dependencies.js` (FA209) |
+
+---
+
+## Generation checklist — verify before emitting code
+
+When `generate_component` / `generate_page` produces code, OR when
+hand-writing a Symbols project file, verify ALL of:
+
+1. ✅ **No top-level `import { X } from 'npmpkg'`** for runtime-only deps —
+   must be dynamic `await import('npmpkg')` inside the handler. (FA206)
+2. ✅ **No sync `require('X')`** anywhere — always async `import()`. (FA206)
+3. ✅ **No module-scope `const`/`let`** captured by exported handlers (other
+   than environment-independent constants like `const SCALE = 1.25`). Use
+   `scope: { X }` or `globalScope.js`. (FA201–204)
+4. ✅ **Nested helper functions inside lifecycle methods use `const X = () => {}`** —
+   never `function X () {}`. (FA207)
+5. ✅ **HTML attributes are flat props** (`placeholder`, `type`, etc.), NOT
+   in `attr: {}`. (FA105)
+6. ✅ **Reactive prop functions take `(el, s)`** — never destructured
+   `({state})`. (FA106)
+7. ✅ **Function access via `el.call('fn')` / `this.call('fn')`** — no
+   inter-file imports outside the allow-list. (FA001)
+8. ✅ **`extends:` only when key name differs** from the extended component
+   (use key-name match + `_N` suffix for multi-instance).
+9. ✅ **All values use DS tokens** — no raw px/hex/rgba. (FA301–304)
+10. ✅ **No `window.update(...)`, no `document.update(...)`, no
+    `window.__projectInit = ...`** module-side-effect bridges. (FA513, FA514)
+11. ✅ **`dependencies.js` lists only runtime dynamic-import targets** —
+    never build-time tools. (FA209)
+12. ✅ **`globalScope.js` helpers do NOT cross-import from peer module
+    files** — inline private helpers with `_` prefix. (FA208)
+13. ✅ **Bypass-mode / mock-auth handlers guard `el.node` and
+    `s.parent`/`s.root`**. (FA210)
 
 ---
 
@@ -295,6 +508,10 @@ export const ChartView = {
 4. **No `el.props.X`, `el.on.event`, `props: {}`, `on: {}`, `attr: { placeholder }`, or `({ props, state })` signatures.** All flattened.
 5. **Every sub-folder `index.js` re-exports every sibling file.**
 6. **`components/index.js` uses `export *`, never `export * as`.**
-7. **Run `smbls frank-audit`** to see findings. Run `smbls frank-audit --fix` to apply safe auto-fixes; the fixer verifies against `frank.toJSON` after every risky change and rolls back regressions. Run with `--strict` if you want CI to fail on high-confidence critical findings.
+7. **No nested `function name () {}` inside handlers** — use `const x = () => {}` (FA207).
+8. **No `window.update(...)`, `document.update(...)`, or `window.__projectInit = ...` bridges** (FA513, FA514).
+9. **`dependencies.js` contains only runtime dynamic-import targets** (FA209).
+10. **`globalScope.js` does not cross-import from peer modules** (FA208).
+11. **Run `smbls frank-audit`** to see findings. Run `smbls frank-audit --fix` to apply safe auto-fixes; the fixer verifies against `frank.toJSON` after every risky change and rolls back regressions. Run with `--strict` if you want CI to fail on high-confidence critical findings.
 
 If your project ships and a handler renders the wrong value in prod but the right value locally, the cause is almost always a frankability rule violation in this list. Frank's bundle-time fixer recovers many of these automatically — frank-audit is the source-level pass that prevents the bug from being committed in the first place.

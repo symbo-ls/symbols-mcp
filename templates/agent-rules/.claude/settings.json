@@ -1,0 +1,37 @@
+{
+  "$comment": "Symbols.app project settings — installed by symbols-mcp-init-rules. Hooks force Claude to call mcp__symbols-mcp__* tools before/after editing DOMQL code. Disable individual hooks with the env vars referenced in each script.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-require.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-audit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

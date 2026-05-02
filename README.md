@@ -188,6 +188,30 @@ Writes `CLAUDE.md`, `.cursor/rules/symbols.md`, `.windsurfrules`, `.clinerules`,
 
 Combined with the MCP server's `instructions` field (auto-loaded on connect by every MCP-aware editor — Claude Code, Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity, Cody), this means you never have to remind the agent to "use symbols-mcp" — the workflow is bootstrapped on first interaction.
 
+### Claude Code: enforcement hooks (installed by default)
+
+Project-level rule files (CLAUDE.md, AGENTS.md, etc.) are best-effort — long contexts dilute them and the agent can drift. For Claude Code, `init-rules` also installs a hooks layer that the harness enforces directly:
+
+| Hook | Trigger | What it does |
+|---|---|---|
+| `symbols-mcp-require.sh`  | PreToolUse `Edit\|Write\|MultiEdit`  | **BLOCKS** Edit/Write on `*.js`/`*.ts`/`*.tsx` inside any directory tree containing `symbols.json`, until the session has called `mcp__symbols-mcp__get_project_rules` (or `get_project_context`/`generate_component`/`audit_component`). |
+| `symbols-mcp-reminder.sh` | UserPromptSubmit                     | Injects the MUST-DO sequence + frankability FA-rule cheatsheet on every turn when cwd is inside a Symbols project. Per-turn injection isn't diluted by long contexts the way CLAUDE.md is. |
+| `symbols-mcp-audit.sh`    | PostToolUse `Edit\|Write\|MultiEdit` | After every JS edit inside a Symbols project, runs `frank-audit` plus an inline FA-rule pattern check (FA101/102/103/105/106/206/207/513/514) and surfaces violations back to Claude. |
+
+Files installed:
+
+```
+.claude/settings.json                       # wires the three hooks
+.claude/hooks/symbols-mcp-require.sh        # PreToolUse  — block edit until rules loaded
+.claude/hooks/symbols-mcp-reminder.sh       # UserPromptSubmit — inject directive
+.claude/hooks/symbols-mcp-audit.sh          # PostToolUse — frank-audit + FA-rule check
+```
+
+Skip hooks: `npx -y @symbo.ls/mcp init-rules --no-hooks`.
+Disable a single hook at runtime: `SYMBOLS_MCP_REQUIRE_RULES=0`, `SYMBOLS_MCP_REMINDER=0`, `SYMBOLS_MCP_POST_AUDIT=0`.
+
+Hooks require `bash` and `jq` on `PATH` (already standard on macOS / most Linux distros). `frank-audit` is invoked via `npx -y --no-install @symbo.ls/frank-audit` — if not installed, the inline pattern check still runs.
+
 See [SETUP.md → Bootstrapping](SETUP.md#bootstrapping-a-new-symbols-project--auto-load-rules-in-every-editor) for the layered model and verification steps.
 
 ---

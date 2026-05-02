@@ -122,6 +122,38 @@ mcp = FastMCP(
         "Pair with `bin/symbols-audit <symbols-dir>` (CLI shipped in this package) for the static-audit phase.\n\n"
         # ── HARD RULES — agents MUST treat these as preconditions, not goals ────
         "Hard rules every output must respect (full list in RULES.md, get via get_project_rules):\n"
+        "- **REUSE BEFORE CREATING (3-tier search order).** Before defining ANY new component, snippet, "
+        "or function, search in this order: **(1) framework built-ins** (`@symbo.ls/default-config` — "
+        "Atoms + Components catalog, see COMPONENTS.md / DEFAULT_COMPONENTS.md); **(2) shared libraries** "
+        "linked via `sharedLibraries.js` at the project root (most projects depend on `system/default` — "
+        "the canonical default library covering ~127 common patterns — plus any org-specific library); "
+        "**(3) the current project's** `components/`, `snippets/`, `functions/`, `methods/`. Library "
+        "files are READ-ONLY (overwritten on every `smbls fetch`/`smbls sync` — see SHARED_LIBRARIES.md). "
+        "**Resolution location depends on the project's `sharedLibrariesMode`** in `symbols.json`: `npm` "
+        "mode (default for npm/bun/yarn/pnpm setups) puts libraries in `node_modules/<package-name>/`; "
+        "`local` mode (or any non-package-manager setup) puts them in `.symbols_local/libs/<owner>/<key>/`; "
+        "individual entries can also set `destDir` to override the location. Inspect `sharedLibraries.js` "
+        "to see what's linked, then check whichever location applies. If any tier covers ~80% of what's "
+        "needed, reuse via bare-key reference (`MemberCard: { ... }`) or `extends: 'PascalKey'` — DOMQL "
+        "auto-resolves through the merged context (built-ins → shared libs → project) so the bare key "
+        "works whichever tier defined it. If you're about to define a third near-duplicate (e.g. "
+        "`UserCard` / `MemberCard` / `ProfileCard` with the same shape), STOP and refactor: lift the "
+        "shared shape into ONE canonical component at `components/<Name>.js` and have the page-level "
+        "wrappers reference it by bare key. Same for functions. **Never edit shared-library files** to "
+        "fix a mismatch; override at the consumer level (local always wins on key collision). Use "
+        "`mcp__symbols-mcp__search_symbols_docs(query)` for semantic search across the catalog, OR `cat "
+        "sharedLibraries.js` + `grep -rE '^export const [A-Z]' <resolved-lib-paths>/ components/ snippets/`. "
+        "Treat duplication as a P1 cleanup, not a 'TODO later'.\n"
+        "- **REUSE BUILT-IN COMPONENTS — DO NOT REDEFINE.** Every Symbols project inherits the catalog "
+        "from `@symbo.ls/default-config`: Atoms (`Block`, `Box`, `Flex`, `Grid`, `Hgroup`, `Img`, `Picture`, "
+        "`Video`, `Iframe`, `Text`, `Form`, `Svg`, `Shape`, `Theme`, `InteractiveComponent`) + Components "
+        "(`Avatar`, `Button`, `Dialog`, `Dropdown`, `Link`, `Notification`, `Range`, `Select`, `Tooltip`, "
+        "`Icon`, `Input`). Just write `Avatar: { src: '...' }` — DOMQL auto-extends the built-in by key "
+        "name. NEVER write `Avatar: { tag: 'div', borderRadius: 'A', Img: {...} }` from scratch — that "
+        "loses theme/SSR/sprite/a11y wiring already baked into the canonical version. Search COMPONENTS.md "
+        "+ DEFAULT_COMPONENTS.md (both bundled in `get_project_rules`) before defining anything. **Design "
+        "system, in contrast, IS meant to be branded** — colors / typography / spacing / themes are "
+        "customized per project via `designSystem/` token files; built-in components consume those tokens.\n"
         "- Flat element API: props live at `el.X` (NEVER `el.props.X`); events at `el.onClick` (NEVER `on: {}`); "
         "reactive functions take `(el, s)` (NEVER `({ props, state })`).\n"
         "- Lowercase child keys NEVER render. PascalCase only.\n"
@@ -151,10 +183,13 @@ mcp = FastMCP(
         "FRANKABILITY.md (`symbols://skills/frankability`) for the full rule reference and verify with "
         "`smbls frank-audit` to see findings (and `--fix` for verify-or-rollback auto-fixes) before shipping.\n\n"
         # ── BOOTSTRAPPING NOTE ─────────────────────────────────────────────────
-        "If the project root has no `CLAUDE.md` / `.cursor/rules/` / `.windsurfrules` / `.clinerules`, "
-        "suggest the user run `npx @symbo.ls/mcp init-rules` (or equivalent) to drop editor-specific rule "
-        "files that auto-load these instructions on every future session — so the agent doesn't have to be "
-        "reminded with 'use symbols-mcp' each time."
+        "If the project root has no `CLAUDE.md` / `.cursor/rules/` / `.windsurfrules` / `.clinerules` / "
+        "`.claude/hooks/`, suggest the user run `npx @symbo.ls/mcp init-rules` (or equivalent) to drop "
+        "editor-specific rule files PLUS Claude Code enforcement hooks that auto-load these instructions and "
+        "BLOCK Edit/Write on `*.js` until `get_project_rules` was called this session. Once installed, the "
+        "agent doesn't have to be reminded with 'use symbols-mcp' each time. `smbls init` and `smbls create` "
+        "run `init-rules` automatically; pass `--no-agent-rules` to skip or `--global-hooks` for a "
+        "user-global ~/.claude/ install."
     ),
 )
 
@@ -636,8 +671,15 @@ def get_project_rules() -> str:
     - FRAMEWORK.md (authoritative — project structure, plugins, theming, SSR, publish)
     - DESIGN_SYSTEM.md (authoritative — design-system contract + token catalog)
     - RULES.md (62 strict rules — flat API, signal reactivity, design tokens, polyglot, fetch, helmet, theme, reusability, icons)
+    - COMPONENTS.md (built-in component catalog from @symbo.ls/default-config — REUSE these via bare PascalCase keys; do NOT redefine)
+    - DEFAULT_COMPONENTS.md (full source/structure of every built-in — what they look like, what props they expose, how to compose them)
+    - SYNTAX.md (DOMQL v3.14 syntax reference — flat element API, signal reactivity, factory patterns)
+    - PATTERNS.md (canonical compositional patterns)
+    - SNIPPETS.md (project-level snippet patterns)
+    - SHARED_LIBRARIES.md (when to read/never edit cross-package code)
     - FRANKABILITY.md (every `@symbo.ls/frank-audit` rule with wrong vs canonical examples — patterns that survive frank.toJSON serialization, so generated code is provably frankable from the start)
     - FRANK_FIX_WORKFLOW.md (LLM reference card for the prescription → edit-op flow — the strict 8-kind contract for `apply_frankability_edit_ops`)
+    - COMMON_MISTAKES.md + LEARNINGS.md (hard-won failure cases — read these to avoid replaying them)
     - DEFAULT_PROJECT.md (recommended baseline design-system values + the default-library catalog)
 
     Violations cause silent failures — black page, nothing renders, or a working app
@@ -645,14 +687,183 @@ def get_project_rules() -> str:
 
     Call this before: generate_component, generate_page, convert_react, convert_html,
     or any code generation task.
+
+    READ ALL SECTIONS — do NOT skim past COMPONENTS.md / DEFAULT_COMPONENTS.md / PATTERNS.md.
+    The single most-violated rule is reusing built-in components. Skipping the catalog
+    leads to redefining `Avatar`, `Button`, `Dialog`, etc. from scratch when a bare
+    `Avatar: {}` would have rendered the canonical built-in.
     """
     framework = _read_skill("FRAMEWORK.md")
     design_system = _read_skill("DESIGN_SYSTEM.md")
     rules = _load_agent_instructions()
+    components = _read_skill("COMPONENTS.md")
+    default_components = _read_skill("DEFAULT_COMPONENTS.md")
+    syntax = _read_skill("SYNTAX.md")
+    patterns = _read_skill("PATTERNS.md")
+    snippets = _read_skill("SNIPPETS.md")
+    shared_libs = _read_skill("SHARED_LIBRARIES.md")
     frankability = _read_skill("FRANKABILITY.md")
     frank_fix_workflow = _read_skill("FRANK_FIX_WORKFLOW.md")
+    common_mistakes = _read_skill("COMMON_MISTAKES.md")
+    learnings = _read_skill("LEARNINGS.md")
     default_project = _read_skill("DEFAULT_PROJECT.md")
-    return f"{framework}\n\n---\n\n{design_system}\n\n---\n\n{rules}\n\n---\n\n{frankability}\n\n---\n\n{frank_fix_workflow}\n\n---\n\n{default_project}"
+
+    builtin_directive = (
+        "# 🧱 BUILT-IN COMPONENTS — REUSE, DO NOT REDEFINE (READ THIS BEFORE GENERATING)\n\n"
+        "Every Symbols project automatically inherits the catalog from `@symbo.ls/default-config` "
+        "(see COMPONENTS.md + DEFAULT_COMPONENTS.md below). The catalog includes:\n\n"
+        "  • **Atoms**: `Block`, `Box`, `Flex`, `Grid`, `Hgroup`, `Img`, `Picture`, `Video`, `Iframe`, "
+        "`Text`, `Form`, `Svg`, `Shape`, `Theme`, `InteractiveComponent`\n"
+        "  • **Components**: `Avatar`, `Button`, `Dialog`, `Dropdown`, `Link`, `Notification`, `Range`, "
+        "`Select`, `Tooltip`, `Icon`, `Input`\n\n"
+        "## The auto-extend rule\n\n"
+        "DOMQL automatically extends a component when the key name matches a registered component. "
+        "**`Avatar: {}` renders the built-in Avatar.** No `extends:` needed. Same for every other "
+        "built-in.\n\n"
+        "```js\n"
+        "// ❌ WRONG — redefining a built-in from scratch\n"
+        "Avatar: {\n"
+        "  tag: 'div',\n"
+        "  borderRadius: 'A',\n"
+        "  Img: { src: '...' }\n"
+        "}\n\n"
+        "// ❌ WRONG — redundant `extends`\n"
+        "Avatar: { extends: 'Avatar', src: '...' }\n\n"
+        "// ✅ RIGHT — just use the bare key, override only what changes\n"
+        "Avatar: { src: '...' }\n\n"
+        "// ✅ Multi-instance — _N suffix\n"
+        "Avatar_1: { src: 'a.jpg' }\n"
+        "Avatar_2: { src: 'b.jpg' }\n"
+        "```\n\n"
+        "## The boundary — what IS overridable\n\n"
+        "**Components** = reuse, do NOT redefine. Override per-instance via props on the bare key.\n"
+        "**Design system** = MUST be customized for each brand — colors, typography (fonts, base, ratio), "
+        "spacing (base, ratio), timing, themes (`@dark` / `@light` / custom). That's the entire point of a "
+        "design system; per-project branding flows through `designSystem/` token files. See DESIGN_SYSTEM.md.\n\n"
+        "## When IS it OK to write a new component definition?\n\n"
+        "1. **The component genuinely doesn't exist in the catalog.** Search COMPONENTS.md / "
+        "DEFAULT_COMPONENTS.md first. Use `mcp__symbols-mcp__search_symbols_docs` if unsure.\n"
+        "2. **The catalog component has the wrong primitive shape for your use case.** (Rare — most "
+        "of the time you compose, override props, or use `childExtends`.)\n"
+        "3. **You need a project-specific composition** (e.g. `MemberCard` made of `Avatar` + `Text` + "
+        "`Button`). Define the new component, but **its children should still be bare-key references "
+        "to built-ins**: `MemberCard: { Avatar: {...}, Heading: {...}, Button: {...} }`.\n\n"
+        "If you redefine a built-in (e.g. write `Avatar: { tag: 'div', borderRadius: ..., ... }` from "
+        "scratch), you (a) lose theme/SSR/sprite/a11y wiring already baked into the canonical version, "
+        "(b) bypass the design-system contract, (c) duplicate code that updates centrally when the "
+        "built-in is improved upstream. Don't do this unless you can articulate exactly why the "
+        "catalog version is wrong for your case.\n\n"
+        "---\n\n"
+        "# 🔁 REUSE — 3-TIER SEARCH ORDER (SEARCH BEFORE CREATING)\n\n"
+        "Reuse is mandatory across THREE concentric tiers. Search in this order before defining anything new:\n\n"
+        "1. **Framework built-ins** (`@symbo.ls/default-config`) — every Symbols project automatically "
+        "inherits the Atoms + Components catalog. See COMPONENTS.md / DEFAULT_COMPONENTS.md (bundled above).\n"
+        "2. **Shared libraries** linked via `sharedLibraries.js` at the project root. Most projects depend "
+        "on `system/default` (the canonical default library, ~127 components covering common patterns) "
+        "plus any org-specific library. Library files merge into `context.components` / `context.functions` "
+        "at runtime. **READ-ONLY** — overwritten on every `smbls fetch` / `smbls sync`. Override by "
+        "defining the same key in your local project (local always wins on collision).\n"
+        "3. **Current project** — `components/`, `snippets/`, `functions/`, `methods/`.\n\n"
+        "DOMQL's bare-key resolver walks all three tiers automatically — `Card: { ... }` works whether "
+        "`Card` is a built-in, a shared-library export, or a local component. Reuse is free; the cost is "
+        "in remembering to look first.\n\n"
+        "## Where shared libraries land on disk\n\n"
+        "Resolution depends on the project's `sharedLibrariesMode` field in `symbols.json`:\n\n"
+        "| Mode | Triggered by | Location |\n"
+        "|---|---|---|\n"
+        "| `npm` | Default for npm/bun/yarn/pnpm projects, or explicit `sharedLibrariesMode: 'npm'` | `node_modules/<package-name>/` (resolved via standard package resolution; `package-name` is whatever the entry in `sharedLibraries.js` imports as) |\n"
+        "| `local` | Browser/CDN setups, or explicit `sharedLibrariesMode: 'local'` | `.symbols_local/libs/<owner>/<key>/` (gitignored) |\n"
+        "| custom `destDir` | Per-entry override in `sharedLibraries.js` | Whatever path the entry's `destDir` points at (e.g. `../shared/brand`) |\n\n"
+        "Always start by reading `sharedLibraries.js` and `symbols.json` to see what's linked and where.\n\n"
+        "## The discovery loop (run BEFORE writing new code)\n\n"
+        "```bash\n"
+        "# 0. See what tier-2 libraries are linked + their resolution mode\n"
+        "cat sharedLibraries.js\n"
+        "grep -E 'sharedLibrariesMode|packageManager' symbols.json 2>/dev/null\n\n"
+        "# 1. Built-ins — see catalog (already in get_project_rules output above)\n\n"
+        "# 2a. Shared libraries — `local` mode\n"
+        "ls .symbols_local/libs/*/*/components/ 2>/dev/null\n"
+        "grep -rE '^export const [A-Z]' .symbols_local/libs/*/*/components/ 2>/dev/null | head -40\n\n"
+        "# 2b. Shared libraries — `npm` mode (resolve each sharedLibraries.js entry against node_modules)\n"
+        "# For each library `<pkg>` listed in sharedLibraries.js:\n"
+        "#   ls node_modules/<pkg>/components/  &&  grep -rE '^export const [A-Z]' node_modules/<pkg>/components/\n\n"
+        "# 3. Current project\n"
+        "grep -rE '^export const [A-Z]' components/ snippets/ | head -40\n"
+        "grep -rE '^export (const|function) ' functions/ methods/ | head -40\n\n"
+        "# 4. Semantic search across ALL tiers (built-ins via MCP docs + project + libs)\n"
+        "# Prefer mcp__symbols-mcp__search_symbols_docs(query) — searches all bundled skill docs.\n"
+        "```\n\n"
+        "## The reuse-vs-extract decision\n\n"
+        "| Situation | Action |\n"
+        "|---|---|\n"
+        "| Built-in or shared-library component covers your case | Reference by bare key: `Avatar: { ... }` — DOMQL auto-resolves |\n"
+        "| A library component covers ~80% but needs different visuals | Override the divergent props on the bare key — never copy the source |\n"
+        "| A library component is semantically close but not identical | `extends: 'LibComponent'` + add what's new in the local file |\n"
+        "| Existing local component covers your case | Reference by bare key |\n"
+        "| You're writing the SECOND near-duplicate (local) | Acceptable — but flag for refactor |\n"
+        "| You're writing the THIRD near-duplicate (local) | **STOP**. Extract the shared shape. |\n"
+        "| A pattern recurs across MULTIPLE projects in the org | Promote it to a shared library (separate concern; ask first) |\n\n"
+        "## When you find duplication, fix it inline\n\n"
+        "If you discover `UserCard.js`, `MemberCard.js`, `ProfileCard.js` with the same structure:\n\n"
+        "1. Check each tier first — does a built-in or shared-library component already cover this?\n"
+        "   If yes, the duplicates were the bug; replace all three with bare-key references to the\n"
+        "   library version.\n"
+        "2. Otherwise, lift the shared shape into ONE canonical component at `components/<Name>.js`.\n"
+        "3. Replace the duplicates with bare-key references + per-instance prop overrides.\n"
+        "4. Page wrappers call the canonical: `Card: { user: ... }` or `Card_1: {...}, Card_2: {...}`.\n"
+        "5. Delete the redundant files; their `index.js` re-exports auto-propagate the deletion.\n\n"
+        "## Functions — same 3-tier rule\n\n"
+        "Project functions register on `context.functions`. Shared libraries also contribute "
+        "(e.g. `polyglot`, `currency`, common formatters from `system/default`). Before writing a new "
+        "helper, check the same locations as for components — substitute `functions/` and `methods/` for "
+        "`components/` in the discovery commands above. Resolution mode (`npm` vs `local` vs `destDir`) "
+        "is identical to the component case.\n\n"
+        "If two pages compute the same thing inline, extract to `functions/<name>.js` and invoke via "
+        "`el.call('name', …)`. NEVER copy logic between files; NEVER `import` between project files "
+        "(FA001).\n\n"
+        "## Shared-library override pattern\n\n"
+        "When a shared-library component is *almost* right but needs a project-level tweak, override at "
+        "the consumer level — local always wins on key collision:\n\n"
+        "```js\n"
+        "// <library-resolved-path>/components/Card.js  (READ-ONLY — never edit)\n"
+        "// → defines Card with default styling\n\n"
+        "// components/Card.js  (your project — overrides the library version)\n"
+        "export const Card = {\n"
+        "  extends: 'Card',                      // pull in the library's Card as the base\n"
+        "  borderRadius: 'C',                    // add your override\n"
+        "  background: 'brand'\n"
+        "}\n"
+        "```\n\n"
+        "Both consumers in the project still write `Card: {...}`; DOMQL resolves your local override\n"
+        "rather than the library version.\n\n"
+        "## Folder placement (frank-discovered slots)\n\n"
+        "- `components/` — reusable DOMQL components (the default for a new shared shape)\n"
+        "- `snippets/` — composable element fragments smaller than a full component\n"
+        "- `functions/` — pure / project-state helpers, called via `el.call('fn', …)`\n"
+        "- `methods/` — `this`-binding helpers (lifecycle utilities)\n\n"
+        "Anything outside the frank-discovered slots (`utils/`, `lib/`, `helpers/`) is silently dropped at "
+        "publish time — see FA006. So 'extracting to a helper' MUST land in `functions/` or `methods/`, "
+        "never `utils/`.\n\n"
+        "---\n\n"
+    )
+
+    return (
+        builtin_directive
+        + framework
+        + "\n\n---\n\n" + design_system
+        + "\n\n---\n\n" + rules
+        + "\n\n---\n\n" + components
+        + "\n\n---\n\n" + default_components
+        + "\n\n---\n\n" + syntax
+        + "\n\n---\n\n" + patterns
+        + "\n\n---\n\n" + snippets
+        + "\n\n---\n\n" + shared_libs
+        + "\n\n---\n\n" + frankability
+        + "\n\n---\n\n" + frank_fix_workflow
+        + "\n\n---\n\n" + common_mistakes
+        + "\n\n---\n\n" + learnings
+        + "\n\n---\n\n" + default_project
+    )
 
 
 @mcp.tool()

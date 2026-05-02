@@ -85,6 +85,34 @@ smbls migrate                   Migrate a v2 Symbols project to v3
 smbls eject                     Eject from @symbo.ls/runner to explicit deps
 ```
 
+Both `smbls init` and `smbls create` automatically run `npx -y @symbo.ls/mcp init-rules` at the end of scaffolding — drops `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/symbols.md`, `.windsurfrules`, `.clinerules`, plus the Claude Code enforcement hooks (`.claude/settings.json` + `.claude/hooks/symbols-mcp-{require,reminder,audit}.sh`). Flags:
+
+```
+--no-agent-rules                Skip the entire AI-rules + hooks install
+--global-hooks                  Install Claude Code hooks to ~/.claude/ instead of
+                                project-level (.claude/). Hooks self-detect Symbols
+                                projects via symbols.json walk and no-op elsewhere.
+```
+
+Standalone command (drop into an existing project):
+
+```
+npx -y @symbo.ls/mcp init-rules               # idempotent; project-level
+npx -y @symbo.ls/mcp init-rules --force       # overwrite existing files
+npx -y @symbo.ls/mcp init-rules --global      # user-global ~/.claude/ instead
+npx -y @symbo.ls/mcp init-rules --no-hooks    # rule files only, no hooks
+npx -y @symbo.ls/mcp init-rules --only=cursor,claude   # restrict editors
+npx -y @symbo.ls/mcp init-rules --list        # dry-run
+```
+
+Disable individual hooks at runtime:
+
+```
+SYMBOLS_MCP_REQUIRE_RULES=0     # PreToolUse — allow Edit/Write without rules loaded
+SYMBOLS_MCP_REMINDER=0          # UserPromptSubmit — drop the per-turn directive
+SYMBOLS_MCP_POST_AUDIT=0        # PostToolUse — skip frank-audit on writes
+```
+
 ### Auth
 
 ```

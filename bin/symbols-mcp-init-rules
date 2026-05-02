@@ -3,11 +3,15 @@
  * symbols-mcp-init-rules — drop editor-specific agent-rule files into a Symbols project.
  *
  * Usage:
- *   symbols-mcp-init-rules [project-root]      # defaults to cwd
- *   symbols-mcp-init-rules --force             # overwrite existing files
+ *   symbols-mcp-init-rules [project-root]        # defaults to cwd
+ *   symbols-mcp-init-rules --force               # overwrite existing files
  *   symbols-mcp-init-rules --only=cursor,claude  # restrict to specific editors
- *   symbols-mcp-init-rules --list              # show what would be written, don't write
- *   symbols-mcp-init-rules --help              # show usage
+ *   symbols-mcp-init-rules --no-hooks            # skip Claude Code hooks install
+ *   symbols-mcp-init-rules --global              # install hooks to ~/.claude/ (user-global)
+ *                                                # — only meaningful with the claude editor;
+ *                                                # other editors are skipped in --global mode
+ *   symbols-mcp-init-rules --list                # show what would be written, don't write
+ *   symbols-mcp-init-rules --help                # show usage
  *
  * Files written (by editor):
  *   CLAUDE.md                       — Claude Code, Anthropic-flavored agents
@@ -16,11 +20,23 @@
  *   .clinerules                     — Cline (VS Code)
  *   AGENTS.md                       — Codex / Aider / Sourcegraph Cody / Goose / fallback
  *
+ * Claude Code hooks (installed alongside CLAUDE.md unless --no-hooks):
+ *   .claude/settings.json                     — wires the three hooks below
+ *   .claude/hooks/symbols-mcp-require.sh      — PreToolUse Edit|Write — blocks JS edits
+ *                                                in Symbols projects until
+ *                                                mcp__symbols-mcp__get_project_rules
+ *                                                (or get_project_context) was called
+ *   .claude/hooks/symbols-mcp-reminder.sh     — UserPromptSubmit — injects MUST-DO sequence
+ *                                                + frankability FA-rule cheatsheet per turn
+ *   .claude/hooks/symbols-mcp-audit.sh        — PostToolUse Edit|Write — runs frank-audit +
+ *                                                inline FA-rule pattern check on touched .js
+ *
  * All files reference the symbols-mcp tools (`mcp__symbols-mcp__*`) and the strict
  * ruleset. Idempotent: skips files that already exist (use --force to overwrite).
  *
  * Goal: every Symbols project auto-bootstraps any agent that reads project-level
  * rules — no need to remind Claude/Cursor/Windsurf to "use symbols-mcp" each time.
+ * For Claude Code specifically, the hooks layer makes rule-loading non-bypassable.
  */
 
 'use strict'
@@ -36,10 +52,13 @@ if (args.includes('--help') || args.includes('-h')) {
 
 const flagForce = args.includes('--force')
 const flagList = args.includes('--list') || args.includes('--dry-run')
+const flagNoHooks = args.includes('--no-hooks')
+const flagGlobal = args.includes('--global')
 const onlyArg = args.find(a => a.startsWith('--only='))
 const onlyEditors = onlyArg ? onlyArg.slice('--only='.length).split(',').map(s => s.trim().toLowerCase()) : null
 const projectArg = args.find(a => !a.startsWith('-')) || '.'
 const PROJECT = path.resolve(projectArg)
+const HOME = process.env.HOME || require('os').homedir()
 
 if (!fs.existsSync(PROJECT)) {
   console.error(`✗ project root does not exist: ${PROJECT}`)
@@ -104,6 +123,112 @@ for (const [editor, src, dst] of filtered) {
   wrote++
 }
 
+// Install Claude Code hooks (project-level by default; user-global with --global)
+const installHooks = !flagNoHooks && (!onlyEditors || onlyEditors.includes('claude'))
+const HOOK_DEST_ROOT = flagGlobal ? path.join(HOME, '.claude') : path.join(PROJECT, '.claude')
+
+if (installHooks) {
+  console.log()
+  console.log(`Claude Code hooks (${flagGlobal ? 'user-global at ~/.claude/' : 'project-level at .claude/'}):`)
+  const HOOK_FILES = [
+    'settings.json',
+    'README.md',
+    'hooks/README.md',
+    'hooks/symbols-mcp-require.sh',
+    'hooks/symbols-mcp-reminder.sh',
+    'hooks/symbols-mcp-audit.sh',
+  ]
+  // Build the hooks block we'd inject (used for global merge AND project-level write)
+  const HOOKS_BLOCK = {
+    PreToolUse: [{
+      matcher: 'Edit|Write|MultiEdit',
+      hooks: [{ type: 'command', command: 'bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-require.sh' }]
+    }],
+    UserPromptSubmit: [{
+      hooks: [{ type: 'command', command: 'bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-reminder.sh' }]
+    }],
+    PostToolUse: [{
+      matcher: 'Edit|Write|MultiEdit',
+      hooks: [{ type: 'command', command: 'bash $CLAUDE_PROJECT_DIR/.claude/hooks/symbols-mcp-audit.sh' }]
+    }]
+  }
+  // For --global mode, swap $CLAUDE_PROJECT_DIR for absolute ~/.claude path so hooks
+  // resolve regardless of cwd (Claude Code only sets $CLAUDE_PROJECT_DIR for project hooks).
+  const swapForGlobal = (cmd) => cmd.replace('$CLAUDE_PROJECT_DIR/.claude/', `${path.join(HOME, '.claude')}/`)
+  if (flagGlobal) {
+    for (const ev of Object.keys(HOOKS_BLOCK)) {
+      for (const e of HOOKS_BLOCK[ev]) for (const h of e.hooks) h.command = swapForGlobal(h.command)
+    }
+  }
+
+  for (const rel of HOOK_FILES) {
+    const srcPath = path.join(TEMPLATES_DIR, '.claude', rel)
+    const dstPath = path.join(HOOK_DEST_ROOT, rel)
+    if (!fs.existsSync(srcPath)) {
+      console.error(`  ✗ template missing: .claude/${rel} (this is a packaging bug)`)
+      continue
+    }
+    const dstRel = flagGlobal ? path.relative(HOME, dstPath) : path.relative(PROJECT, dstPath)
+    const dstLabel = (flagGlobal ? '~/' : '') + dstRel
+
+    // Special-case settings.json under --global: MERGE the hooks block into existing file
+    // so we don't clobber MCP server config, plugins, env, etc.
+    if (flagGlobal && rel === 'settings.json' && fs.existsSync(dstPath)) {
+      if (flagList) {
+        console.log(`  [hook    ] ${dstLabel} (EXISTS — would MERGE hooks block)`)
+        continue
+      }
+      try {
+        const existing = JSON.parse(fs.readFileSync(dstPath, 'utf8'))
+        existing.hooks = existing.hooks || {}
+        // Idempotent: replace the symbols-mcp-* triplet but preserve any other hooks
+        const isOurHook = (h) => (h.hooks || []).some(x => /symbols-mcp-(require|reminder|audit)\.sh/.test(x.command || ''))
+        for (const ev of Object.keys(HOOKS_BLOCK)) {
+          existing.hooks[ev] = (existing.hooks[ev] || []).filter(e => !isOurHook(e))
+          existing.hooks[ev].push(...HOOKS_BLOCK[ev])
+        }
+        // Backup before writing
+        const backupPath = dstPath + '.backup-' + Date.now()
+        fs.copyFileSync(dstPath, backupPath)
+        fs.writeFileSync(dstPath, JSON.stringify(existing, null, 2) + '\n')
+        console.log(`  [hook    ] ${dstLabel}  ✓ MERGED (backup: ${path.relative(HOME, backupPath)})`)
+        wrote++
+        continue
+      } catch (e) {
+        console.error(`  [hook    ] ${dstLabel}  ✗ merge failed: ${e.message}`)
+        console.error(`     manual fix: copy hooks block from ${srcPath}`)
+        continue
+      }
+    }
+
+    if (flagList) {
+      const exists = fs.existsSync(dstPath)
+      console.log(`  [hook    ] ${dstLabel} ${exists ? '(EXISTS — would skip)' : '(would write)'}`)
+      continue
+    }
+    if (fs.existsSync(dstPath) && !flagForce) {
+      console.log(`  [hook    ] ${dstLabel}  SKIP (exists; use --force to overwrite)`)
+      skipped++
+      continue
+    }
+    fs.mkdirSync(path.dirname(dstPath), { recursive: true })
+    fs.copyFileSync(srcPath, dstPath)
+    if (rel.endsWith('.sh')) fs.chmodSync(dstPath, 0o755)
+    console.log(`  [hook    ] ${dstLabel}  ✓ written`)
+    wrote++
+  }
+
+  if (flagGlobal && !flagList) {
+    console.log()
+    console.log(`Note: user-global hooks at ~/.claude/ apply to ALL Claude Code projects.`)
+    console.log(`The hooks self-detect a Symbols project (walk up for symbols.json) and`)
+    console.log(`no-op everywhere else, so this is safe even on non-Symbols repos.`)
+    console.log(`Existing ~/.claude/settings.json was MERGED, not overwritten — your other`)
+    console.log(`config (MCP servers, plugins, env vars) is preserved. A timestamped backup`)
+    console.log(`was saved alongside.`)
+  }
+}
+
 console.log()
 if (flagList) {
   console.log(`Listed ${listed} target(s). Run without --list to write.`)
@@ -114,4 +239,12 @@ if (flagList) {
 
 console.log()
 console.log(`Next: open this project in your editor — it will auto-load the rules.`)
+if (installHooks && !flagList) {
+  console.log(`Claude Code hooks installed (${flagGlobal ? 'user-global' : 'project-level'}):`)
+  console.log(`  • PreToolUse  blocks Edit/Write on *.js until get_project_rules is called`)
+  console.log(`  • UserPromptSubmit  injects the symbols-mcp MUST-DO sequence per turn`)
+  console.log(`  • PostToolUse  runs frank-audit + FA-rule check after every JS edit`)
+  console.log(`  Disable individually: SYMBOLS_MCP_REQUIRE_RULES=0 / SYMBOLS_MCP_REMINDER=0 / SYMBOLS_MCP_POST_AUDIT=0`)
+  if (!flagGlobal) console.log(`  Or run with --global to install once for ALL Symbols projects.`)
+}
 console.log(`No more 'use symbols-mcp' reminders.`)
