@@ -363,7 +363,7 @@ Capture the staging URL from output. Use that URL for Phase 3c side-by-side comp
 | `AUTH_REQUIRED` | `🟢 ASK USER` to run `smbls login` (or set `SYMBOLS_TOKEN`) | If user declines → local render fallback (same as above) |
 | `Project ${owner}/${key} not found on server` | `🟢 ASK USER` to confirm project exists / create it | Local render fallback |
 | `--env staging` env doesn't exist | Try `--env dev` or `--env preview`; if all enabled envs reject → `🟢 ASK USER` for the right env name | Local render fallback |
-| `ECONNREFUSED` / channel mismatch | Switch channel via `SYMBOLS_API_CHANNEL=next` or `--next`; retry | `🟢 ASK USER` |
+| `ECONNREFUSED` / channel mismatch | Switch channel via `NODE_ENV=next` or `--next`; retry | `🟢 ASK USER` |
 | `commander unknown subcommand` | Read `smbls --help-all`, pick equivalent | `🟢 ASK USER` |
 
 **Local-render fallback (the "we still want a preview" path):**

@@ -1612,7 +1612,7 @@ def get_cli_reference() -> str:
     (project lifecycle, auth, sync, project mgmt, workspace ops, files & assets, integrations,
     GitHub, Frank JSON↔FS, dev/build/deploy, code transformation, SDK proxy, ask),
     publish flow (one-shot + granular), MCP/agent usage rules (--non-interactive + --yes
-    + SYMBOLS_API_CHANNEL + SYMBOLS_AUTH_TOKEN), error-handling contracts (AUTH_REQUIRED,
+    + NODE_ENV + SYMBOLS_AUTH_TOKEN), error-handling contracts (AUTH_REQUIRED,
     ECONNREFUSED, missing app key), source-file map, and CLI-specific anti-patterns.
     """
     return _read_skill("CLI.md")

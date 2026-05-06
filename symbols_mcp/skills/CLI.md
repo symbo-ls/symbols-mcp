@@ -47,7 +47,7 @@ API URL resolution order (verified `helpers/config.js:128-167`):
 Env-var URL overrides (always win, no editing files needed):
 
 - `SYMBOLS_API_URL` — direct URL override
-- `SYMBOLS_API_CHANNEL` — channel name (`local`, `development`, `next`, `test`, `upcoming`, `staging`, `preview`, `production`)
+- `NODE_ENV` — channel name (`local`, `development`, `next`, `test`, `upcoming`, `staging`, `preview`, `production`)
 - `SYMBOLS_PROJECT_KEY`, `SYMBOLS_PROJECT_ID`, `SYMBOLS_BRANCH`, `SYMBOLS_OWNER` — per-process project pin
 
 Auth tokens live in the OS keychain via `CredentialManager` (`helpers/credentialManager.js`); not in `.symbols_local/`. Wipe with `smbls logout`.
@@ -358,7 +358,7 @@ These are **hard requirements** when the CLI is invoked from a non-TTY agent (MC
 
 1. **Always pass `--non-interactive`.** Without it, any missing required input opens an `inquirer` prompt that blocks forever. The CLI does not auto-answer.
 2. **Always pass `-y, --yes`** for any command that has a "Are you sure?" confirmation gate (publish, delete, restore, project create, github connect, integrations purchase). Different flag from `--non-interactive` — this one APPROVES, that one DISABLES prompts.
-3. **Pin the channel explicitly** with `SYMBOLS_API_CHANNEL=<name>` env var (or `--local`/`--next`/`--no-next` flag). Don't rely on the `next` default — agents may be running against `production` in deployment.
+3. **Pin the channel explicitly** with `NODE_ENV=<name>` env var (or `--local`/`--next`/`--no-next` flag). Don't rely on the `next` default — agents may be running against `production` in deployment.
 4. **Authenticate via token, not browser.** Agent flows can't open a browser. Use:
    ```bash
    SYMBOLS_AUTH_TOKEN=<token> smbls <cmd>
@@ -372,7 +372,7 @@ These are **hard requirements** when the CLI is invoked from a non-TTY agent (MC
 
 ```bash
 # Set channel + auth once per session
-export SYMBOLS_API_CHANNEL=next
+export NODE_ENV=next
 export SYMBOLS_AUTH_TOKEN=<from-secret-store>
 
 # Then run with hard non-interactive + auto-confirm:

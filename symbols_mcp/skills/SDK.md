@@ -191,7 +191,7 @@ at module load. Channel URLs (`apiUrl`, `socketUrl`) come from
 | `preview` | `preview` | `https://api.symbols.app` (Faro tracking enabled) |
 | `production` | `production` | `https://api.symbols.app` (Faro tracking enabled) |
 
-Resolved by `process.env.SYMBOLS_APP_ENV || process.env.NODE_ENV`. Override
+Resolved by `process.env.NODE_ENV`. Override
 URLs with `SYMBOLS_APP_API_URL` / `SYMBOLS_APP_SOCKET_URL`. Other env-var
 escape hatches: `SYMBOLS_APP_GITHUB_CLIENT_ID`, `SYMBOLS_APP_GRAFANA_URL`,
 `SYMBOLS_KV_URL`, `SYMBOLS_DNS_WORKER_URL`, `SYMBOLS_DNS_API_KEY`,
@@ -1289,7 +1289,7 @@ When exposing this SDK through an MCP server:
 1. **Single SDK instance per session.** `TokenManager` is a process
    singleton; sharing the SDK keeps the auth state aligned across tools.
 2. **Pass `apiUrl` explicitly** if the MCP runs in an environment where
-   `process.env.SYMBOLS_APP_ENV` isn't set — otherwise the SDK falls back to
+   `process.env.NODE_ENV` isn't set — otherwise the SDK falls back to
    the `next` channel.
 3. **Never persist `authToken` outside `TokenManager`.** Use
    `sdk.updateContext({ authToken })` once at session start; `BaseService`
