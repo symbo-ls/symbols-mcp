@@ -70,7 +70,9 @@ If you redefine a built-in (write `Avatar: { tag: 'div', ... }`), you (a) lose t
 
 ---
 
-## 🔁 Reuse — 3-tier search order
+## 🔁 Reuse — 3-tier search order (NO DUPLICATES — Rule 63, P0)
+
+**Defining a component or function whose name already exists somewhere in scope is a critical violation.** Bare keys (and `el.call('fn', …)`) resolve through merged context (built-ins → shared libraries → project), so a duplicate name silently shadows the canonical one and breaks every other consumer. **Search all three tiers before writing `export const <Name>`** — skipping the search is the violation, even if the duplicate "works".
 
 Reuse is mandatory across THREE concentric tiers. Search in this order before defining anything new:
 
@@ -125,6 +127,8 @@ grep -rE '^export (const|function) ' functions/ methods/ | head -40
 | A library component covers ~80% but needs different visuals | Override the divergent props on the bare key — never copy the source |
 | A library component is semantically close but not identical | `extends: 'LibComponent'` in your local file + add what's new |
 | Existing local component covers your case | Bare-key reference |
+| Your intended NAME collides with a built-in / library / project entry, but the shape is genuinely different | **Rename your new component/function** — do NOT shadow |
+| You truly intend to override a shared-library key project-wide | Define the same key locally (local always wins) — make it an explicit, documented decision, never an accidental shadow |
 | You're writing the SECOND near-duplicate (local) | Acceptable — but flag for refactor |
 | You're writing the THIRD near-duplicate (local) | **STOP. Extract the shared shape.** |
 | A pattern recurs across MULTIPLE projects in the org | Promote to a shared library (separate concern; ask first) |
@@ -173,7 +177,9 @@ Never `utils/`, `lib/`, `helpers/` — those folders aren't in frank's discovery
 
 ## Hard rules — every output must respect these
 
-Full list lives in RULES.md (62 rules). Most-violated:
+Full list lives in RULES.md (64 rules). Most-violated:
+
+- **NO globals — never assign to `window` / `globalThis` / `document` (Rule 64, P0).** No `window.X = …`, no `globalThis.X = …`, no `document.title = …`, no `document.body.classList.add(…)`, no `window.__projectInit = …`. Cross-component data → root state (`el.getRootState().update({ … })`); per-instance non-reactive storage → `el.scope.X`; reach other parts of the tree → `el.lookup` / `el.lookdown` / `el.getRoot`; call helpers → `el.call('fn', …)`. The only tolerated `window.*` interactions are READ-ONLY: `window.location` reads (use `el.router` for navigation) and `window.addEventListener` for genuine browser events bound in `onInit` with `el.scope` cleanup in `onRemove`. Globals are not reactive, leak across iframes, hold GC references forever, and are stripped by frank serialization (FA513/FA514).
 
 - **Flat element API.** Props at `el.X` (NEVER `el.props.X`). Events at `el.onClick` / `el.onInit` (NEVER `on: {}` wrapper). Reactive functions are `(el, s)` (NEVER `({ props, state })`).
 - **Lowercase child keys NEVER render.** PascalCase only (e.g. `Heading`, not `h1`).

@@ -1912,6 +1912,223 @@ CloseBtn: { extends: 'Icon', icon: 'close' }
 
 **Note on `Svg`:** the `Svg` element is reserved for non-icon decorative/illustration backgrounds. It is NEVER acceptable for icons. If you find yourself reaching for `extends: 'Svg'` to render an icon, stop — register the icon in `designSystem/icons` and use `Icon` instead.
 
+---
+
+## Rule 63 — STRICT: NO DUPLICATES — search all 3 tiers before defining ANY component or function
+
+**This is a P0 rule. Defining a component or function whose name already exists somewhere in scope is a critical violation, even when "the existing one looks slightly different".** DOMQL resolves bare keys through merged context (built-ins → shared libraries → project), and registered functions are looked up the same way. Re-declaring a name that already exists silently shadows the original and breaks every other consumer that expected the canonical version.
+
+### The mandatory pre-write checklist
+
+Before writing `export const <Name> = {…}` for a component, OR `export function <name>` / `export const <name> = …` for a function, you MUST confirm — in this order — that NO entry with that name already exists:
+
+1. **Tier 1 — Framework built-ins** (`@symbo.ls/default-config`).
+   - Atoms: `Block`, `Box`, `Flex`, `Grid`, `Hgroup`, `Img`, `Picture`, `Video`, `Iframe`, `Text`, `Form`, `Svg`, `Shape`, `Theme`, `InteractiveComponent`.
+   - Components: `Avatar`, `Button`, `Dialog`, `Dropdown`, `Link`, `Notification`, `Range`, `Select`, `Tooltip`, `Icon`, `Input`.
+   - If your name collides — STOP. Use the built-in via bare key (`Avatar: { src: '…' }`).
+
+2. **Tier 2 — Shared libraries** declared in `sharedLibraries.js` at the project root.
+   - Inspect `sharedLibraries.js` and `symbols.json` (`sharedLibrariesMode`) to know whether libraries resolve into `node_modules/<pkg>/` (`npm` mode) or `.symbols_local/libs/<owner>/<key>/` (`local` mode), or a custom `destDir`.
+   - Grep every resolved library path:
+     ```sh
+     # npm mode
+     grep -rEn '^export const [A-Z][A-Za-z0-9_]* ' node_modules/<pkg>/components/ node_modules/<pkg>/snippets/ 2>/dev/null
+     grep -rEn '^export (const|function) [a-z]'    node_modules/<pkg>/functions/  node_modules/<pkg>/methods/   2>/dev/null
+     # local mode
+     grep -rEn '^export const [A-Z][A-Za-z0-9_]* ' .symbols_local/libs/*/*/components/ .symbols_local/libs/*/*/snippets/ 2>/dev/null
+     grep -rEn '^export (const|function) [a-z]'    .symbols_local/libs/*/*/functions/  .symbols_local/libs/*/*/methods/   2>/dev/null
+     ```
+   - If your name collides — STOP. Reuse via bare key, or `extends: 'Name'` in your local file to override specific props (Rule 46 — never edit the library source).
+
+3. **Tier 3 — Current project** — `components/`, `pages/`, `snippets/`, `functions/`, `methods/`.
+   ```sh
+   grep -rEn '^export const [A-Z][A-Za-z0-9_]* ' components/ pages/ snippets/ 2>/dev/null
+   grep -rEn '^export (const|function) [a-z]'    functions/  methods/                 2>/dev/null
+   ```
+   - If your name collides — STOP. Either reuse the existing definition, or rename the new one to express its distinct purpose.
+
+You may also use `mcp__symbols-mcp__search_symbols_docs(query)` for semantic search across the bundled catalog. **Skipping this checklist is the violation, even if the duplicate ships and "works".**
+
+### The four resolutions when a name collides
+
+| Situation | Action |
+| -- | -- |
+| The existing entry covers your case | Reuse it via bare key (`Card: { … }`) or `el.call('fn', …)` — do NOT redefine |
+| The existing entry covers ~80% but you need different visuals/behavior | `extends: 'Card'` (or wrap the function) in YOUR file with the diff — do NOT copy the source |
+| The existing entry is genuinely the wrong shape for your need | **Rename** your new component/function — do NOT shadow |
+| You truly intend to override a shared-library entry project-wide | Define the same key in your local project (local always wins on collision) — make this an explicit, documented decision, not an accidental shadow |
+
+### ❌ Forbidden — duplicate names
+
+```js
+// ❌ Avatar exists in @symbo.ls/default-config — redefining loses theme/SSR/sprite/a11y wiring
+export const Avatar = { tag: 'div', borderRadius: 'A', Img: { /* … */ } }
+
+// ❌ Card exists in shared library `system/default` — accidental shadow shadows every consumer
+// (no project-wide decision was made; the author just didn't grep)
+export const Card = { padding: 'C', background: 'surface' }
+
+// ❌ formatDate already exists in functions/formatDate.js — duplicate file, divergent logic
+// functions/formatTime.js
+export const formatDate = (d) => new Date(d).toLocaleString()
+
+// ❌ Two near-duplicates with cosmetic naming differences
+export const UserCard    = { /* same shape */ }
+export const MemberCard  = { /* same shape */ }
+export const ProfileCard = { /* same shape */ }
+```
+
+### ✅ Correct — reuse, extend, or rename
+
+```js
+// ✅ Reuse the built-in by bare key
+Avatar: { src: 'me.jpg' }
+
+// ✅ Extend the shared-library Card to customize for this project (Rule 46)
+//    components/Card.js — local override
+export const Card = {
+  extends: 'Card',          // pulls in the shared-library Card as the base
+  borderRadius: 'C',        // your project tweak
+  background: 'brand'
+}
+
+// ✅ Reuse the registered function via el.call
+text: (el, s) => el.call('formatDate', s.createdAt)
+
+// ✅ Extract the shared shape, rename instances per usage
+//    components/PersonCard.js
+export const PersonCard = { /* canonical shape */ }
+//    pages/Team.js
+PersonCard_1: { /* member-specific overrides */ }
+PersonCard_2: { /* profile-specific overrides */ }
+```
+
+### Why strict
+
+- **Silent shadowing.** Built-ins / shared-library entries collide with local re-definitions silently — no error. Bugs surface weeks later as "the avatar lost its theme styling" or "this function returns the wrong shape on prod". Almost always traced back to an undeclared name collision.
+- **Frank serialization divergence.** A redefined component drops the canonical version's wiring (theme, sprite, SSR, a11y); the local dev render looks fine, the deployed payload doesn't.
+- **Update propagation breaks.** When the shared-library version updates upstream, every consumer benefits — except the one that quietly redefined the name.
+- **Cognitive load.** Three near-duplicates (`UserCard`, `MemberCard`, `ProfileCard`) means three drift trajectories; one canonical `PersonCard` means one.
+
+### Audit checks
+
+- Cross-grep tier-3 component/function names against tier-1 catalog and tier-2 library paths — any match that isn't an intentional override is a Rule 63 violation.
+- For functions, also check that `el.call('name', …)` resolves to the intended definition (DOMQL's function registry merges across tiers the same way).
+- Treat any new file whose `export const X` matches an existing name as a P1 fix, not a "TODO later".
+
+---
+
+## Rule 64 — STRICT: NEVER assign to `window` / `globalThis` / `document` — no globals, period
+
+**Writing anything to `window`, `globalThis`, or `document` from project code is BANNED.** This is a P0 rule with zero exceptions for "convenience", "debugging", "passing data between components", or "exposing for devtools". The framework already gives you four reactive, scoped, garbage-collected channels — use them. Globals are silent bugs disguised as shortcuts.
+
+**Banned patterns — every one of these is a Rule 64 violation:**
+
+```js
+// ❌ Stashing app/element references on window
+onInit: (el) => { window.smblsApp     = el.getRoot() }
+onInit: (el) => { window.__rootEl     = el }
+onInit: (el) => { window.app          = el }
+
+// ❌ Cross-component context sharing through window
+onClick: (e, el, s) => { window.activeProject = s.project }
+onInit:  (el)       => { const p = window.activeProject; … }
+
+// ❌ Assigning helpers / functions to window for "easy access"
+onInit: (el) => { window.refreshUser = () => el.call('refreshUser') }
+onInit: (el) => { window.openModal   = (id) => el.getRootState().update({ modal: id }) }
+
+// ❌ Module-side-effect bridges (also FA514 — stripped by frank, breaks in prod)
+window.__projectInit = initFunction
+window.__myBus       = new EventTarget()
+
+// ❌ Document-level writes
+document.title                = s.project.name      // use `metadata:` / @symbo.ls/helmet (Rule 49)
+document.body.dataset.theme   = 'dark'              // use `changeGlobalTheme()` (Rule 50)
+document.documentElement.style.setProperty('--x',v) // use `vars: { '--x': v }` or design-system tokens
+document.cookie               = '…'                 // wrap in a `functions/` helper, never inline
+document.body.classList.add('open')                 // `class: { open: (el, s) => s.isOpen }`
+
+// ❌ globalThis is just window with extra steps
+globalThis.smblsApp = el.getRoot()
+```
+
+### Why this is strict — five concrete failure modes
+
+1. **Not reactive.** smbls is signal-based; `window.foo = x` does not trigger a re-render. Components reading `window.foo` will silently render stale data forever.
+2. **Cross-app contamination.** Canvas, workspace, and preview all load in the same Chrome tab during dev — `window.foo` written by one app leaks into every other. Production embeds (iframes, multi-tenant pages) hit the same trap.
+3. **GC leaks.** A reference held on `window` is alive forever. Mounting and unmounting your app (canvas re-init, hot reload, route swap) keeps every previous element tree alive — memory grows until the tab dies.
+4. **Frank-serialization divergence.** `window.__projectInit = …` and similar module-side-effect bridges are STRIPPED at publish (FA513/FA514). Your local dev works; the deployed payload silently does nothing.
+5. **Implicit, undocumented contracts.** Any reader of `window.X` creates an invisible contract. Renaming, refactoring, or removing the writer breaks consumers nobody can grep for.
+
+### Use these instead — element tree traversal + the four canonical channels
+
+DOMQL gives you everything `window` would tempt you to use. Pick by scope and reactivity:
+
+| Need | Use |
+| -- | -- |
+| Walk to a parent / ancestor by key | `el.lookup('KeyName')` (Rule 40) |
+| Find a child / descendant by key | `el.lookdown('KeyName')` / `el.lookdownAll('KeyName')` |
+| Reach the root element | `el.getRoot()` |
+| Read / write app-wide reactive state | `el.getRootState()` + `s.root.X` reads / `el.getRootState().update({ X: … })` writes |
+| Component-local reactive state | `state: { … }` + `s.update({ … })` |
+| Per-instance NON-reactive storage (timers, library refs, debounce handles) | `el.scope.X = …` in `onInit`, clean up in `onRemove` |
+| Boot-time config / registered functions | `context` (passed to `create(app, context)`) — read-only at runtime |
+| Call a registered project function | `el.call('fnName', …args)` — never `window.fnName` |
+| Navigate | `el.router(path, el.getRoot())` (Rule 42) |
+| Set page title / meta | `metadata: { … }` via @symbo.ls/helmet (Rule 49) |
+| Switch theme | `changeGlobalTheme()` from `smbls` (Rule 50) |
+| Set CSS vars / styles | `vars: { '--x': v }` or design-system tokens (Rule 30) |
+| Toggle classes | `class: { open: (el, s) => s.isOpen }` |
+| React to scroll / resize / visibility | `onScroll:` / `onResize:` lifecycle props on the element |
+| Genuine browser events (`beforeunload`, `hashchange`, `storage`) | `window.addEventListener` in `onInit`, store the cleanup on `el.scope`, remove in `onRemove` — read-only listeners only, never assignments |
+
+### ✅ Correct — every banned case rewritten
+
+```js
+// ✅ Cross-component data → root state (reactive, scoped to the app)
+//    state.js
+state: { activeProject: null }
+//    setter
+onClick: (e, el, s) => el.getRootState().update({ activeProject: s.project })
+//    reader
+text: (el, s) => s.root.activeProject?.name || '{{ noProject | polyglot }}'
+
+// ✅ Per-instance non-reactive storage → el.scope
+onInit:   (el) => { el.scope.timer = null },
+onInput:  (e, el, s) => {
+  clearTimeout(el.scope.timer)
+  el.scope.timer = setTimeout(() => s.update({ q: e.target.value }), 200)
+},
+onRemove: (el) => { clearTimeout(el.scope.timer) }
+
+// ✅ Calling a project function → el.call (never window.fn)
+onClick: (e, el, s) => el.call('refreshUser', s)
+
+// ✅ Reaching another part of the tree → element tree traversal
+onClick: (e, el) => el.lookup('AppShell').lookdown('Sidebar').toggle()
+
+// ✅ Page title → metadata: prop
+metadata: { title: (el, s) => s.project.name }
+
+// ✅ Theme swap → framework API
+import { changeGlobalTheme } from 'smbls'
+onClick: () => changeGlobalTheme('dark')
+```
+
+### The two narrow read-only exceptions (NOT assignments)
+
+- **`window.location` reads** (`window.location.pathname`, `.hash`, `.search`) are tolerated for inspection — but for navigation, ALWAYS `el.router(path, el.getRoot())` (Rule 42). Never `window.location.href = '/x'`.
+- **`window.addEventListener`** for genuine browser events (`resize`, `beforeunload`, `hashchange`, `storage`) — bind in `onInit`, store the cleanup on `el.scope`, remove in `onRemove`. Prefer DOMQL lifecycle props (`onResize:` / `onScroll:`) when they cover the case. **Listeners are reads, not writes.**
+
+Anything else — including formal devtools hooks (`__REDUX_DEVTOOLS_EXTENSION__`, `__SMBLS_DEVTOOLS_GLOBAL_HOOK__`) — must be added at the framework level, not from a project. If you need a hook that doesn't exist, open a ticket in `FRAMEWORK_TICKETS.md` (per the no-hacks policy in Rule 55) — never add a project-side `window.__X = …` shim.
+
+### Audit checks
+
+- Grep your project for `window.`, `globalThis.`, `document.title`, `document.body`, `document.documentElement`, `document.cookie`, `document.createElement`, `document.querySelector`, `document.getElementById` — every match outside the two read-only exceptions is a Rule 64 violation.
+- For each violation, identify which canonical channel replaces it (state, scope, root state, context, `el.call`, `el.lookup` / `el.lookdown`, `metadata:`, `vars:`, `class:`, `onScroll:` / `onResize:`, `el.router`).
+- A `window.X = …` write is ALWAYS a P0 fix — not a "TODO later". Silent global writes are the highest-rework class of bug in Symbols projects.
+
 **Auto-fix protocol:** when an audit finds an `html: '<svg...>'` icon, the fix is always:
 1. Lift the SVG markup into `designSystem/icons.js` under a clear semantic name
 2. Replace the offending component body with `{ extends: 'Icon', icon: '<name>' }`
