@@ -4,6 +4,9 @@
   "description": "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference",
   "mcpName": "io.github.symbo-ls/symbols-mcp",
   "files": [
+    "dist",
+    "*.md",
+    "LICENSE",
     "bin/",
     "lib/",
     "symbols_mcp/skills/",
@@ -15,9 +18,19 @@
     "symbols-mcp-init-rules": "./bin/symbols-mcp-init-rules"
   },
   "exports": {
-    ".": "./bin/symbols-mcp.js",
-    "./lib/audit": "./lib/audit.js",
-    "./package.json": "./package.json"
+    ".": {
+      "development": "./index.js",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs",
+      "default": "./dist/esm/index.js"
+    },
+    "./package.json": "./package.json",
+    "./lib/audit": {
+      "development": "./lib/audit.js",
+      "import": "./dist/esm/lib/audit.js",
+      "require": "./dist/cjs/lib/audit.cjs",
+      "default": "./dist/esm/lib/audit.js"
+    }
   },
   "repository": {
     "type": "git",
@@ -32,6 +45,15 @@
   ],
   "license": "CC-BY-NC-4.0",
   "publishConfig": {
-    "access": "public"
-  }
+    "access": "restricted"
+  },
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "scripts": {
+    "build:esm": "esbuild $(find . -type f -name \"*.js\" -not -path \"*/dist/*\" -not -path \"*/node_modules/*\" -not -path \"*/__tests__/*\" -not -path \"*/test/*\" -not -name \"*.test.js\") --target=es2020 --format=esm --outbase=. --outdir=dist/esm --minify --log-level=warning",
+    "build:cjs": "esbuild $(find . -type f -name \"*.js\" -not -path \"*/dist/*\" -not -path \"*/node_modules/*\" -not -path \"*/__tests__/*\" -not -path \"*/test/*\" -not -name \"*.test.js\") --target=node18 --format=cjs --outbase=. --outdir=dist/cjs --out-extension:.js=.cjs --minify --log-level=warning",
+    "build": "rimraf dist && npm run build:esm && npm run build:cjs",
+    "prepublishOnly": "npm run build"
+  },
+  "type": "module"
 }
