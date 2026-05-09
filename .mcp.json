@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "symbols-mcp": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "symbols-mcp"]
-    }
-  }
-}
