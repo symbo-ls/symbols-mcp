@@ -18,12 +18,6 @@
     "symbols-mcp-init-rules": "./bin/symbols-mcp-init-rules"
   },
   "exports": {
-    ".": {
-      "development": "./index.js",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs",
-      "default": "./dist/esm/index.js"
-    },
     "./package.json": "./package.json",
     "./lib/audit": {
       "development": "./lib/audit.js",
