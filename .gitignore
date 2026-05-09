@@ -3,4 +3,5 @@
 .pypirc
 __pycache__
 *.mcpb
-.DS_Store.mcp.json
+.DS_Store
+.mcp.json
