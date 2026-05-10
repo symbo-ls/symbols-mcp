@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.symbo-ls/symbols-mcp",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "title": "Symbols MCP",
-  "description": "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference",
+  "description": "Symbols.app MCP \u2014 docs, code generation, publishing, CLI/SDK reference",
   "repository": {
     "url": "https://github.com/symbo-ls/symbols-mcp",
     "source": "github"
@@ -13,17 +13,8 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "symbols-mcp",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "runtimeHint": "uvx",
-      "transport": {
-        "type": "stdio"
-      }
-    },
-    {
-      "registryType": "npm",
-      "identifier": "@symbo.ls/mcp",
-      "version": "3.14.0",
-      "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
       }

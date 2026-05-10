@@ -3,12 +3,14 @@ Symbols MCP — Documentation search, code generation, conversion and audit tool
 """
 
 import os
+import sys
 import json
 import logging
 import re
 import subprocess
 import shutil
 from pathlib import Path
+from importlib.metadata import version as _pkg_version, PackageNotFoundError
 
 import httpx
 from mcp.server.fastmcp import FastMCP, Context
@@ -3107,6 +3109,21 @@ Paste your component code below:"""
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+def _print_banner(transport: str, host: str | None = None, port: int | None = None) -> None:
+    """Write a startup banner to stderr.
+
+    stderr is safe — stdio MCP only uses stdout for JSON-RPC frames.
+    """
+    try:
+        ver = _pkg_version("symbols-mcp")
+    except PackageNotFoundError:
+        ver = "dev"
+    where = f"http://{host}:{port}" if transport == "sse" else "stdio (waiting for JSON-RPC client on stdin)"
+    print(f"symbols-mcp {ver} → {where}", file=sys.stderr, flush=True)
+    if transport != "sse":
+        print("  (running in a terminal? this server expects a JSON-RPC client — Ctrl-C to exit)", file=sys.stderr, flush=True)
+
+
 def main():
     """Run the Symbols MCP server."""
     transport = os.getenv("MCP_TRANSPORT", "stdio")
@@ -3114,8 +3131,10 @@ def main():
     port = int(os.getenv("MCP_PORT", "8080"))
 
     if transport == "sse":
+        _print_banner(transport, host, port)
         mcp.run(transport="sse", host=host, port=port)
     else:
+        _print_banner(transport)
         mcp.run(transport="stdio")
 
 
