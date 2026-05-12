@@ -5,3 +5,4 @@ __pycache__
 *.mcpb
 .DS_Store
 .mcp.json
+.symbols_local/
