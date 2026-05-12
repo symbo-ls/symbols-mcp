@@ -1,5 +1,11 @@
 # @symbo.ls/mcp
 
+## 3.14.23
+
+### Patch Changes
+
+- Auto-generated cross-repo patch release.
+
 ## 3.14.22
 
 ### Patch Changes
@@ -147,7 +153,6 @@
 
 - Auto-generated cross-repo patch release.
 
-
 ---
 
 ## PyPI-only releases (pre-unification, 2026-05-11 → 2026-05-12)
@@ -183,7 +188,7 @@ on the same unified `3.14.x` version line — so 1.1.x is closed forever).
 ### 1.1.8 (2026-05-12)
 
 - Catch `KeyboardInterrupt` in `main()` so `Ctrl-C` on `uvx
-  symbols-mcp` exits cleanly instead of dumping a 40-line asyncio
+symbols-mcp` exits cleanly instead of dumping a 40-line asyncio
   traceback ending in `raise KeyboardInterrupt()`.
 
 ### 1.1.7 (2026-05-11)
