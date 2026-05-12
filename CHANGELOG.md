@@ -146,3 +146,49 @@
 ### Patch Changes
 
 - Auto-generated cross-repo patch release.
+
+
+---
+
+## PyPI-only releases (pre-unification, 2026-05-11 → 2026-05-12)
+
+Backfilled. These four versions shipped only to PyPI + the MCP registry
+via the local `publish.sh` flow, before the release-manager wired the
+three-registry publish (after which npm + PyPI + MCP registry all ship
+on the same unified `3.14.x` version line — so 1.1.x is closed forever).
+
+### 1.1.10 (2026-05-12)
+
+- Bundle the full `@symbo.ls/frank-audit` rule catalog (64 rules,
+  FA001–FA904) so agents reading `get_project_rules` see brief docs for
+  every rule, not just the ~24 with hand-written context in
+  `FRANKABILITY.md`.
+- `bin/sync-frankability-catalog` regenerates `FRANKABILITY_CATALOG.md`
+  from `frank-audit explain`, grouped by FA0xx / FA1xx / … / FA9xx
+  category.
+- `publish.sh` runs the sync before each release so the bundled
+  catalog tracks whatever `frank-audit` currently ships.
+- `get_project_rules` now concatenates `FRANKABILITY_CATALOG.md`
+  alongside the conceptual `FRANKABILITY.md`.
+
+### 1.1.9 (2026-05-12)
+
+- Suppress the noisy `mcp.server.lowlevel` ERROR triggered when stdin
+  receives a whitespace-only line (terminal Enter, buggy clients).
+  Per the stdio spec clients MUST NOT send blank lines, but the
+  resulting pydantic traceback drowns out real errors. Only the
+  specific blank-line case is dropped — actual parse errors still
+  surface.
+
+### 1.1.8 (2026-05-12)
+
+- Catch `KeyboardInterrupt` in `main()` so `Ctrl-C` on `uvx
+  symbols-mcp` exits cleanly instead of dumping a 40-line asyncio
+  traceback ending in `raise KeyboardInterrupt()`.
+
+### 1.1.7 (2026-05-11)
+
+- Banner on stderr at server startup so `uvx symbols-mcp` no longer
+  looks hung in a terminal.
+- Drop npm entry from MCP-registry `server.json` (npm package is
+  private; registry can only validate public package entries).
