@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Regenerate symbols_mcp/skills/FRANKABILITY_CATALOG.md from frank-audit's
+# `explain` output. Run before each release so the bundled catalog tracks
+# whatever rules frank-audit currently ships.
+#
+# Usage: ./bin/sync-frankability-catalog
+set -e
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="$ROOT/symbols_mcp/skills/FRANKABILITY_CATALOG.md"
+
+if ! command -v frank-audit >/dev/null 2>&1; then
+  echo "✗ frank-audit not on PATH — install with: npm i -g @symbo.ls/frank-audit" >&2
+  exit 1
+fi
+
+# Pull the rule-id list from `frank-audit explain` (no arg prints the catalog)
+IDS=$(frank-audit explain 2>&1 \
+  | grep -oE 'FA[0-9]+' \
+  | sort -u)
+
+if [ -z "$IDS" ]; then
+  echo "✗ couldn't parse rule list from 'frank-audit explain'" >&2
+  exit 1
+fi
+
+COUNT=$(echo "$IDS" | wc -l | tr -d ' ')
+echo "syncing $COUNT rules → $OUT"
+
+declare -A CATEGORY_TITLES=(
+  [0]="FA0xx — Project structure & imports"
+  [1]="FA1xx — Flat element API"
+  [2]="FA2xx — DOMQL syntax & scope movers"
+  [3]="FA3xx — Design-system tokens"
+  [4]="FA4xx — Fix-time rules"
+  [5]="FA5xx — Banned runtime APIs & frank-serialization"
+  [6]="FA6xx — Lifecycle & events"
+  [7]="FA7xx — State"
+  [8]="FA8xx — Pages & routing"
+  [9]="FA9xx — Reference resolution"
+)
+
+{
+  cat <<'EOF'
+# Frankability Catalog — every `@symbo.ls/frank-audit` rule
+
+**Auto-generated** by `bin/sync-frankability-catalog` from `frank-audit explain`.
+Do not edit by hand — re-run the script after upgrading `@symbo.ls/frank-audit`.
+
+For deeper conceptual context on the most-used rules, see `FRANKABILITY.md`.
+This file is the exhaustive reference: brief explainer + bad/good examples per
+rule, lifted verbatim from the CLI source-of-truth.
+
+EOF
+
+  CUR_BUCKET=""
+  for ID in $IDS; do
+    # Bucket by first digit after FA (e.g. FA503 → 5)
+    BUCKET="${ID:2:1}"
+    if [ "$BUCKET" != "$CUR_BUCKET" ]; then
+      CUR_BUCKET="$BUCKET"
+      TITLE="${CATEGORY_TITLES[$BUCKET]:-FA${BUCKET}xx}"
+      printf '\n---\n\n## %s\n\n' "$TITLE"
+    fi
+    frank-audit explain "$ID" 2>&1
+    printf '\n'
+  done
+} > "$OUT"
+
+LINES=$(wc -l < "$OUT" | tr -d ' ')
+echo "✓ wrote $OUT ($LINES lines)"

@@ -20,6 +20,13 @@ esac
 
 echo "Bumping $CURRENT → $NEW"
 
+# Sync FRANKABILITY_CATALOG.md from frank-audit (no-op if frank-audit not installed locally; CI must have it)
+if command -v frank-audit >/dev/null 2>&1; then
+  ./bin/sync-frankability-catalog
+else
+  echo "⚠  frank-audit not installed; FRANKABILITY_CATALOG.md not regenerated (existing copy will ship)"
+fi
+
 # Update versions
 sed -i '' "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml
 

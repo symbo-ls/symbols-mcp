@@ -750,6 +750,7 @@ def get_project_rules() -> str:
     snippets = _read_skill("SNIPPETS.md")
     shared_libs = _read_skill("SHARED_LIBRARIES.md")
     frankability = _read_skill("FRANKABILITY.md")
+    frankability_catalog = _read_skill("FRANKABILITY_CATALOG.md")
     frank_fix_workflow = _read_skill("FRANK_FIX_WORKFLOW.md")
     common_mistakes = _read_skill("COMMON_MISTAKES.md")
     learnings = _read_skill("LEARNINGS.md")
@@ -906,6 +907,7 @@ def get_project_rules() -> str:
         + "\n\n---\n\n" + snippets
         + "\n\n---\n\n" + shared_libs
         + "\n\n---\n\n" + frankability
+        + "\n\n---\n\n" + frankability_catalog
         + "\n\n---\n\n" + frank_fix_workflow
         + "\n\n---\n\n" + common_mistakes
         + "\n\n---\n\n" + learnings
