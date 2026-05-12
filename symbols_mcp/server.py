@@ -103,6 +103,28 @@ SKILLS_DIR = os.getenv("SYMBOLS_SKILLS_DIR", str(Path(__file__).resolve().parent
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("symbols-mcp")
 
+
+class _BlankLineNoiseFilter(logging.Filter):
+    """Suppress the noisy mcp.server.lowlevel ERROR for blank-line stdin.
+
+    Per the stdio spec clients MUST NOT send anything that isn't a valid
+    MCP message, but terminals (and some clients) inject `\\n`. The SDK
+    then logs a multi-line pydantic traceback that drowns out real errors.
+    We drop only the specific whitespace-only case — actual parse errors
+    still surface.
+    """
+
+    _NOISE_TOKENS = ("input_value='\\n'", "input_value='\\r\\n'", "input_value=''", "input_value=' '")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "Received exception from stream" in msg and any(t in msg for t in self._NOISE_TOKENS):
+            return False
+        return True
+
+
+logging.getLogger("mcp.server.lowlevel.server").addFilter(_BlankLineNoiseFilter())
+
 # ---------------------------------------------------------------------------
 # MCP Server
 # ---------------------------------------------------------------------------
