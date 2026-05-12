@@ -1,5 +1,14 @@
 # @symbo.ls/mcp
 
+## 3.14.20
+
+### Patch Changes
+
+- d8b899b: Bump `@symbo.ls/mcp` to drive the cross-bump + PyPI/MCP-registry publish
+  through end-to-end. Previous run's PyPI step skipped because the secrets
+  were missing in Infisical; secrets are configured now, so this round
+  catches PyPI + the MCP registry up to the npm version line.
+
 ## 3.14.19
 
 ### Patch Changes
