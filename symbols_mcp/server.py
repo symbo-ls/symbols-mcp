@@ -3130,12 +3130,18 @@ def main():
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8080"))
 
-    if transport == "sse":
-        _print_banner(transport, host, port)
-        mcp.run(transport="sse", host=host, port=port)
-    else:
-        _print_banner(transport)
-        mcp.run(transport="stdio")
+    try:
+        if transport == "sse":
+            _print_banner(transport, host, port)
+            mcp.run(transport="sse", host=host, port=port)
+        else:
+            _print_banner(transport)
+            mcp.run(transport="stdio")
+    except KeyboardInterrupt:
+        # Ctrl-C — asyncio.Runner injects this into run_until_complete on
+        # Python 3.11+. Swallow it so the user gets a clean exit instead of
+        # a 40-line traceback ending in `raise KeyboardInterrupt()`.
+        print("symbols-mcp: interrupted, shutting down", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
