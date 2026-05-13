@@ -2,6 +2,8 @@
 
 sharedLibraries allows projects to inherit components, functions, methods, state, designSystem, pages, files, snippets, and dependencies from external library projects. Libraries are merged into the consuming app's context at runtime — no manual re-exports needed.
 
+This file documents the **merge engine** — input shapes, runtime merge algorithm, lockfile, `link` vs `destDir` semantics, `sideEffects: true` mechanics, `smbls libs` command reference, drift detection internals. For the **workspace topology** that uses this engine — multi-app monorepo layout, the two project shapes (flat library vs full app), the `symbols.json` + `sharedLibraries.js` two-file contract, no-transitive-resolution, the new-app-in-workspace checklist — read [WORKSPACE.md](./WORKSPACE.md).
+
 **CRITICAL: When shared libraries are fetched from the platform, both `sharedLibraries.js` and `.symbols_local/libs/` folders are strictly READONLY — they are overwritten on every `smbls fetch`/`smbls sync`.** To override shared library components, define them in your local project files (app always wins).
 
 `sharedLibraries.js` can be manually edited for custom linking to local folders (advanced use case), but fetched content must never be modified.

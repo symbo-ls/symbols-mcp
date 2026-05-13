@@ -724,6 +724,7 @@ def get_project_rules() -> str:
     - PATTERNS.md (canonical compositional patterns)
     - SNIPPETS.md (project-level snippet patterns)
     - SHARED_LIBRARIES.md (when to read/never edit cross-package code)
+    - WORKSPACE.md (multi-app monorepo topology — two project shapes, two-file contract, no-transitive-resolution, onboarding checklist)
     - FRANKABILITY.md (every `@symbo.ls/frank-audit` rule with wrong vs canonical examples — patterns that survive frank.toJSON serialization, so generated code is provably frankable from the start)
     - FRANK_FIX_WORKFLOW.md (LLM reference card for the prescription → edit-op flow — the strict 8-kind contract for `apply_frankability_edit_ops`)
     - COMMON_MISTAKES.md + LEARNINGS.md (hard-won failure cases — read these to avoid replaying them)
@@ -749,6 +750,7 @@ def get_project_rules() -> str:
     patterns = _read_skill("PATTERNS.md")
     snippets = _read_skill("SNIPPETS.md")
     shared_libs = _read_skill("SHARED_LIBRARIES.md")
+    workspace = _read_skill("WORKSPACE.md")
     frankability = _read_skill("FRANKABILITY.md")
     frankability_catalog = _read_skill("FRANKABILITY_CATALOG.md")
     frank_fix_workflow = _read_skill("FRANK_FIX_WORKFLOW.md")
@@ -906,6 +908,7 @@ def get_project_rules() -> str:
         + "\n\n---\n\n" + patterns
         + "\n\n---\n\n" + snippets
         + "\n\n---\n\n" + shared_libs
+        + "\n\n---\n\n" + workspace
         + "\n\n---\n\n" + frankability
         + "\n\n---\n\n" + frankability_catalog
         + "\n\n---\n\n" + frank_fix_workflow
@@ -1040,7 +1043,7 @@ def generate_page(
     """
     context = _read_skills(
         "FRAMEWORK.md", "DESIGN_SYSTEM.md",
-        "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md",
+        "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md", "WORKSPACE.md",
         "MODERN_STACK.md", "FRANKABILITY.md",
         "PATTERNS.md", "SNIPPETS.md", "COMPONENTS.md", "DEFAULT_PROJECT.md",
     )
@@ -2785,6 +2788,12 @@ def get_framework() -> str:
 def get_shared_libraries() -> str:
     """sharedLibraries — how shared libraries work in Symbols: configuration, runtime merge, precedence, CLI integration."""
     return _read_skill("SHARED_LIBRARIES.md")
+
+
+@mcp.resource("symbols://skills/workspace")
+def get_workspace() -> str:
+    """Workspace — multi-app monorepos powered by sharedLibraries: layout, the two project shapes (flat library vs full app), the symbols.json + sharedLibraries.js two-file contract, no-transitive-resolution rule, new-app onboarding checklist. Tightly coupled to SHARED_LIBRARIES.md (the merge engine) but covers the workspace topology as its own concept."""
+    return _read_skill("WORKSPACE.md")
 
 
 @mcp.resource("symbols://skills/common-mistakes")
