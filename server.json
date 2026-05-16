@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.symbo-ls/symbols-mcp",
-  "version": "3.14.33",
+  "version": "3.14.34",
   "title": "Symbols MCP",
   "description": "Symbols.app MCP \u2014 docs, code generation, publishing, CLI/SDK reference",
   "repository": {
@@ -13,7 +13,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "symbols-mcp",
-      "version": "3.14.33",
+      "version": "3.14.34",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

@@ -1,5 +1,13 @@
 # @symbo.ls/mcp
 
+## 3.14.34
+
+### Patch Changes
+
+- Manual patch bump triggered via workflow_dispatch (scope: all).
+  No source change behind this bump — released to refresh dist or
+  coordinate a cross-package version line.
+
 ## 3.14.33
 
 ### Patch Changes
