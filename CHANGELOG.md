@@ -1,5 +1,7 @@
 # @symbo.ls/mcp
 
+## 3.14.100
+
 ## 3.14.35
 
 ### Patch Changes
