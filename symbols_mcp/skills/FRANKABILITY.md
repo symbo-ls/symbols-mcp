@@ -488,7 +488,7 @@ hand-writing a Symbols project file, verify ALL of:
    inter-file imports outside the allow-list. (FA001)
 8. ✅ **`extends:` only when key name differs** from the extended component
    (use key-name match + `_N` suffix for multi-instance).
-9. ✅ **All values use DS tokens** — no raw px/hex/rgba. (FA301–304)
+9. ✅ **All values use DS tokens** — no raw px/hex/rgba. (FA301–304) For fixed UI dimensions (avatars, icons, hairlines) prefer `sizes` tokens (`'avatarMd'`, `'iconLg'`, `'hairline'`) over raw px. If the project has `designSystem/sizes.js`, FA304 suggests the matching sizes token automatically.
 10. ✅ **No `window.update(...)`, no `document.update(...)`, no
     `window.__projectInit = ...`** module-side-effect bridges. (FA513, FA514)
 11. ✅ **`dependencies.js` lists only runtime dynamic-import targets** —

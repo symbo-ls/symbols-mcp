@@ -562,9 +562,23 @@ Raw px/rem literals bypass the token scale and break responsive scaling.
 Bad:    padding: '16px'      fontSize: '14px'      borderRadius: '4px'
 Good:   padding: 'B'         fontSize: 'A'         borderRadius: 'A'
 
-See designSystem/spacing.js (or sizing.js, typography.js) for the available
-tokens. The audit cannot pick the right one — open the design system and
-choose the token whose declared value matches the literal.
+For fixed-dimension UI primitives (avatars, icons, hairline borders, thumbnails)
+a raw px value may have no close equivalent in the spacing scale. When a project
+has designSystem/sizes.js, FA304 will suggest the matching sizes token instead
+of a spacing letter:
+
+Bad:    width: '48px'       height: '1px'        boxSize: '24px'
+Good:   width: 'avatarMd'   borderWidth: 'hairline'   boxSize: 'iconLg'
+
+Resolution priority:
+1. If the project has designSystem/sizes.js and there is an exact pixel match,
+   use that token (e.g. 'avatarMd' for 48px).
+2. Otherwise find the closest spacing-scale letter (e.g. 'C' for ~42px).
+3. If no token is within 10% and no sizes token matches, add the needed token to
+   designSystem/sizes.js (for fixed UI primitives) or adjust the spacing
+   base/ratio (for layout tokens).
+
+See DESIGN_SYSTEM.md § sizes for the full default token catalog.
 
 
 ---

@@ -272,6 +272,7 @@ The set of `designSystem/*.js` files a project ships varies by complexity. Commo
 | `font_family.js` | Family name → stack mapping (use `font_family` not `fontFamily` in config) |
 | `typography.js` | Named typography presets + ratio config |
 | `spacing.js` | Spacing scale (`A`, `B`, `C`, …) + ratio config |
+| `sizes.js` | Named fixed-px tokens (`hairline`, `avatarMd`, `iconLg`, …) outside the ratio scale |
 | `timing.js` | Animation durations + easing curves |
 | `animation.js` | `@keyframes` definitions |
 | `media.js` | Custom media query breakpoints |
@@ -622,6 +623,81 @@ Auto-sets `fontVariationSettings` for variable fonts:
 Title: { fontWeight: 700 }
 // outputs: fontWeight: 700, fontVariationSettings: '"wght" 700'
 ```
+
+---
+
+## sizes
+
+A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-based spacing scale. Where `spacing` generates values from `base × ratio^n`, `sizes` holds intentional constants (hairline borders, avatar circles, thumbnail slots, icon containers) whose values must not drift with scale changes.
+
+**When to use `sizes` vs `spacing`:**
+
+| Namespace | Generation | Use |
+|-----------|-----------|-----|
+| `spacing` | `base × ratio^n` (phi = 1.618) | Layout rhythm — padding, margin, gap, generic width/height |
+| `sizes` | Literal fixed px | Named UI primitives — avatars, thumbnails, icon containers, hairlines |
+
+### Token catalog (brand defaults — `company/packages/brand/designSystem/sizes.js`)
+
+| Token | Value | Category |
+|-------|-------|----------|
+| `hairline` | `1px` | Dividers, thin borders |
+| `hairline2` | `2px` | Slightly heavier dividers |
+| `avatarXs` | `24px` | Micro avatar / user circle |
+| `avatarSm` | `36px` | Small avatar |
+| `avatarMd` | `48px` | Default avatar |
+| `avatarLg` | `54px` | Large avatar |
+| `avatarXl` | `72px` | Hero avatar |
+| `thumbnailXs` | `56px` | Smallest media slot |
+| `thumbnailSm` | `64px` | Small media slot |
+| `thumbnailMd` | `80px` | Default thumbnail |
+| `thumbnailLg` | `120px` | Large media slot |
+| `iconXs` | `12px` | Micro icon container |
+| `iconSm` | `16px` | Small icon container |
+| `iconMd` | `20px` | Default icon container |
+| `iconLg` | `24px` | Large icon container |
+| `iconXl` | `32px` | Extra-large icon container |
+
+### Runtime resolution
+
+The scratch runtime (`getSequenceValue`) checks `CONFIG.sizes[value]` BEFORE the spacing-scale var path. Matching tokens return the **literal pixel string**, not a CSS variable:
+
+```js
+// ✅ width: 'avatarMd' → CSS output: width: 48px
+// ✅ borderWidth: 'hairline' → CSS output: border-width: 1px
+// NOT var(--spacing-AVATARMD) — that variable doesn't exist
+```
+
+### Usage
+
+```js
+// Component props — tokens resolve exactly like spacing tokens
+Avatar: { boxSize: 'avatarMd' }                // 48px × 48px
+SmallAvatar: { boxSize: 'avatarSm' }            // 36px × 36px
+Divider: { borderWidth: 'hairline' }            // 1px
+Thumbnail: { width: 'thumbnailMd', height: 'thumbnailMd' }  // 80px
+Icon_1: { boxSize: 'iconLg' }                   // 24px
+```
+
+### Defining `sizes` in your project
+
+Add `designSystem/sizes.js` to your project and export it from `designSystem/index.js`:
+
+```js
+// designSystem/sizes.js
+export default {
+  hairline: '1px',
+  avatarSm: '32px',
+  avatarMd: '44px',
+  cardThumb: '96px',
+}
+
+// designSystem/index.js
+import sizes from './sizes.js'
+export default { ..., sizes }
+```
+
+The brand's `sizes.js` ships via the shared library and is available to all projects that include it. Override individual tokens by adding your own `sizes.js` — project tokens take precedence.
 
 ---
 
@@ -1174,6 +1250,12 @@ const designSystemConfig = {
   },
   typography: { base: 16, ratio: 1.25, subSequence: true },
   spacing:    { ratio: 1.618, subSequence: true },
+  sizes: {
+    hairline:   '1px',
+    avatarMd:   '48px',
+    thumbnailMd:'80px',
+    iconLg:     '24px'
+  },
   timing:     { base: 150, ratio: 1.333, unit: 'ms', subSequence: true },
   font: {
     Inter: { url: '/fonts/Inter-Variable.woff2', isVariable: true, fontWeight: '100 900' }
@@ -1208,7 +1290,7 @@ const designSystemConfig = {
 ### Valid top-level config keys
 
 ```
-color, gradient, theme, typography, spacing, timing,
+color, gradient, theme, typography, spacing, sizes, timing,
 font, font_family, icons, semantic_icons, svg, svg_data,
 shadow, media, grid, class, reset, unit, animation, vars
 ```
