@@ -769,7 +769,7 @@ wheels = [
 
 [[package]]
 name = "symbols-mcp"
-version = "3.14.129"
+version = "3.14.135"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
