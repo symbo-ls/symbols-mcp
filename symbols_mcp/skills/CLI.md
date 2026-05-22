@@ -306,7 +306,7 @@ smbls sdk                                     Proxy SDK service methods (debuggi
 smbls sdk --list                              List all available SDK methods
 smbls sdk --service <name>                    Filter methods by service
 smbls ask [question...]                       Chat with AI about your project
-smbls servers                                 List + switch active CLI server (API base URL)
+smbls channels                                List + switch active CLI channel (API base URL)
 smbls config                                  Configure project settings (interactive or flag-driven)
 smbls install                                 Install Symbols
 smbls upgrade                                 Upgrade all Symbols deps to latest

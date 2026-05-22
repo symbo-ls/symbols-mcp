@@ -415,8 +415,8 @@ npm i -g @symbo.ls/cli
 |---------|--------|
 | `smbls login --check` | Check login status |
 | `smbls login` | Sign in |
-| `smbls servers` | List servers |
-| `smbls servers --select` | Switch server |
+| `smbls channels` | List channels |
+| `smbls channels --select` | Switch channel |
 
 ### Sync & Collaboration
 
