@@ -65,7 +65,6 @@ What the project depends on, plus how to source it. Read by the CLI, the lockfil
   "key": "<app>",
   "dir": "./symbols",
   "version": "1.0.0",
-  "bundler": "parcel",
   "packageManager": "esm.sh",
   "sharedLibraries": {
     "system/default":        { "link": "../<shared-lib>" },
@@ -74,6 +73,7 @@ What the project depends on, plus how to source it. Read by the CLI, the lockfil
 }
 ```
 
+- **No `bundler` field by default** — Symbols projects run via symbols-runner, which resolves the bundler automatically. Only add `"bundler": "parcel"` (or `"vite"`) for an app that genuinely needs that pipeline (e.g. the `workspace/` shell). Do not re-add it to a `symbols.json` if a tool drops it.
 - Keys use `owner/key` format. Default owner is `system` (so `default` and `system/default` are equivalent).
 - `link:` paths are relative to **the consuming app's project root**. They point at the **target's project root**, not its `symbols/` subdir. (The CLI reads the target's `symbols.json` to figure out the actual `context.js` path inside.)
 - Four supported input shapes — see SHARED_LIBRARIES.md "Configuration" for the full normalization table.

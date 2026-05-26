@@ -867,7 +867,7 @@ smbls environments publish <env># republish env to pick up the new version
 
 ### `smbls build`
 
-Runs the bundler (parcel by default) and optionally pre-renders pages with brender:
+Runs the bundler (symbols-runner by default; parcel/vite only when set via the `bundler` field in `symbols.json`) and optionally pre-renders pages with brender:
 
 ```bash
 smbls build                     # build SPA + brender pre-render
@@ -1046,8 +1046,9 @@ Every migrated project needs:
 ```
 
 ```json
-// symbols.json (root)
-{ "key": "<project-name>.symbo.ls", "dir": "symbols", "bundler": "parcel" }
+// symbols.json (root) — omit `bundler` to use symbols-runner (default).
+// Only set "bundler": "parcel" (or "vite") for projects that genuinely need it.
+{ "key": "<project-name>.symbo.ls", "dir": "symbols" }
 ```
 
 ```html
