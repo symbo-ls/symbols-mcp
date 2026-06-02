@@ -1,6 +1,6 @@
 [project]
 name = "symbols-mcp"
-version = "3.14.215"
+version = "3.14.234"
 description = "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference"
 readme = "README.md"
 license = "CC-BY-NC-4.0"
