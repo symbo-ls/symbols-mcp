@@ -44,6 +44,8 @@
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
   "scripts": {
+    "lint": "ESLINT_USE_FLAT_CONFIG=true eslint .",
+    "lint:fix": "ESLINT_USE_FLAT_CONFIG=true eslint . --fix",
     "build:esm": "esbuild $(find . -type f -name \"*.js\" -not -path \"*/dist/*\" -not -path \"*/node_modules/*\" -not -path \"*/__tests__/*\" -not -path \"*/test/*\" -not -path \"*/demo/*\" -not -path \"*/demos/*\" -not -path \"*/examples/*\" -not -path \"*/fixtures/*\" -not -name \"*.test.js\") --target=es2022 --format=esm --outbase=. --outdir=dist/esm --minify --log-level=warning",
     "build:cjs": "esbuild $(find . -type f -name \"*.js\" -not -path \"*/dist/*\" -not -path \"*/node_modules/*\" -not -path \"*/__tests__/*\" -not -path \"*/test/*\" -not -path \"*/demo/*\" -not -path \"*/demos/*\" -not -path \"*/examples/*\" -not -path \"*/fixtures/*\" -not -name \"*.test.js\") --target=node20 --format=cjs --outbase=. --outdir=dist/cjs --out-extension:.js=.cjs --minify --log-level=warning",
     "build": "rimraf dist && npm run build:esm && npm run build:cjs",
