@@ -3,7 +3,7 @@
 Authoritative reference for any MCP server, automation agent, or programmatic
 consumer that drives `@symbo.ls/sdk`. Lists every public method on every
 service, the SDK lifecycle, the auth/token model, the environment matrix, the
-event bus, the federation primitive, and the validation surface.
+event bus, and the validation surface.
 
 > Source of truth: source files under `src/`. When this file disagrees with the
 > code, the code wins — open a PR to update this doc.
@@ -14,7 +14,7 @@ event bus, the federation primitive, and the validation surface.
 
 - **Package**: `@symbo.ls/sdk` (v3.14.0)
 - **Entry**: `src/index.js` exports `SDK` (default) + factory functions per service + `environment`
-- **Subpath exports**: `@symbo.ls/sdk/environment`, `@symbo.ls/sdk/federation`, `@symbo.ls/sdk/utils/services`
+- **Subpath exports**: `@symbo.ls/sdk/environment`, `@symbo.ls/sdk/utils/services` (plus `createCrossAppAuth` from the main entry)
 - **Backends**: HTTP via `${apiUrl}/core/*`, WebSocket via `socketUrl`, Workspace data via `${apiUrl}/workspace/*`
 - **Auth**: JWT bearer token managed by `TokenManager` (singleton, auto-refresh)
 - **Event bus**: `sdk.rootBus` (global cross-service pub/sub with last-payload replay)
@@ -963,8 +963,8 @@ Typed surface against `${apiUrl}/workspace/*` (the `@symbo.ls/server-workspace`
 wrapper). **Auth model is different from other services** — calls go through
 `_resolveAuthHeader()` which prefers `context.workspaceTokenProvider()` (an
 async fn returning `{ token }` | string) and falls back to the SDK
-`TokenManager`. JWT must include `sub` + `workspace_id` claims so the wrapper
-can build an RLS-scoped Supabase client.
+`TokenManager`. The wrapper resolves the caller's workspace scope from Mongo
+via the token's `sub` claim.
 
 All methods are exposed as **namespaced sync getters** that return promises
 when invoked (not registered on the SDK proxy):
@@ -1105,183 +1105,6 @@ in `src/validations/base.js` is the shared parent.
 
 ---
 
-# Federation primitive
-
-`@symbo.ls/sdk/federation` is the abstract multi-Supabase registry extracted
-from the legacy governance/sdk-bridge. It contains zero domain knowledge —
-build a registry of project configs, get cached Supabase clients per project,
-iterate the set.
-
-```js
-import { createFederation, createSupabaseClient } from '@symbo.ls/sdk/federation'
-
-const federation = createFederation({
-  projects: {
-    governance: { key: 'governance', url, anonKey, anonJwt },
-    financials: { key: 'financials', url, anonKey, anonJwt }
-  },
-  defaultKey: 'governance'
-})
-
-federation.getClient('governance')          // cached Supabase client
-federation.getClient()                       // default
-federation.getClientAsync('financials')
-federation.getProjectConfig('governance')
-federation.listConfiguredProjects()          // ['governance', 'financials']
-federation.forEachClient((client, key) => { … })
-federation.getDefaultClient()
-federation.addProject(key, cfg)              // re-builds on next get
-federation.reset()                           // tests only
-
-createSupabaseClient(cfg)                    // off-registry one-off
-```
-
-`createSupabaseClient` keeps the realtime websocket auth in sync with
-auth-js token rotation (`onAuthStateChange` → `realtime.setAuth`). Without
-this, long-lived tabs hit `InvalidJWTToken` on realtime channels.
-
-Project-specific federation logic (governance + financials shouldActivate
-predicates, integrations subsystem, MCP connectors, claim refresh) lives in
-`@symbo.ls/sdk-bridge`, which imports this abstract core.
-
----
-
-# Permissions reference
-
-From `src/utils/permission.js`.
-
-### Global roles (`ROLE_PERMISSIONS`)
-
-| Role | Permissions |
-| --- | --- |
-| `guest` | `viewPublicProjects` |
-| `user` | `viewPublicProjects` |
-| `admin` | `viewPublicProjects`, `governance` |
-| `superAdmin` | + `managePlatform` |
-
-### Project roles (`PROJECT_ROLE_PERMISSIONS`)
-
-| Role | Permissions |
-| --- | --- |
-| `unauthenticated` / `guest` | `platformSettings`, `showContent` |
-| `editor` | + `showCode`, `editMode`, `versions` |
-| `admin` | + `inviteMembers`, `branchProtection`, `projectSettings` |
-| `owner` | + `copyPasteAllowanceSetting`, `iam` |
-
-### Operations (`PERMISSION_MAP`)
-
-`edit`, `view`, `design`, `manage`, `configure`, `invite`, `branch`, `merge`,
-`export`, `import`, `aiCopilot`, `aiChatbot`, `analytics`, `payment`,
-`deployment`, `docs`, `share` — each maps to required `permissions[]` and
-`features[]`.
-
-### Tier features (`TIER_FEATURES`)
-
-Tiers: `ready`, `free`, `pro1`, `pro2`, `enterprise`. AI features carry
-quota suffixes (`aiCopilot:3`, `aiCopilot:5`, `aiCopilot:15`); the
-`checkProjectFeature(tier, feature)` helper returns the numeric limit.
-
----
-
-# Logger
-
-```js
-import { setDebug } from '@symbo.ls/sdk/utils/logger'  // not subpath-exported; reach via internal path or pass debug:true
-```
-
-`logger.log` / `.warn` / `.error` are no-ops in non-browser non-debug
-contexts. Toggling `new SDK({ debug: true })` calls `setDebug(true)` and
-turns every method on. `console.*` is bound at access time, so the toggle is
-hot.
-
----
-
-# Errors
-
-Every service method either:
-- Returns the unwrapped `data` on `{ success: true, data }`
-- Throws `Error(message)` on `{ success: false, message }` or HTTP non-2xx
-- Errors carry `cause` set to the underlying response/error object
-
-Auth-required methods throw `Error('Authentication required')` if no token.
-Methods called before `init()` throw `Error('Service not initialized for method: <name>')`.
-
-```js
-try {
-  await sdk.mergePullRequest(projectId, prId)
-} catch (err) {
-  if (err.message.includes('conflicts')) { /* … */ }
-  if (err.message.includes('403')) { /* … */ }
-  console.error('cause:', err.cause)
-}
-```
-
----
-
-# Direct factories (no SDK class)
-
-Every service can be instantiated standalone:
-
-```js
-import {
-  createAuthService, createCollabService, createProjectService,
-  createPlanService, createSubscriptionService, createFileService,
-  createPaymentService, createDnsService, createBranchService,
-  createPullRequestService, createAdminService, createScreenshotService,
-  createTrackingService, createWaitlistService, createMetricsService,
-  createIntegrationService, createFeatureFlagService,
-  createOrganizationService, createWorkspaceService,
-  createWorkspaceDataService, createKvService,
-  createAllocationRuleService, createSharedAssetService,
-  createCreditsService
-} from '@symbo.ls/sdk'
-
-const auth = createAuthService({ context: { apiUrl, authToken }, options: {} })
-await auth.init({ context: { apiUrl, authToken } })
-```
-
-Same factories are mirrored as named class exports (`AuthService`,
-`CollabService`, …) for consumers that prefer `new ClassName()`.
-
----
-
-# Build & shape
-
-- **Source**: `src/**/*.js` (ES modules, `"type": "module"`)
-- **Build**: `npm run build` → esbuild produces `dist/esm/`, `dist/cjs/`, `dist/node/`
-- **Entry mapping**:
-  - browser → `dist/esm/index.js`
-  - node → `dist/node/index.js`
-  - require → `dist/cjs/index.cjs`
-- **External deps left unbundled in esm build**: `@symbo.ls/utils`, `@symbo.ls/router`, `@symbo.ls/sync`
-- **Test runner**: `tape` + `tap-spec` (see `npm run test:*`)
-
----
-
-# Reference index
-
-| Path | What lives there |
-| --- | --- |
-| `src/index.js` | `SDK` class, factory exports, `environment` re-export |
-| `src/services/*.js` | One file per service (24 total) |
-| `src/services/BaseService.js` | Shared `_request` / `_call` / token plumbing |
-| `src/utils/services.js` | Method → service mapping (proxy table) |
-| `src/utils/TokenManager.js` | `TokenManager`, `getTokenManager`, `createTokenManager` |
-| `src/utils/permission.js` | `PERMISSION_MAP`, `ROLE_PERMISSIONS`, `TIER_FEATURES`, `PROJECT_ROLE_PERMISSIONS` |
-| `src/utils/CollabClient.js` | Socket.IO + Yjs wiring |
-| `src/utils/changePreprocessor.js` | DOMQL change-tuple normalization |
-| `src/utils/jsonDiff.js`, `ordering.js`, `projectKeyPath.js`, `validation.js`, `logger.js` | Misc helpers |
-| `src/state/rootEventBus.js` | Global cross-service event bus (singleton) |
-| `src/state/RootStateManager.js` | Root state wrapper used by `CollabService` |
-| `src/config/environment.js` | Channel + per-env config resolution |
-| `src/constants/roles.js` | Role enums |
-| `src/validations/*.js` | Component/page/function/file/dependency validators |
-| `src/federation/*.js` | Abstract Supabase multi-client registry |
-| `src/docs/FeatureFlags.md` | Feature-flag scenarios & API mapping |
-| `integration-tests/` | Tape integration tests (see `integration-tests/README.MD`) |
-
----
-
 # MCP integration notes
 
 When exposing this SDK through an MCP server:
@@ -1296,17 +1119,15 @@ When exposing this SDK through an MCP server:
    seeds the singleton from context on init.
 4. **Tracking off by default** — leave it disabled unless your MCP host has a
    working Faro endpoint and CORS-allowed origin.
-5. **`workspaceData` requires a workspace JWT.** If your MCP calls those
-   tools, supply `context.workspaceTokenProvider` returning `{ token }`
-   with `sub` + `workspace_id` claims.
-6. **Federation usage is optional.** Only import
-   `@symbo.ls/sdk/federation` if you need multi-project Supabase clients.
-7. **For long-running tools, listen to `rootBus`** for `bundle:done`,
+5. **`workspaceData` requires the Symbols SDK token.** If your MCP calls
+   those tools, supply `context.workspaceTokenProvider` returning
+   `{ token }` — workspace scope is resolved server-side from Mongo.
+6. **For long-running tools, listen to `rootBus`** for `bundle:done`,
    `bundle:error`, `checkpoint:done`, `clients:updated` to surface async
    collab state without polling.
-8. **Methods marked `[no-auth]`** can be called before `sdk.initialize` or
+7. **Methods marked `[no-auth]`** can be called before `sdk.initialize` or
    without a token — useful for marketplace browsing, plan listings, public
    project reads.
-9. **Read `src/utils/services.js`** for the canonical map of which proxy
+8. **Read `src/utils/services.js`** for the canonical map of which proxy
    method belongs to which service. That file is the source of truth for
    discovery.
