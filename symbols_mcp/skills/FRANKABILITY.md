@@ -442,6 +442,17 @@ audit warnings and bundle output:
   globalScope helpers calling peer keys.
 - `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
   swallow async user-code rejections (won't crash frank).
+- The free-variable scanner no longer false-positives on object-literal
+  *keys* (`{ add: fn }` — the key `add` used to get misclassified as a free
+  variable), on regex-literal flag characters (`/foo/gi` — the flags used to
+  read as bare identifiers), or on free variables referenced from inside a
+  nested arrow/function expression (those are now detected AND correctly
+  rewritten, not just detected). It also never synthesizes an `el` parameter
+  for a zero-arg `functions/*` export — those are invoked via
+  `el.call('fn')` → `fn.call(element)`, so `this` already IS the element at
+  any arity; injecting an `el` param there used to produce `undefined` at
+  runtime and could collide with a pre-existing `const el = this` in the
+  source.
 
 These cover *many* of the historical FA206-class violations automatically,
 but generating dynamic imports up front (FA206) avoids the round-trip and

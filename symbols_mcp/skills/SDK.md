@@ -18,8 +18,8 @@ event bus, and the validation surface.
 - **Backends**: HTTP via `${apiUrl}/core/*`, WebSocket via `socketUrl`, Workspace data via `${apiUrl}/workspace/*`
 - **Auth**: JWT bearer token managed by `TokenManager` (singleton, auto-refresh)
 - **Event bus**: `sdk.rootBus` (global cross-service pub/sub with last-payload replay)
-- **Total services**: 24 (see [Service map](#service-map))
-- **Total proxied SDK methods**: ~250 (full list in `src/utils/services.js`)
+- **Total services**: 24 general-purpose services documented in full below (see [Service map](#service-map)), plus ~30+ additional domain-model services (tickets, docs, AI chat, commerce/catalog, scheduling, party/directory, workspace records — see "Additional domain services" at the end of the service map) registered the same way but not individually cataloged in this file. `src/services/index.js` is the authoritative full list.
+- **Total proxied SDK methods**: 250+ across all services (full list in `src/utils/services.js`)
 
 ---
 
@@ -45,7 +45,8 @@ await sdk.initialize({
 })
 ```
 
-`initialize()` instantiates and warms up all 24 services in parallel via
+`initialize()` instantiates and warms up every registered service (24
+general-purpose + the additional domain services, 50+ total) in parallel via
 `Promise.all`. Every service shares the same `_context` reference, so
 `sdk.updateContext({...})` propagates instantly.
 
@@ -82,6 +83,7 @@ always use `sdk.getService(name)` or the proxy method.
 | Service name | Class | File | Endpoint root |
 | --- | --- | --- | --- |
 | `auth` | `AuthService` | `services/AuthService.js` | `/core/auth/*` |
+| `boot` | `BootService` | `services/BootService.js` | `/core/boot` |
 | `collab` | `CollabService` | `services/CollabService.js` | WebSocket |
 | `project` | `ProjectService` | `services/ProjectService.js` | `/core/projects/*` |
 | `plan` | `PlanService` | `services/PlanService.js` | `/core/plans/*` |
@@ -105,6 +107,11 @@ always use `sdk.getService(name)` or the proxy method.
 | `allocationRule` | `AllocationRuleService` | `services/AllocationRuleService.js` | `/core/allocation-rules/*` |
 | `sharedAsset` | `SharedAssetService` | `services/SharedAssetService.js` | `/core/shared-assets/*` |
 | `credits` | `CreditsService` | `services/CreditsService.js` | `/core/credits/*` |
+| `storefront` | `StorefrontService` | `services/StorefrontService.js` | `/core/storefront/:workspaceId/*` |
+
+### Additional domain services (not individually cataloged below)
+
+Registered and proxied the same way as everything above, added as the platform's Mongo-native workspace data model grew: AI chat/assistant (`aiChat`, `ai`), documents (`doc`), tickets (`ticket`), analyzed logs (`analyzed`), resource links (`resourceLink`), canvas layouts (`canvasLayout`), builds (`builds`), meetings (`meet`), calendar (`calendar`), workspace-project data (`workspaceProject`), and the broader workspace record model — proposed actions, workflows, field definitions, record collections, party/directory (party, interaction, segment), commerce (product, price, company profile, agreements, invoices, transactions), cross-entity capabilities (comments, attachments, watchers, activity entries, tags), and scheduling (bookings, availability rules, conversations, recurrences). Each follows the same `BaseService` contract (tenant-scope defaulting, `_call`/`_request`, envelope handling) documented above. For the authoritative method-by-method list, read the service's own file under `src/services/` — each is a thin, well-commented HTTP wrapper around a `/core/*` route family, following the exact same patterns as the services documented in full below.
 
 ---
 
@@ -134,6 +141,29 @@ Every service extends `BaseService` (`src/services/BaseService.js`).
 Errors are auto-tracked through `TrackingService` via `_trackServiceError()`
 when tracking is enabled (the tracking service itself is excluded to avoid
 loops).
+
+### Tenant-scope defaulting
+
+Every workspace/org-scoped service resolves its implicit scope the same way
+via two shared `BaseService` helpers (hoisted from several hand-rolled,
+subtly-drifted per-service versions):
+
+- `_resolveWorkspaceId(explicit, { fallbackToStorage })` — explicit arg wins,
+  then the live SDK context (`_context.activeWorkspaceId`, kept fresh by
+  `sdk.switchOrg` / `sdk.switchWorkspace`), then — only when opted in — a
+  persisted storage fallback (`sessionStorage` first for per-tab scoping,
+  `localStorage` as the shared last-default) for callers that may run before
+  context is seeded. Returns `undefined` (or storage's own `null`) when
+  nothing resolves, so the caller can omit the param and the request just
+  won't carry a workspace filter.
+- `_resolveScope(explicit)` — resolves the `{ orgId, workspaceId }` PAIR a
+  call should carry: each key defaults independently — explicit per-key value
+  wins, otherwise `_context.activeOrgId` / `_context.activeWorkspaceId`. No
+  storage fallback (context is expected to be live by call time).
+
+Individual services (`TicketService`, `AiChatService`, etc.) keep their own
+thin, purpose-named wrapper around these for call-site readability and
+back-compat — the defaulting logic itself lives once in `BaseService`.
 
 ---
 
@@ -254,6 +284,7 @@ are listed under each service.
 - `googleAuth(idToken, inviteToken?, options)` `[no-auth]`
 - `googleAuthCallback(code, redirectUri, inviteToken?, options)` `[no-auth]`
 - `githubAuth(code, inviteToken?, options)` `[no-auth]`
+- `exchangeNativeAuthToken(xt, state, inviteToken?)` — redeems a native-shell (e.g. a Tauri-wrapped iOS/desktop build) OAuth deep-link exchange token for a normal session. `state` must be the same nonce the shell generated for the authorize request — the server binds the token to it at mint time. Single-use, short TTL (≤60s): replay, expiry, or a nonce mismatch answers 401. Wires the session the same way `googleAuth` does (`response.data.tokens` → `TokenManager.setTokens`). Rethrows with `error.status` preserved so shell UI can feature-detect route availability (404 = server predates the flow).
 - `requestPasswordReset(email)` `[no-auth]`
 - `confirmPasswordReset(token, password)` `[no-auth]`
 - `confirmRegistration(token)` `[no-auth]`
@@ -320,10 +351,41 @@ Constants exported via `src/utils/permission.js`: `PERMISSION_MAP`,
 
 ---
 
+## boot — `BootService`
+
+Single-round-trip composite boot read — `GET /core/boot`. Collapses the
+workspace shell's multi-wave boot sequence (`getMe` → `getOrganization` +
+`listWorkspaces` + `getWorkspace` → members + prefs) into one call.
+
+- `boot({ workspaceId? })` — `workspaceId` is an optional explicit scope pin
+  (useful for a multi-tab shell where the tab's chosen workspace should win
+  over the caller's stored active workspace). Omit it to use the normal
+  resolution order every other workspace-scoped route already uses: explicit
+  param → auth claim → the user's stored active workspace.
+
+  Returns `{ data, errors }`. Each section of `data` (`me`, `org`,
+  `workspaces`, `workspace`, `members`, `prefs`) is byte-equivalent to what
+  calling that section's own individual endpoint would return — never
+  reshaped. A failed/rejected section resolves to `data.<section> = null` +
+  `errors.<section> = <message>` rather than failing the whole call, so a
+  boot with one flaky section still returns everything else. `data.workspaceProject`
+  is always `null` (see `errors.workspaceProject`) — resolving + validating a
+  workspace's installed module is a client-side pipeline, not a single
+  reusable core service, so it isn't folded into this composite.
+
+---
+
 ## collab — `CollabService`
 
 Real-time collaboration over Socket.IO + Yjs. Requires `context.state` (root
 state tree) before `connect()`.
+
+**`CollabClient` (yjs + lib0, ~360 KB dev) is lazy-loaded**, not bundled into
+the service eagerly — it's dynamically `import()`-ed on the first `connect()`
+call, keeping collab out of a consumer's initial bundle if collab is never
+used. The import promise is cached (repeated `connect()` calls reuse the same
+loaded module); a failed import clears the cache so a later retry can
+succeed instead of the failure being permanent.
 
 ### Connection
 
@@ -793,6 +855,50 @@ new SDK({
 - `createGitHubConnector(integrationId, data)`
 - `updateGitHubConnector(integrationId, connectorId, update)`
 - `deleteGitHubConnector(integrationId, connectorId)`
+- `getGitHubRepo({ owner, repo })`
+- `listGitHubRepos({ orgId })`
+- `syncGitHubIntegration({ orgId, slug='default', scopeType='org', scopeId=null })`
+
+### Org-integration CRUD + scoping (`/org-integrations/*`)
+
+An org can install a given integration `kind` at multiple scopes (the org
+itself, or a narrower `scopeType`/`scopeId` — e.g. per-workspace); these
+methods manage that scoped-config layer, distinct from the raw `Integration`
+CRUD above.
+
+- `listOrgIntegrations({ orgId, scopeType?, scopeId?, includeParents? })`
+- `upsertOrgIntegration({ orgId, kind, ... })`
+- `deleteOrgIntegration({ orgId, kind, slug?, scopeType?, scopeId? })`
+- `assignOrgIntegrationScope({ orgId, kind, ... })`
+- `reorderOrgIntegrations({ orgId, kind, ... })`
+- `listOrgIntegrationKinds()`
+
+### Capability invocation
+
+`callOrgIntegrationCapability` is the per-kind data-plane call — invoking a
+specific capability an installed integration kind's catalogue declares
+(e.g. "send message", "create issue"), as opposed to the CRUD methods above
+which only manage the integration's own config.
+
+- `callOrgIntegrationCapability({ orgId, capability, args?, workspaceId?, idOrSlug?, kind?, slug?, scopeType?, scopeId? })`
+  — `capability` is required and must be one of the kind's catalogue
+  `capabilities`. Identify the target integration either by `idOrSlug` (with
+  `kind` required alongside it) or by `kind` + optional `slug` +
+  `scopeType`/`scopeId`.
+
+### Marketplace integrations (`/marketplace/integrations/*`)
+
+Distinct from the org-integration CRUD above — this is the
+entitlement/install layer for **paid marketplace kinds**, gated by
+`WorkspaceMarketplaceEntitlement` records server-side (installing a paid kind
+without an active entitlement is rejected). Server-side: listing/checking is
+open to any org member; install/uninstall require owner/admin.
+
+- `listMarketplaceEntitlements(workspaceId, { status? })`
+- `checkMarketplaceEntitlement({ workspaceId, kind })`
+- `installMarketplaceIntegration({ orgId, workspaceId, kind, ... })` — free
+  kinds install directly; paid kinds require an active entitlement
+- `uninstallMarketplaceIntegration({ orgId, workspaceId, kind, ... })`
 
 ---
 
@@ -1082,6 +1188,47 @@ Project-scoped credit ledger + Stripe top-ups.
 - `getProjectSpendControls(projectId)`
 - `updateProjectSpendControls(projectId, controls)`
 - `topupProjectCredits(projectId, { packs=1, returnUrl })`
+
+---
+
+## storefront — `StorefrontService`
+
+Wraps the main server's **public, unauthenticated** `/core/storefront/:workspaceId/*`
+routes — a public storefront/catalog read API for workspaces running an
+e-commerce or marketplace surface. Unlike every other workspace-scoped
+service, there is no membership/session identity on the catalog-read methods
+by design: the storefront serves anonymous visitors, so those calls never
+attach an `Authorization` header. Every read is server-side allowlisted and
+business-rule-filtered (published items only, cost/internal fields stripped,
+computed availability) — this service is a thin HTTP wrapper, it does not
+re-implement any of that filtering client-side.
+
+### Catalog (public, unauthenticated)
+
+- `listStorefrontProducts(workspaceId, { category, limit, page })`
+- `getStorefrontProduct(workspaceId, id)`
+- `listStorefrontCollection(workspaceId, collection, { limit, page })`
+- `listStorefrontJobs(workspaceId, { limit, page })`
+- `getStorefrontJob(workspaceId, id)`
+- `applyToStorefrontJob(workspaceId, id, { fullName, email, phone, coverLetter, cvUrl })`
+
+### Storefront customer identity (also public/unauthenticated — this IS the anonymous-visitor-becomes-a-customer surface)
+
+- `registerStorefrontCustomer(workspaceId, { phone, email, fullName, password, birthDate, identificationNumber })`
+- `loginStorefrontCustomer(workspaceId, { email, phone, identifier, password })`
+- `requestStorefrontCustomerOtp(workspaceId, { phone, email, purpose })`
+- `verifyStorefrontCustomerOtp(workspaceId, { phone, email, code, purpose })`
+- `resetStorefrontCustomerPassword(workspaceId, { phone, email, code, newPassword })`
+
+### Storefront customer session (authenticated — but with a DIFFERENT identity plane)
+
+- `getStorefrontCustomerMe(workspaceId, customerToken)` — the one
+  authenticated method on this service. `customerToken` is the token
+  returned by `loginStorefrontCustomer`, a storefront-customer session that
+  is completely separate from the SDK's own signed-in-platform-user session.
+  It is passed explicitly and attached as a one-off header — it does **not**
+  go through the shared `TokenManager`, so it never rides along on other SDK
+  calls for the signed-in platform user (or vice versa).
 
 ---
 

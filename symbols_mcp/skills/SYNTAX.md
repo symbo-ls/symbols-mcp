@@ -155,6 +155,28 @@ export const Hoverable = {
 }
 ```
 
+**A PascalCase key nested inside a pseudo-class / media / theme block is never a valid selector fragment — never nest a child-component key there.** A bare capitalized identifier (`Add`, `Icon`, …) can't syntactically be a pseudo-class (`:`), theme/media block (`@`), or combinator (`&`) — it's the shape of a DOMQL child-component key. The engine refuses to emit that rule at all (a dead selector that can never match is worse than a silently-wrong one) and logs a dev-only warning naming the offending key and element:
+
+```js
+// ❌ `Add` inside `:hover` is a child-component key, not a selector — dropped, dev warning logged
+Toolbar: {
+  ':hover': {
+    Add: { opacity: 1 }   // never emitted; Add's own opacity stays whatever it was
+  }
+}
+
+// ✅ Style the child directly — it already has its own class
+Toolbar: {
+  Add: {
+    opacity: 0,
+    transition: 'opacity B',
+    ':hover &': { opacity: 1 }   // hoist via an explicit combinator if you need parent-hover-affects-child
+  }
+}
+```
+
+`backdropFilter` and `userSelect` automatically get a paired `-webkit-` declaration in every generated rule (atomic classes, compound `css()` bodies, `injectGlobal`, keyframes) — WebKit-based engines historically ignored the unprefixed form for these two properties. You do not need to hand-write the `-webkit-` variant or reach for a `style: {}` escape hatch just to get vendor coverage; write the plain prop and both declarations are emitted for you.
+
 ### Conditional Props (Cases)
 
 Three prefix types for conditional CSS and attributes:
@@ -371,6 +393,24 @@ s.root.update(
 | `s.root` | Root state reference |
 | `s.parent` | Parent state reference |
 
+### Reserved store-method names — data wins, `$`-prefixed form always reaches the method
+
+`update`, `parse`, `clean`, `keys`, `values`, `replace`, `add`, `remove`, `destroy`, `quietUpdate` are both store methods AND legal data-key names (e.g. `state: { add: {...}, keys: [...] }` is valid — a shopping-cart `add` field, a document's `keys` list). Reading one of these keys off a store follows this order:
+
+1. **A data key with that name wins.** If the store holds a signal for `add`, `s.add` returns the DATA, not the method — a colliding key is never silently unreadable.
+2. **The `$`-prefixed form is always the method**, regardless of collisions: `s.$update(...)`, `s.$add(...)`, `s.$keys()`, `s.$values()`, `s.$replace(...)`, `s.$remove(...)`, `s.$destroy()`, `s.$quietUpdate(...)`, `s.$parse()`, `s.$clean()`. Framework internals use these forms exclusively so they never break on a colliding data shape.
+3. **A one-time console warning** fires the moment a reserved name is written as data, naming the key, its state path, and the `$` escape hatch.
+
+```js
+// state.cart has a data field legitimately named `add`
+state: { cart: { add: { qty: 2 }, items: ['sku-1'] } }
+
+text: (el, s) => s.cart.add.qty          // ✅ reads the DATA — 2 (not the store method)
+onClick: (e, el, s) => s.cart.$add('items', 'sku-2')   // ✅ calls the store's `add` METHOD via $ prefix
+```
+
+Prefer renaming the field (`cart.items` instead of `cart.add`) when practical — the `$` escape hatch exists for cases where the collision is unavoidable (e.g. CMS-defined field names), not as the default pattern.
+
 ```js
 // apply vs applyFunction
 s.apply((cur) => ({ ...cur, count: cur.count + 1 }))   // returns new value
@@ -563,6 +603,8 @@ When `children` is a function, the framework reconciles by `child.key || childPr
 ```js
 children: (el, s) => s.items.map(it => ({ key: it.id, ...it }))
 ```
+
+Keyed reconcile preserves both **identity and order**: kept nodes are diffed against the new key order and repositioned in the DOM (`insertBefore`) rather than left wherever they were first inserted — so a pure reorder, or a new item landing mid-array, moves existing nodes instead of destroying and recreating them. Moving a node this way preserves its listeners, focus, and any in-progress CSS transition on it. No key-rotation workaround is needed to force a reorder to "take" — a plain re-sort of the array with stable keys is sufficient.
 
 ### `state: 'key'` (Narrow state scope) vs `childrenAs: 'state'`
 

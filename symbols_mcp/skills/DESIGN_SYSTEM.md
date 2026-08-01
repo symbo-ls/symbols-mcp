@@ -1311,6 +1311,8 @@ Do NOT wrap these under `props` or other wrappers.
 | `useDefaultIcons` | `true` | Include default icon set |
 | `verbose` | `false` | Suppress design system debug output |
 
+**`createConfig(name, overrides, { cleanBase })` strips ALL of these flags (plus `globalTheme`) from whatever base it clones** — they never inherit into an isolated secondary-app config, cleanBase or not. A secondary app (embedded iframe, multi-DS page) that wants its own reset, font import, icon sprite, or document-theme behavior must set the flags explicitly in the `overrides` it passes to `createConfig` / its own `config.js` — silently expecting them to carry over from the primary is a common source of "fonts don't load in the iframe" / "no CSS reset in the embedded app" bugs.
+
 ---
 
 ## Project config (top-level)

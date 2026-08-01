@@ -29,6 +29,7 @@ These are mandatory technical rules for the DOMQL/Symbols runtime. Violating any
 - For grouped reactive CSS that shares one condition, use the `isX` + `'.isX'` / `'!isX'` block pattern. It's the canonical way to express a state-driven appearance change without repeating the same condition across many prop functions.
 - For animated show/hide use `hide:` (or `show:`) — these reactively toggle `display`. Using `if:` for animation destroys / re-creates the DOM node which kills CSS transitions.
 - Lifecycle hooks (`onInit`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`) fire ONCE per element creation. To respond to subsequent state changes, use `onUpdate(el, s, ctx)` or `onStateUpdate(changes, el, s, ctx)`, OR (preferred) just declare reactive prop functions and let the framework subscribe.
+- The effect scheduler drains reactive updates on a wall-clock budget (a few ms per synchronous slice, well under a frame). A normal cascade (1-2 dependent effects) settles in one microtask, same as always. A pathological cascade — e.g. a project-side effect that unconditionally writes back a signal it also reads — degrades to a responsive, yielding drain across macrotasks instead of freezing the tab; an absolute pass cap still catches a truly non-converging cascade and logs a console error naming it. You still shouldn't write reactive code with an unconditional write-back cycle, but the failure mode is "slow" now, not "hung."
 
 ### Pattern comparison
 

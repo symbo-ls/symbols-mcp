@@ -235,7 +235,8 @@ declaring done.
 
 **Full contract: [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md). Read it before changing anything theme-related.** Quick rules:
 
-- The framework owns `data-theme`. **Never** call `setAttribute('data-theme', …)` from project code. The framework writes it via `resolveAndApplyTheme` (early-paint) and `changeGlobalTheme` (runtime).
+- The framework owns `data-theme`. **Never** call `setAttribute('data-theme', …)` from project code. The framework writes it via `resolveAndApplyTheme` (early-paint) and `changeGlobalTheme` (runtime) — **`changeGlobalTheme()` is the only supported way to switch theme at runtime.**
+- Initial theme resolution (`resolveAndApplyTheme`, runs synchronously before the async init chain) follows a fixed precedence, first match wins: (1) `?globalTheme=<name>` URL param — how embedded iframes push a theme into a child app; (2) `localStorage[options.themeStorageKey]` — the user's last manual toggle (pass `themeStorageKey: false` to opt out); (3) `options.globalTheme` from project config — the configured default, where `'auto'` means "no forced theme, follow the OS live" via `prefers-color-scheme`.
 - Theme is **never** in root state. Read from `el.context.globalTheme`, write via `changeGlobalTheme(newTheme[, targetConfig])` exported from `smbls`.
 - Theme-conditional UI uses pure-CSS `@dark` / `@light` blocks (icon swap, alt copy, etc.) — no JS reactivity needed. `data-theme` flips atomically.
 - Persistence is the **project's** job. `themeStorageKey` is read at init only — write to the same localStorage key after `changeGlobalTheme` if you want persistence across reloads.
@@ -993,7 +994,7 @@ Common v2 deps that can be dropped during migration:
 
 | Package | Reason | Replacement |
 |---|---|---|
-| `fastclick` | Modern mobile browsers don't have the 300ms tap delay | Just delete it (or move to `onRender` with `__initialized` guard if you really want to keep it) |
+| `fastclick` | Modern mobile browsers don't have the 300ms tap delay; click synthesis causes ghost-click bugs | Delete it. If you want the pressed-state / tap-highlight polish it used to provide, use `@symbo.ls/tap` instead (`plugins: [tapPlugin]`) — declarative, no synthesis. See `MODERN_STACK.md` → `@symbo.ls/tap` |
 | `@domql/cookie` | Bundled into smbls utils | `el.call('setCookie' / 'getCookie')` via context |
 | `axios` | Native `fetch` in every modern runtime | `fetch(...)` (or the `@symbo.ls/fetch` declarative API) |
 

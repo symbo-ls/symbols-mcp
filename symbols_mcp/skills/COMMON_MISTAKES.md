@@ -398,6 +398,22 @@ Use `show` only for elements that should be fully removed from layout with no an
 
 ---
 
+## 17b. Never nest a child-component key inside a pseudo/media/theme block
+
+A PascalCase key inside `:hover` / `@dark` / `@mobileL` / etc. is not a selector fragment — it's a child-component reference, and it belongs at the element's own top level, not inside a CSS block. The engine detects and drops it (dev-only console warning) rather than emitting a dead rule that can never match:
+
+```js
+// ❌ WRONG — Add is a child key, not a valid selector; dropped with a warning
+Toolbar: { ':hover': { Add: { opacity: 1 } } }
+
+// ✅ CORRECT — style the child directly, on its own element
+Toolbar: { Add: { opacity: 0, ':hover &': { opacity: 1 } } }
+```
+
+See SYNTAX.md → "Pseudo-Classes and Pseudo-Elements" for the full rule + the `-webkit-` vendor-twin behavior for `backdropFilter` / `userSelect`.
+
+---
+
 ## 18. Colors — define once, shade with modifiers, not Tailwind-style palettes
 
 ```js

@@ -128,6 +128,14 @@ smbls login --non-interactive --token <token>
 smbls login --non-interactive --email <email> --password <password>
 ```
 
+Long-lived tokens (CI / service accounts, e.g. a release pipeline that needs a durable credential instead of a short-lived session token):
+
+```
+smbls login --magic-link --long-lived
+```
+
+`--long-lived` opts into a durable static token (server-config `pluginAuth.cliTokenExpiresIn`, e.g. 365 days) instead of the normal short-lived CLI access token. It's gated server-side on a valid CLI session key — the prompt asks for one and persists it per API base URL so you don't have to re-enter it on every login to the same server. Only asked when requested; a routine interactive login is unaffected.
+
 ### Sync data with platform
 
 ```
@@ -139,6 +147,8 @@ smbls publish                   Push + version + republish all enabled environme
 ```
 
 `push` writes the new content into the project's main branch. `publish` is push → mark new version as published → republish each environment so it picks up the version. See "Publish flow" below.
+
+`push`'s differ is idempotent: an unchanged project reports "No changes to push" on every consecutive run — it does not re-report the same delete/update set forever or mint a junk version each time. (The differ specifically accounts for server-side read-path conveniences — e.g. missing design-system namespaces getting default-filled on read, or environment-export flags always being present on the fetched side — so those never show up as phantom deletes; and key-order drift inside a property bag like `attr`/`style`/`state` no longer counts as a real change unless it's a genuine reorder of child elements, where order IS meaningful DOM order.) If you ever see the same change set reported twice in a row with truly nothing edited locally, that's a regression worth filing, not expected behavior.
 
 ### Project management (server-side)
 
@@ -429,6 +439,7 @@ Each subcommand file is registered by importing it in the `bin/<family>.js` pare
 - Don't pass auth tokens via `--token` flag in shared logs. Use `SYMBOLS_AUTH_TOKEN` env var instead — it doesn't appear in `ps`/process listings.
 - Don't use `--no-next` casually. It targets `api.symbols.app` (production), and any push/publish there is real-user-visible. Default to `next` for development.
 - Don't rely on the global `smbls` binary version matching the monorepo `@symbo.ls/cli@3.14.0` — they may drift. Use `smbls --version` to check.
+- A subcommand's own `--version <v>` option (e.g. `smbls publish --version <id>`, `smbls config --version <v>`) is a normal per-command flag, not the global `-V/--version` — Commander's positional-options handling means the two no longer collide; the subcommand's own flag reaches its `.action()` correctly as long as it appears after the subcommand name (`smbls publish --version <id>`, not `smbls --version publish <id>`).
 - Don't combine `--all` with `--env` on `smbls publish`. `--env` overrides `--all`; the combination silently uses `--env` only.
 
 ---

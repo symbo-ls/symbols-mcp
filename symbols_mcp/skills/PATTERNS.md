@@ -816,6 +816,21 @@ Component: {
 }
 ```
 
+### Touch Responsiveness
+
+When to use: Any interactive control on a touch surface (buttons, drag handles, swipers, inner scrollers). Never hand-roll click-delay workarounds or ghost-click suppression — register `@symbo.ls/tap` (`plugins: [tapPlugin]`) once at the app level and it's handled declaratively for every interactive element. See `MODERN_STACK.md` → `@symbo.ls/tap` for setup + SSR baking.
+
+```js
+// Gesture surfaces — registered css-in-props, no plugin config needed per-element
+DragHandle:    { touchAction: 'none' }            // pointer-capture drag, no page-scroll fight
+SwipeRow:      { touchAction: 'pan-y' }           // horizontal swipe, vertical scroll still passes
+InnerScroller: { overscrollBehavior: 'contain' }  // no scroll chaining into the page
+
+// Style the tap plugin's pressed-state attribute from the design system —
+// nothing is imposed visually by default
+PressableCard: { '[data-pressed]': { opacity: '0.85' } }
+```
+
 ### Transitions and Micro-interactions
 
 ```js

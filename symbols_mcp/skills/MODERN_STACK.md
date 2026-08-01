@@ -15,6 +15,7 @@ Every non-trivial Symbols app uses this coherent set of plugins. Each plugin rep
 | `@symbo.ls/scratch` (theme runtime) | Design system runtime, `changeGlobalTheme()` | `changeGlobalTheme(name, targetConfig?)` (import from `smbls`) + `context.globalTheme` | Rule 50 |
 | `@symbo.ls/brender` | SSR / SSG static rendering with prefetch and hydration | `smbls brender` CLI + `renderPage(data, route, opts)` | (helmet + fetch are prefetched here) |
 | `@symbo.ls/analyze` | Runtime audit logger — errors, warnings, browser events, network, session replay | `analyze: true|{...}` on `create()` + `context.analyze.query()` | (errors/warnings on by default; browser/network opt-in) |
+| `@symbo.ls/tap` | Declarative touch responsiveness (viewport, `touch-action`, tap-highlight, pressed feedback) | `plugins: [tapPlugin]` + `touchAction` / `overscrollBehavior` css-in-props | (auto-registered by mermaid SSR + the workspace shell) |
 
 ---
 
@@ -682,6 +683,50 @@ When `--prefetch` is enabled (default), brender executes declarative `fetch:` de
 Helmet metadata is rendered into `<head>` server-side.
 
 Param routes (`/blog/:id`) are skipped during static generation — they require runtime data.
+
+---
+
+## `@symbo.ls/tap` — declarative touch responsiveness
+
+The successor to FastClick-style click-synthesis libraries. Mobile browsers used to wait ~300ms after `touchend` before firing `click` (double-tap-to-zoom disambiguation); FastClick papered over that by synthesizing clicks from touch events, which bred its own bug family (ghost clicks, double-firing dropdowns). Modern engines remove the delay declaratively — via a `width=device-width` viewport meta or `touch-action: manipulation` on the element — so `@symbo.ls/tap` ships **no event synthesis, no click suppression, no heuristics**:
+
+1. **Viewport guarantee** — injects a device-width viewport meta only when the document doesn't already have one.
+2. **`touch-action: manipulation`** on every interactive element (tags + ARIA roles) — kills residual tap-to-zoom jank without disabling pan/pinch.
+3. **Tap-highlight removal** on controls that render their own pressed state — the OS gray/blue flash stops fighting design-system `:active`/`:hover` styles.
+4. **Instant pressed feedback** — a passive, capture-phase pointer delegation stamps `data-pressed` on the pressed control for the press duration. Nothing visual is imposed by default; style `'[data-pressed]': {...}` from your design system. Side effect: the same document-level listeners also make CSS `:active` fire reliably on iOS Safari.
+
+```js
+// dependencies.js / app boot
+import { tapPlugin } from '@symbo.ls/tap'
+
+create(app, {
+  plugins: [tapPlugin, ...],
+  tap: { viewport: true, styles: true, pressed: true, pressedStyle: false }  // all optional, these are the defaults
+})
+```
+
+For server-rendered HTML (what `@symbo.ls/mermaid` does for every published site), bake the static styles + a small inline runtime snippet into `<head>` instead of relying on the runtime plugin:
+
+```js
+import { getTapStyles, getTapRuntimeSnippet } from '@symbo.ls/tap'
+
+const head = `<style id="smbls-tap-styles">${getTapStyles()}</style>
+<script>${getTapRuntimeSnippet()}</script>`
+```
+
+Both paths share one idempotency marker on `<html>` — whichever installs first wins, the other no-ops, so it's safe to have both the SSR snippet AND the runtime plugin active.
+
+### Gesture surfaces — `touchAction` / `overscrollBehavior`
+
+Registered as normal css-in-props alongside the plugin — use them directly on drag handles, swipers, and inner scrollers:
+
+```js
+DragHandle:    { touchAction: 'none' }          // pointer-capture drags stop fighting page scroll
+HorizontalRow: { touchAction: 'pan-y' }          // horizontal swiper — vertical scroll still passes through
+InnerScroller: { overscrollBehavior: 'contain' } // no scroll chaining into the page behind it
+```
+
+Deliberately **not** included: click synthesis or ghost-click suppression — with the declarative fixes above in place, modern engines already emit exactly one trusted click per tap.
 
 ---
 

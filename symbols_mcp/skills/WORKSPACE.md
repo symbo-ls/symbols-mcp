@@ -1,6 +1,8 @@
 # Workspace — Multi-App Monorepos with Shared Libraries
 
-**A workspace is a Symbols monorepo where multiple sibling apps share components, designSystem tokens, functions, and files** via the framework's `sharedLibraries` mechanism — without drift, duplication, or breaking the CLI's tooling guarantees.
+> **Two unrelated meanings of "workspace" exist in this ecosystem.** This file's title refers to a **build-time / monorepo concept**: a folder tree of sibling Symbols projects sharing components, designSystem tokens, functions, and files via `sharedLibraries`. There is a SECOND, product-level meaning — **the multi-tenant "workspace" feature inside the deployed platform app itself** (an org can have several workspaces, each with its own URL, installed apps, and per-team permissions). That is a runtime/product concept, unrelated to the monorepo topology below. See **"Platform workspaces (product feature)"** near the end of this file for that one.
+
+**A workspace (monorepo sense) is a Symbols monorepo where multiple sibling apps share components, designSystem tokens, functions, and files** via the framework's `sharedLibraries` mechanism — without drift, duplication, or breaking the CLI's tooling guarantees.
 
 This file documents the **workspace concept** (layout, project shapes, the two-file contract, transitive-resolution rules, onboarding checklist). The runtime mechanics of how libraries merge into a consuming app's context — input shapes, lockfile, `link` vs `destDir`, `sideEffects: true`, drift detection — live in [SHARED_LIBRARIES.md](./SHARED_LIBRARIES.md). Read both: workspace = the topology, shared-libraries = the merge engine that powers it.
 
@@ -242,6 +244,88 @@ See SHARED_LIBRARIES.md "Parcel tree-shaking" for the deeper explanation.
 4. Confirm `package.json` has `"type": "module"`. Add `"sideEffects": true` and `"main": "./symbols/context.js"` only if this app will itself be consumed as a shared library by another app in the workspace.
 5. Use bare-key references in components — don't redefine built-ins or shared-library exports.
 6. `smbls start` to develop.
+
+---
+
+## Platform workspaces (product feature)
+
+This section is about a completely different "workspace": the multi-tenant
+feature inside the deployed platform app (not the monorepo topology
+documented above). An organization can contain multiple workspaces; a
+workspace is the scope that holds a team's apps, data, and members.
+
+### URL scheme — `/w/<org>/<workspace>/<route>`
+
+The address bar names both the org and the active workspace so a reload or a
+shared link always lands in the right place:
+
+- `/w/<org-slug>` alone is ambiguous whenever an org has more than one
+  workspace — it resolves to the org's HQ workspace on load. A non-HQ
+  workspace's URL therefore always carries an explicit workspace segment or
+  `?ws=<handle>` query param so a reload doesn't silently snap back to HQ.
+- The ORG segment only moves on explicit user intent (switching orgs) — it
+  is never rewritten as a side effect of some other navigation.
+- Non-org-scoped surfaces (auth, public pages, a bare project canvas URL)
+  are workspace-independent and don't carry the segment at all.
+
+Treat `el.router(path, el.getRoot())` as the only way to actually navigate
+(per the general router rule in FRAMEWORK.md) — the URL sync described above
+is address-bar canonicalization that happens automatically as a side effect
+of state changing, not a navigation mechanism itself.
+
+### Workspace modules — installable workspace apps
+
+A Symbols project can be marked as an installable **workspace module** —
+effectively a full-takeover app a workspace can install to replace its
+default shell (skin + home panels + nav) with a custom one:
+
+- `metadata.workspaceModule: true` on a project marks it as installable —
+  set via a project-settings update (not written by a plain `smbls publish`;
+  the project record needs this flag set explicitly).
+- The workspace record's own `settings.workspaceModule` holds the manifest
+  of the *currently installed* module: a `{ type: 'project', owner, key, … }`
+  reference plus the resolved page/widget manifest for that installation.
+  Only one module can hold the full-takeover slot on a given workspace at a
+  time; installing a different one replaces the reference rather than
+  merging.
+
+### Per-team app-access permissions — `app.<key>.<verb>`
+
+A separate, admin-configurable ACL layered ON TOP of feature flags (which are
+a simple product on/off switch). Feature flags decide whether a capability
+exists at all for the workspace; app-access decides which **team** can use
+it once it does.
+
+- Vocabulary: `app.<appKey>.<verb>` where `verb` is one of `read`, `create`,
+  `update`, `delete`, and `appKey` is one of a fixed set of gateable
+  workspace apps (calendar, chat, meet, documents, files, tickets,
+  reminders, resolutions, analytics, data, announcements, company).
+- **Off by default.** Every workspace ships with app-access control unset,
+  so the gate is a no-op bypass (everyone can use every installed app) until
+  an admin explicitly opts in from the workspace's team-permissions admin
+  surface.
+- Owner/admin roles always bypass the gate, regardless of configuration.
+- Gate a UI surface or action with the shared `canApp(root, appKey, verb='read')`
+  helper — never hand-roll a permission-string check inline; the vocabulary
+  and the owner/admin bypass logic are centralized so every call site agrees.
+
+```js
+// canApp(root, appKey, verb) reads root.workspace.settings.appAccessControl,
+// checks the owner/admin bypass, then checks `app.<appKey>.<verb>` against
+// the resolved permission array. Wire it into a component via a registered
+// project function per the standard el.call convention:
+
+// functions/canAccessApp.js
+import { canApp } from '<shared-workspace-package>/functions/appAccess.js'
+export function canAccessApp (appKey, verb = 'read') {
+  return canApp(this.getRootState(), appKey, verb)
+}
+
+// components/NavItem.js
+NavItem: {
+  hide: (el, s) => !el.call('canAccessApp', 'tickets', 'read')
+}
+```
 
 ---
 
