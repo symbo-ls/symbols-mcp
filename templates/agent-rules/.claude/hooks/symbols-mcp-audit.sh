@@ -55,11 +55,44 @@ done
 # Allow user to silence
 [ "${SYMBOLS_MCP_POST_AUDIT:-1}" = "0" ] && exit 0
 
-# Try frank-audit if available; fall back to a fast inline pattern check.
-# Limit to single-file audit by default; whole-project audit would be too slow per write.
+# Guard 1 — stub configs. A workspace/monorepo root sometimes carries an
+# empty or marker-only symbols.json; resolving there would sweep the whole
+# tree. Require a meaningful config (dir/owner/key) OR a frank-discovered
+# folder beside it before treating the dir as an auditable project.
+if ! jq -e '(.dir // .owner // .key) != null' "$SYMBOLS_PROJECT/symbols.json" >/dev/null 2>&1; then
+  DISCOVERED=0
+  for d in components pages snippets functions methods designSystem; do
+    [ -d "$SYMBOLS_PROJECT/$d" ] && DISCOVERED=1 && break
+  done
+  [ "$DISCOVERED" = "0" ] && exit 0
+fi
+
+# Guard 2 — size cap. frank-audit only accepts directories (no single-file
+# mode), so a huge resolved root would cost minutes and hundreds of MB PER
+# EDIT. Skip the heavy audit beyond single-project scale; the inline checks
+# below still run.
+MAX_FILES=${SYMBOLS_MCP_AUDIT_MAX_FILES:-400}
+JS_COUNT=$(find "$SYMBOLS_PROJECT" -name '*.js' \
+  -not -path '*/node_modules/*' -not -path '*/dist/*' \
+  -not -path '*/.parcel-cache/*' -not -path '*/.git/*' 2>/dev/null \
+  | head -n $((MAX_FILES + 1)) | wc -l | tr -d ' ')
+
+# Guard 3 — concurrency. Parallel edits used to stack duplicate full-project
+# audits. One in-flight audit per project; concurrent hook runs skip the
+# heavy pass (the next edit's hook re-checks).
+AUDIT_LOCK="${TMPDIR:-/tmp}/symbols-mcp-audit-$(printf '%s' "$SYMBOLS_PROJECT" | shasum | cut -c1-12).lock"
+
+# Heavy pass: frank-audit, dir-scoped, locked, and hard-capped at
+# SYMBOLS_MCP_AUDIT_TIMEOUT seconds (perl alarm — portable to macOS, which
+# ships no `timeout`).
 OUT=""
-if command -v npx >/dev/null 2>&1; then
-  OUT=$(cd "$SYMBOLS_PROJECT" && npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_PROJECT" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206,FA207 2>&1 | grep -E "$(basename "$FILE_PATH")" || true)
+if command -v npx >/dev/null 2>&1 \
+  && [ "$JS_COUNT" -le "$MAX_FILES" ] \
+  && mkdir "$AUDIT_LOCK" 2>/dev/null; then
+  trap 'rmdir "$AUDIT_LOCK" 2>/dev/null' EXIT
+  OUT=$(cd "$SYMBOLS_PROJECT" && perl -e 'alarm shift; exec @ARGV' "${SYMBOLS_MCP_AUDIT_TIMEOUT:-60}" \
+    npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_PROJECT" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206,FA207 2>&1 \
+    | grep -E "$(basename "$FILE_PATH")" || true)
 fi
 
 # Inline lightweight checks (run regardless — fast, deterministic, no network).
