@@ -32,7 +32,6 @@ const sdk = new SDK({
   apiUrl: 'https://next.api.symbols.app',  // optional; defaults to environment.apiUrl
   socketUrl: 'https://next.api.symbols.app',
   timeout: 30000,
-  retryAttempts: 3,
   debug: false,                             // toggles logger output
   useNewServices: true,                     // default; selects modern service implementations
   tracking: { enabled: false }              // see Tracking
