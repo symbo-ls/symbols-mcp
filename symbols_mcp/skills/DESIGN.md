@@ -20,6 +20,22 @@ These rules govern visual direction, composition behavior, and user-experience r
 
 ---
 
+## Hard Flat-Discipline Rules (anti-clutter — binary, checked first)
+
+Violating any one of these means the output is rejected and rebuilt — they exist because generated UI reliably fails in exactly these ways:
+
+1. **Separation by fill, not stroke.** Surfaces separate through background contrast (tonal steps of one hue family), whitespace, and radius. Hairline borders/outlines/dividers are not a separation device. A design language may keep at most ONE deliberate stroke motif (e.g. a dashed state-ring) — never per-element outlining.
+2. **Shadow budget: one.** At most one shadow recipe per composition, defined once and reused. Ad-hoc layered shadows on cards, buttons, or text are rejected. Elevation defaults to fill contrast.
+3. **One accent hue per screen.** A screen commits to one hue family plus binary ink (black or white) and ink-alpha steps. Additional hues vary across screens, never within one.
+4. **No decorative text or ornaments.** Every element must be UI the user would read or tap — no filler labels, badge chrome, or annotation. If it isn't functional, delete it.
+5. **Density is counted, not felt.** One focal module per screen; whitespace segments meaning; aligned rows share one font size.
+6. **Reuse before creation.** Walk the component tiers (built-ins → shared libraries → project) before defining anything new; a bespoke restyling of an existing pattern is rejected.
+7. **Token grid only.** Every size, gap, radius, and type size sits on the project's scale — an off-scale value is a bug.
+
+> Symbols-org showcase/poster surfaces: the binding, stricter spec is `workspace/design-direction.md` (workspace repo root).
+
+---
+
 ## Core Perceptual Goals
 
 ### 1. Immediate Comprehension
