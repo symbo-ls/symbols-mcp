@@ -695,3 +695,52 @@ The runtime imports and merges shared libraries from `<project>/sharedLibraries.
 `smbls libs status` is the drift detector. `smbls libs link <path>` writes both files in lockstep.
 
 Linked entries (`mode: 'linked'` via the new `link:` field) are **never** scaffolded by `smbls fetch` — `scaffoldSharedLibraries` skips them so the user-managed source folder is never clobbered. This is the safe alternative to `destDir:` (which scaffolds with `overwrite: true`).
+
+## No extra wrappers — flattest possible DOM (Nika, 2026-08-06, hard rule)
+
+Containers-in-containers are a **red flag, absolutely unaccepted**: a tinted
+div inside a tinted card inside a padded section is the #1 AI-generated-UI
+smell. It breaks the borderless fill-contrast language, adds visual noise,
+and bloats the DOM.
+
+- Max ONE filled surface per module. Its children are text/controls placed
+  directly on it — never another shaded box inside.
+- A *control* (input, pill, button) may tint; a *container* may not nest
+  inside another tinted container.
+- If a wrapper div only groups or pads, delete it — merge its props into the
+  parent (padding/gap) or the child. DOMQL flow/gap on the parent replaces
+  most grouping wrappers.
+
+## Shortest HTML/CSS — prefer CSS-only devices (Nika, 2026-08-06, hard rule)
+
+Always reach for the shortest markup and CSS-only solutions before adding
+elements:
+
+- One element + pseudo-content/`::before`/`::after` beats three divs.
+- `gap` beats margin-carrying spacer children; `grid`/`flex` on the parent
+  beats positioning wrappers.
+- Text devices (`·`, `—`, opacity steps on one span) beat icon+wrapper pairs.
+- A `background`/`border`/`round` on the element itself beats a dedicated
+  decoration div. Dashed ring = `border: 1px dashed` on the element, never a
+  wrapper.
+- If two sibling nodes always render together, ask whether one text node
+  with mixed spans does the job.
+
+## Context menus for custom workspace apps (proven live, 2026-08-06)
+
+Modules get right-click context menus through the shell's house
+`ContextDropdown` (driven by `root.contextDropdown`) — no shell change:
+
+1. Row opener: `onContextMenu: (e, el, s) => el.call("bfOpenContext", e, s, "<kind>")`
+   The opener builds `items` (label/action/danger + any per-row ctx merged
+   from `s`) and sets
+   `s.root.update({ contextDropdown: { open: true, x: e.clientX, y: e.clientY, items, actionFn: "<moduleFn>" } })`.
+2. The menu invokes `el.call(actionFn, action, itemState)` — the second arg
+   is the ITEM STATE, so `item.root` gives full root access. `this` (bound by
+   el.call) ALSO survives module serialization — `const call = this && this.call ? this.call.bind(this) : null`
+   lets actions run `moduleOpenPage`/records ops with a graceful guard.
+3. Terminal actions clear `root.contextDropdown` themselves.
+
+Reference implementation: bellforge-app `functions/bfContext.js`
+(bfOpenContext/bfContextAction) wired on thesis cards, watch rows, applicant
+rows. Verified end-to-end on dev cloud: menu renders, action navigates.
