@@ -4,6 +4,8 @@ Complete setup for every major MCP-capable editor and AI client. Pick your tool 
 
 > **TL;DR — fastest path:** install once with `uv`, point your editor at `uvx symbols-mcp`. The server auto-updates with `--refresh` on every launch.
 
+> Per-tool quick-starts that also cover connecting your agent to the Symbols **workspace** (via the s1m0ne Bridge) live at [docs.symbols.app/simone](https://docs.symbols.app/simone).
+
 ---
 
 ## Table of contents
@@ -15,11 +17,13 @@ Complete setup for every major MCP-capable editor and AI client. Pick your tool 
   - [Claude Desktop (Mac / Windows)](#claude-desktop-mac--windows)
   - [Claude.ai (web)](#claudeai-web)
   - [Cursor](#cursor)
+  - [GitHub Copilot (VS Code / CLI)](#github-copilot-vs-code--cli)
   - [Windsurf (Codeium)](#windsurf-codeium)
   - [Zed](#zed)
   - [VS Code (Continue / Cline / Roo)](#vs-code-continue--cline--roo)
   - [Cline (VS Code)](#cline-vs-code)
   - [Gemini CLI](#gemini-cli)
+  - [OpenAI Codex](#openai-codex)
   - [Goose (Block)](#goose-block)
   - [Cody (Sourcegraph)](#cody-sourcegraph)
   - [Generic / custom clients](#generic--custom-clients)
@@ -182,6 +186,39 @@ Claude.ai supports MCP servers via the **Integrations** panel (Pro / Team / Ente
 
 Open Cursor → Settings → MCP — the server should appear and auto-connect. Toggle on.
 
+### GitHub Copilot (VS Code / CLI)
+
+VS Code has native MCP support for Copilot's **agent mode**. Project-scoped (commit it so the whole team gets the server): `<repo>/.vscode/mcp.json` — note VS Code uses a `servers` key, not `mcpServers`:
+
+```json
+{
+  "servers": {
+    "symbols-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--refresh", "symbols-mcp"]
+    }
+  }
+}
+```
+
+User-scoped alternative: Command Palette → **MCP: Add Server** → `stdio` → command `uvx --refresh symbols-mcp`. Open Copilot Chat in **Agent** mode — the symbols-mcp tools appear in the tools picker (**MCP: List Servers** to start/inspect a server).
+
+For the standalone **Copilot CLI** (`copilot`), add the same server to `~/.copilot/mcp-config.json`:
+
+```json
+{
+  "mcpServers": {
+    "symbols-mcp": {
+      "command": "uvx",
+      "args": ["--refresh", "symbols-mcp"]
+    }
+  }
+}
+```
+
+Copilot auto-loads `AGENTS.md` (and `.github/copilot-instructions.md`) — see [Bootstrapping](#bootstrapping-a-new-symbols-project--auto-load-rules-in-every-editor).
+
 ### Windsurf (Codeium)
 
 `~/.codeium/windsurf/mcp_config.json`:
@@ -221,7 +258,7 @@ Open the Assistant panel → tools — `symbols-mcp` appears.
 
 ### VS Code (Continue / Cline / Roo)
 
-VS Code itself doesn't have built-in MCP yet. Use one of the extensions below. The configs are JSON; paths differ per extension.
+VS Code's built-in MCP support runs through Copilot agent mode — see [GitHub Copilot](#github-copilot-vs-code--cli) above. If you use one of these agent extensions instead, they each carry their own MCP config; paths differ per extension.
 
 #### Continue.dev
 
@@ -275,6 +312,18 @@ Google's Gemini CLI (`gemini`) supports MCP. Edit `~/.gemini/settings.json`:
 ```
 
 For project-scoped: `<repo>/.gemini/settings.json` with the same shape. Run `gemini mcp list` to verify.
+
+### OpenAI Codex
+
+The Codex CLI supports MCP via `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.symbols-mcp]
+command = "uvx"
+args = ["--refresh", "symbols-mcp"]
+```
+
+Or from the terminal: `codex mcp add symbols-mcp -- uvx --refresh symbols-mcp`. Verify with `codex mcp list`. Codex natively auto-loads `AGENTS.md` from the project root — see [Bootstrapping](#bootstrapping-a-new-symbols-project--auto-load-rules-in-every-editor).
 
 ### Goose (Block)
 
@@ -382,7 +431,7 @@ When you create a Symbols project (or adopt symbols-mcp in an existing one), the
 
 Once you've connected `symbols-mcp` to your editor (see [Editor configurations](#editor--client-configurations) above), the server exposes an `instructions` string that every MCP-aware editor surfaces to its agent automatically. The current version includes a **MUST-CALL sequence** (`get_project_context` first, `get_project_rules` before generating, `audit_component` after each component, `audit_project` for full audits) plus the hard-rule list. Set once globally — works for every Symbols project you open.
 
-This is invisible to you (the agent reads it on connect) and works for **every editor that speaks MCP**: Claude Code, Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity, Cody.
+This is invisible to you (the agent reads it on connect) and works for **every editor that speaks MCP**: Claude Code, Cursor, GitHub Copilot, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Codex, Antigravity, Cody.
 
 ### Layer 2 — Project-level rule files (auto-loaded by each editor)
 
@@ -392,6 +441,7 @@ Each editor reads its own rule file from the project root on every chat:
 |---|---|---|
 | Claude Code | `CLAUDE.md` | yes |
 | Cursor | `.cursor/rules/symbols.md` (with `alwaysApply: true`) | yes |
+| GitHub Copilot | `AGENTS.md` (also reads `.github/copilot-instructions.md`) | yes |
 | Windsurf | `.windsurfrules` | yes |
 | Cline | `.clinerules` | yes |
 | Codex / Aider / Goose / Cody / generic | `AGENTS.md` | yes (most) |

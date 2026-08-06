@@ -186,7 +186,7 @@ npx -y @symbo.ls/mcp init-rules
 
 Writes `CLAUDE.md`, `.cursor/rules/symbols.md`, `.windsurfrules`, `.clinerules`, and `AGENTS.md` — each tailored to its editor, all pointing at the symbols-mcp tools (`get_project_context`, `get_project_rules`, `generate_component`, `audit_component`, etc.). Idempotent; pass `--force` to overwrite or `--only=cursor,claude` to scope.
 
-Combined with the MCP server's `instructions` field (auto-loaded on connect by every MCP-aware editor — Claude Code, Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity, Cody), this means you never have to remind the agent to "use symbols-mcp" — the workflow is bootstrapped on first interaction.
+Combined with the MCP server's `instructions` field (auto-loaded on connect by every MCP-aware editor — Claude Code, Cursor, GitHub Copilot, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Codex, Antigravity, Cody), this means you never have to remind the agent to "use symbols-mcp" — the workflow is bootstrapped on first interaction.
 
 ### Claude Code: enforcement hooks (installed by default)
 
@@ -218,7 +218,7 @@ See [SETUP.md → Bootstrapping](SETUP.md#bootstrapping-a-new-symbols-project--a
 
 ## What about `/symbols-audit`?
 
-The `/symbols-audit` slash command is **Claude Code-only**, but the underlying capability works in **every MCP-aware editor** — Cursor, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Antigravity (Google), Cody, Claude.ai web, and any custom MCP client.
+The `/symbols-audit` slash command is **Claude Code-only**, but the underlying capability works in **every MCP-aware editor** — Cursor, GitHub Copilot, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Codex, Antigravity (Google), Cody, Claude.ai web, and any custom MCP client.
 
 Three patterns:
 
@@ -232,7 +232,8 @@ Three patterns:
 
 **See [SETUP.md](SETUP.md)** for:
 
-- **Per-editor configs:** Claude Code · Claude Desktop · Claude.ai (web) · Cursor · Windsurf · Zed · Cline · Continue · Roo · Cody · Gemini CLI · Goose · Antigravity · generic clients
+- **Per-editor configs:** Claude Code · Claude Desktop · Claude.ai (web) · Cursor · GitHub Copilot (VS Code / CLI) · Windsurf · Zed · Cline · Continue · Roo · Cody · Gemini CLI · OpenAI Codex · Goose · Antigravity · generic clients
+- **Per-tool quick-starts with workspace connection** (s1m0ne Bridge + MCP + rules): [docs.symbols.app/simone](https://docs.symbols.app/simone)
 - **Local development:** clone the repo, run from source, `.mcp.json` template
 - **Using `/symbols-audit` & other tools in non-Claude-Code editors:** natural language, custom commands per editor, shell fallback, sourcing the bundled venv directly
 - **Transport modes:** stdio (default) and SSE (for claude.ai web / remote clients)
