@@ -17,11 +17,14 @@ const http = require('http')
   if (first.startsWith('-')) return  // global flag — let the MCP server handle (or ignore)
 
   const subDispatch = {
-    'init-rules':              path.join(__dirname, 'symbols-mcp-init-rules'),
-    'symbols-mcp-init-rules':  path.join(__dirname, 'symbols-mcp-init-rules'),
-    'audit':                   path.join(__dirname, 'symbols-audit'),
-    'symbols-audit':           path.join(__dirname, 'symbols-audit'),
+    'init-rules':              path.join(__dirname, 'symbols-mcp-init-rules.cjs'),
+    'symbols-mcp-init-rules':  path.join(__dirname, 'symbols-mcp-init-rules.cjs'),
+    'skills':                  path.join(__dirname, 'symbols-mcp-init-rules.cjs'),
+    'audit':                   path.join(__dirname, 'symbols-audit.cjs'),
+    'symbols-audit':           path.join(__dirname, 'symbols-audit.cjs'),
   }
+  // `skills` is init-rules in detect mode — the wrangler-style one-shot.
+  if (first === 'skills' && !argv.includes('--detect')) argv.push('--detect')
   const target = subDispatch[first]
   if (!target) return  // unknown — fall through (server will likely error or ignore)
   if (!fs.existsSync(target)) {

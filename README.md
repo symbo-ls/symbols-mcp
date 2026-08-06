@@ -38,7 +38,7 @@ No API keys required for documentation tools. Project management tools require a
 | Tool | Description |
 |------|-------------|
 | `audit_component` | **Inline VALIDATOR** for a single component string. Returns violations + warnings (≈1K chars). Use during generation. Pass `include_playbook=True` to also dump the AUDIT.md playbook. |
-| `audit_project` | Returns the **multi-phase project audit PLAYBOOK** (instructions for the agent — Phase 0 setup → Phase 5 report). Pair with `bin/symbols-audit` CLI for the static-audit phase. |
+| `audit_project` | Returns the **multi-phase project audit PLAYBOOK** (instructions for the agent — Phase 0 setup → Phase 5 report). Pair with `bin/symbols-audit.cjs` CLI for the static-audit phase. |
 
 For filesystem-wide audits the package ships a CLI: `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings). Under the hood it runs `frank-audit audit --strict` — the audit core is now [`@symbo.ls/frank-audit`](https://github.com/symbo-ls/smbls/tree/main/plugins/frank-audit), the AST-based engine that owns the canonical 59-rule registry, prescription generation, and verify-or-rollback fixers.
 
@@ -186,6 +186,18 @@ npx -y @symbo.ls/mcp init-rules
 
 Writes `CLAUDE.md`, `.cursor/rules/symbols.md`, `.windsurfrules`, `.clinerules`, and `AGENTS.md` — each tailored to its editor, all pointing at the symbols-mcp tools (`get_project_context`, `get_project_rules`, `generate_component`, `audit_component`, etc.). Idempotent; pass `--force` to overwrite or `--only=cursor,claude` to scope.
 
+### Agent skills — one-shot install for every agent on your machine
+
+The wrangler-style path: detect which AI coding agents are installed (Claude Code, Cursor, Codex, GitHub Copilot, Gemini CLI, Windsurf, Cline, Goose, Warp, Antigravity, Zed, Aider) and install the Symbols rules + skills for exactly those:
+
+```bash
+npx -y @symbo.ls/mcp skills          # detect agents → install rules + skills for them
+# equivalent: npx -y @symbo.ls/mcp init-rules --detect
+# from the Symbols CLI: smbls skills
+```
+
+For Claude Code this also installs a proper **agent skill** at `.claude/skills/symbols/SKILL.md` — it auto-loads whenever the agent works on Symbols/DOMQL (its description triggers on `symbols.json` projects, DOMQL components, design tokens, the smbls CLI), carrying the must-do tool sequence and the hard-rules digest. `--global` installs it once at `~/.claude/skills/` for every project; `--no-skills` opts out.
+
 Combined with the MCP server's `instructions` field (auto-loaded on connect by every MCP-aware editor — Claude Code, Cursor, GitHub Copilot, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Codex, Antigravity, Cody), this means you never have to remind the agent to "use symbols-mcp" — the workflow is bootstrapped on first interaction.
 
 ### Claude Code: enforcement hooks (installed by default)
@@ -222,7 +234,7 @@ The `/symbols-audit` slash command is **Claude Code-only**, but the underlying c
 
 Three patterns:
 
-1. **Natural language** (zero setup) — just say _"Run a full Symbols audit on this project using symbols-mcp."_ The agent calls `get_project_context` → `audit_project` (playbook) → `bin/symbols-audit` CLI → iterates fixes with `audit_component`.
+1. **Natural language** (zero setup) — just say _"Run a full Symbols audit on this project using symbols-mcp."_ The agent calls `get_project_context` → `audit_project` (playbook) → `bin/symbols-audit.cjs` CLI → iterates fixes with `audit_component`.
 2. **Custom command** — register a Cursor rule, Continue customCommand, Windsurf workflow, etc. for one-keystroke parity. Templates in [SETUP.md](SETUP.md#using-symbols-audit-and-other-tools-in-any-editor).
 3. **Pure shell** — `npx -y @symbo.ls/mcp symbols-audit ./symbols` works from any terminal, no editor needed. Strict by default, exit 1 on findings.
 
@@ -237,5 +249,5 @@ Three patterns:
 - **Local development:** clone the repo, run from source, `.mcp.json` template
 - **Using `/symbols-audit` & other tools in non-Claude-Code editors:** natural language, custom commands per editor, shell fallback, sourcing the bundled venv directly
 - **Transport modes:** stdio (default) and SSE (for claude.ai web / remote clients)
-- **Audit CLI:** standalone `bin/symbols-audit` for CI / pre-commit
+- **Audit CLI:** standalone `bin/symbols-audit.cjs` for CI / pre-commit
 - **Updating** and **Troubleshooting** (PATH issues, stale versions, missing tools)

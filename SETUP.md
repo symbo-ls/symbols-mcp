@@ -411,12 +411,12 @@ For other editors during development, use the same shape but point at the local 
 
 ### Running the deterministic audit CLI
 
-The repo ships a standalone Node-based audit at `bin/symbols-audit`. No MCP needed — it sweeps a Symbols project for rule violations:
+The repo ships a standalone Node-based audit at `bin/symbols-audit.cjs`. No MCP needed — it sweeps a Symbols project for rule violations:
 
 ```bash
-node bin/symbols-audit /path/to/project/symbols
+node bin/symbols-audit.cjs /path/to/project/symbols
 # or
-./bin/symbols-audit /path/to/project/symbols
+./bin/symbols-audit.cjs /path/to/project/symbols
 ```
 
 Strict by default (exit 1 on findings). Pass `--allow-findings` to exit 0 with findings. See [AUDIT.md](symbols_mcp/skills/AUDIT.md).
@@ -450,6 +450,8 @@ Each editor reads its own rule file from the project root on every chat:
 
 ```bash
 # from any Symbols project root:
+npx -y @symbo.ls/mcp skills        # detect installed agents → install for exactly those
+# or write the full set unconditionally:
 npx -y @symbo.ls/mcp init-rules
 
 # preview without writing
@@ -468,6 +470,9 @@ Files written:
 - `.windsurfrules` — Windsurf
 - `.clinerules` — Cline
 - `AGENTS.md` — vendor-neutral fallback for any agent that reads it
+- `.claude/skills/symbols/SKILL.md` — Claude Code **agent skill**: auto-loads on Symbols/DOMQL work (triggered by its description, not by prompt), carrying the must-do tool sequence + hard-rules digest; `--global` installs it at `~/.claude/skills/` for all projects, `--no-skills` skips it
+
+`skills` (or `init-rules --detect`) probes the machine for installed agents — Claude Code, Cursor, Codex, GitHub Copilot, Gemini CLI, Windsurf, Cline, Goose, Warp, Antigravity, Zed, Aider — and restricts the writes to what's actually present.
 
 After running the command, open the project — every editor that supports MCP + project rules now bootstraps the workflow automatically. **No more "use symbols-mcp" reminders.**
 
@@ -531,7 +536,7 @@ If the agent skips step 1 or 2, the rule files weren't picked up — check the e
 
 1. `mcp__symbols-mcp__get_project_context` (resolve owner/key/env from cwd)
 2. `mcp__symbols-mcp__audit_project` (fetch the playbook)
-3. `bin/symbols-audit ./symbols` (deterministic regex CLI), then iterate fixes with `audit_component` + chrome-mcp UI tests
+3. `bin/symbols-audit.cjs ./symbols` (deterministic regex CLI), then iterate fixes with `audit_component` + chrome-mcp UI tests
 
 The slash-command sugar is Claude Code-only, but **the capability works in every MCP-aware editor**. Three patterns, in order of recommendation:
 
@@ -584,7 +589,7 @@ customCommands:
       Use symbols-mcp end-to-end:
       1. mcp__symbols-mcp__get_project_context — resolve project from cwd
       2. mcp__symbols-mcp__audit_project — fetch playbook
-      3. Run bin/symbols-audit ./symbols via shell (strict, exit 1 on findings)
+      3. Run bin/symbols-audit.cjs ./symbols via shell (strict, exit 1 on findings)
       4. Iterate fixes with mcp__symbols-mcp__audit_component
       5. Write audit/report.md per Phase 5 of the playbook
 ```
@@ -643,7 +648,7 @@ npx -y @symbo.ls/mcp symbols-audit ./symbols
 uvx --from symbols-mcp symbols-audit ./symbols
 
 # via local checkout (contributors)
-node /path/to/symbols-mcp/bin/symbols-audit ./symbols
+node /path/to/symbols-mcp/bin/symbols-audit.cjs ./symbols
 ```
 
 Strict by default — exit 1 on findings. Pass `--allow-findings` for soft mode (exit 0 with findings) or `--json` for machine-readable output.
@@ -678,7 +683,7 @@ This bypasses any editor-side MCP wiring — useful for diagnosing "tools not lo
 | Get framework rules | `get_project_rules` | `cat symbols_mcp/skills/RULES.md` |
 | Validate a single component | `audit_component(code)` | (n/a — shell can't read source strings) |
 | Get the audit playbook | `audit_project()` | `cat symbols_mcp/skills/AUDIT.md` |
-| Sweep a project for violations | (n/a — call `audit_component` per file, or run shell) | `bin/symbols-audit ./symbols` |
+| Sweep a project for violations | (n/a — call `audit_component` per file, or run shell) | `bin/symbols-audit.cjs ./symbols` |
 | Generate a component | `generate_component(description, name)` | (n/a) |
 | Convert React/HTML | `convert_react(code)` / `convert_html(code)` | (n/a) |
 | Push to platform | `save_to_project` + `publish` + `push` | `smbls publish` |
@@ -863,7 +868,7 @@ You're on an old version. See [Updating](#updating).
 | Always-latest | `uvx --refresh symbols-mcp` |
 | Local dev | `uv run symbols-mcp` (from repo) |
 | SSE for web clients | `MCP_TRANSPORT=sse uvx symbols-mcp` |
-| Run audit CLI | `node bin/symbols-audit ./symbols` |
+| Run audit CLI | `node bin/symbols-audit.cjs ./symbols` |
 | Slash command (Claude Code) | `/symbols-audit [path]` |
 
 For framework rules, syntax, and the audit playbook, see the bundled skills:
