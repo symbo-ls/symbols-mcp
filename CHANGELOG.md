@@ -1,5 +1,11 @@
 # @symbo.ls/mcp
 
+## 3.14.656
+
+### Patch Changes
+
+- Auto-generated cross-repo patch release.
+
 ## 3.14.653
 
 ### Patch Changes
