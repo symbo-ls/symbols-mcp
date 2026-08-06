@@ -744,3 +744,61 @@ Modules get right-click context menus through the shell's house
 Reference implementation: bellforge-app `functions/bfContext.js`
 (bfOpenContext/bfContextAction) wired on thesis cards, watch rows, applicant
 rows. Verified end-to-end on dev cloud: menu renders, action navigates.
+
+## Verifying a UI fix — traps that produce false PASSES (2026-08-06)
+
+Every one of these reported success on a change that had not worked. They are
+ordered by how often they bite.
+
+**A rule that EXISTS is not a rule that APPLIES.** Counting stylesheet rules
+that contain `:hover` proves nothing — the emitted selector may match no
+element. Always ask whether the rule matches the node you care about:
+
+```js
+[...document.styleSheets].flatMap(sh => [...sh.cssRules])
+  .filter(r => (r.selectorText || '').includes(':hover'))
+  .filter(r => el.matches(r.selectorText.replace(/:hover|:active/g, '').trim()))
+```
+
+**A page with no rows passes every audit.** Contrast/spacing sweeps over a
+surface whose data failed to load are measuring chrome and empty states.
+Assert a row count before trusting a green result — a records grant that is
+briefly missing renders the whole app as headers only.
+
+**Comparing geometry by ARRAY INDEX is invalid.** An inserted node shifts
+every later index, so an unchanged page reports hundreds of "moved" elements.
+Hold the SAME element references across the before/after snapshot.
+
+**`smbls push` reporting "No changes to push" after a real edit means the
+compiler DROPPED your value.** It is not a no-op — the emitted JSON was
+byte-identical because the property never survived. Treat it as a failed
+build, not a clean one.
+
+**An inline style attribute outranks a class rule.** Anything you set through
+the raw-CSS passthrough will defeat a `:hover` declared in a pseudo block —
+so "hover does nothing" is often caused by the resting style, not the hover.
+
+**The spacing scale is EXPONENTIAL, not linear.** Roughly: `C` 44 · `D` 72 ·
+`E` 117 · `F` 189 · `G` 305 · `H` 494 · `I` 799 px. Picking a "slightly
+bigger" token for a `minWidth` floor can blow a control out to the full row.
+Read the computed value before committing to a token.
+
+**A new `export` is invisible until the section index re-exports it.** The
+serializer will refuse the publish (`dropped-export`) — which is the system
+working. Add `export * from './NewFile.js'` to the folder's `index.js`.
+
+## Interaction states + layout stability (2026-08-06, from live review)
+
+The two most frequent review complaints on a workspace app, and what actually
+fixes them:
+
+- **"the active colour is the opposite of vibrant"** → a raw
+  `rgba(255,255,255,0.1)` active wash. Correct on dark, invisible on light, so
+  the selected row reads fainter than the unselected ones. Mirror it with
+  `light-dark()` (Rule 67) and bind it ONCE so surfaces cannot drift.
+- **"the button lacks symmetry"** → a call-site `padding` override. Because
+  `minHeight` makes the vertical value inert, the override only shrinks the
+  horizontal inset (Rule 68).
+- **"never shift the layout"** → `if:`-gated chrome, width-changing button
+  labels, and inline result panels (Rule 66). Overlays for read-then-dismiss
+  artifacts; reserved boxes for chrome.

@@ -2138,3 +2138,106 @@ This rule is enforced by:
 - `bin/symbols-audit` (regex sweep, severity `critical`, category `icons`)
 - `mcp__symbols-mcp__audit_component` (in-text rule check)
 - Generation tools (`generate_component`, `generate_page`) — output prompts forbid inline SVG for icons
+
+---
+
+## Rule 65 — STRICT: interaction states are DECLARED on the primitive, never left to the call site
+
+**Every interactive element MUST declare `:hover`, `:active`, `:focus-visible` and — where applicable — `:disabled`, on the component that defines it.** A control that only has a resting style is a bug, not a minimal design.
+
+Set them ONCE on the primitive (`Button`, or your project's `PrimaryBtn` / `GhostBtn` / row / tile) and let every call site inherit. Re-declaring states per instance is how an app ends up with 40 buttons that each behave differently.
+
+```js
+// ✅ Declared once, on the primitive
+export const PrimaryBtn = {
+  extends: 'Button',
+  background: 'brand',
+  cursor: 'pointer',
+  ':hover': { background: 'brand+10' },
+  ':active': { background: 'brand-10' },
+  ':focus-visible': { outline: '2px solid currentColor', outlineOffset: '2px' },
+  ':disabled': { opacity: '0.35', pointerEvents: 'none' }
+}
+
+// ❌ Resting style only — the control never acknowledges the pointer
+export const PrimaryBtn = { extends: 'Button', background: 'brand', cursor: 'pointer' }
+```
+
+**Hover must change the FILL, not the opacity.** `:hover': { opacity: '0.85' }` fades the label along with the surface, so the control gets *harder* to read exactly when the user is aiming at it. Step the background token instead.
+
+**A hover step must be perceptible.** Two tokens one step apart on a tinted surface can differ by less than the eye resolves. If you cannot see it in the browser, it is not a state — measure the composited luminance delta of the two, and treat anything under ~0.02 as no change at all.
+
+---
+
+## Rule 66 — STRICT: never let chrome change the page's LAYOUT — reserve the box or overlay it
+
+**A control, banner, count, or panel appearing MUST NOT move anything already on screen.** Layout shift is the single most-reported UI defect in review; treat it as a correctness bug, not polish.
+
+Three patterns cause almost all of it:
+
+**1. `if:`-gated chrome inside a flow.** An `if:` gate ADDS and REMOVES the node, so its neighbours move. If the element is chrome (a Clear button, a result count, a status line), keep it mounted and toggle visibility instead — and disable it while hidden so it is neither clickable nor focusable:
+
+```js
+// ❌ enters the row on the first keystroke and shoves its neighbours
+ClearBtn: { if: (el, s) => !!s.root.query, text: 'Clear' }
+
+// ✅ box reserved; only visibility changes
+ClearBtn: {
+  text: 'Clear',
+  visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
+  pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
+  tabindex: (el, s) => (s.root.query ? '0' : '-1'),
+  aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+}
+```
+
+This also REPAIRS `role="status"` regions: a live region must exist in the DOM *before* its content changes, so an `if:` gate silently defeats the announcement it was written for.
+
+**2. A label that changes width.** `'Save'` → `'Saving…'` resizes the control mid-action, exactly while the user is looking at it. Give it a `minWidth` floor sized to the LONGER label.
+
+**3. A result panel rendered inline above existing content.** An explanation, preview, or editor that opens *in* the flow pushes everything below it down and yanks it back on close. If it is a read-then-dismiss artifact, it belongs on an overlay (fixed panel + backdrop, dismissable by backdrop click AND Escape) — not in the document flow.
+
+**Verify it, don't assume it.** Snapshot the geometry of the SAME element references before and after the change and count how many moved; a `PerformanceObserver` on `layout-shift` confirms it independently. Comparing positions by ARRAY INDEX is invalid — an inserted node shifts every later index and reports a shift that did not happen.
+
+---
+
+## Rule 67 — STRICT: never use a raw theme-invariant colour for a state — mirror it with `light-dark()`
+
+**A hard-coded `rgba(255,255,255,…)` or `rgba(0,0,0,…)` wash is correct on exactly ONE theme and wrong on the other.** A white wash is a frosted highlight on a dark shell and invisible on a light one — which inverts the meaning of an active state: the selected item ends up reading *fainter* than its unselected siblings.
+
+```js
+// ❌ theme-invariant — white-on-white on the light shell
+background: (el, s) => (s.active ? 'rgba(255,255,255,0.1)' : 'transparent')
+
+// ✅ mirrored per theme
+background: (el, s) =>
+  s.active ? 'light-dark(rgba(20,20,22,0.08), rgba(255,255,255,0.1))' : 'transparent'
+```
+
+The same trap applies to fixed theme TOKENS used on a coloured surface. `overlay` is a fixed low-alpha wash: on a surface of similar lightness it composites to the surface colour and vanishes — a field with no visible fill, a hover that never appears. On a tinted/branded surface use a tint of `currentColor`, which adapts to whatever ink that surface carries:
+
+```js
+style: { background: 'color-mix(in srgb, currentColor 12%, transparent)' }
+```
+
+**Bind a state value ONCE** as a named constant (or a token) and reference it everywhere, rather than repeating the literal. Copies drift; a binding cannot.
+
+---
+
+## Rule 68 — STRICT: never override a control's padding at the call site
+
+**The control scale belongs to the primitive.** Overriding `padding` on an instance to make a button "smaller" in a dense row silently breaks its geometry.
+
+Why it fails, specifically: primitives set `minHeight` for the tap target, which means the VERTICAL padding value is inert — the box keeps its height no matter what you pass. Your override therefore only ever shrinks the HORIZONTAL inset. The result is a control with generous room above and below the label and almost none at the ends: visibly lopsided, and the exact complaint that reaches you as "the button looks unbalanced".
+
+```js
+// ❌ only the horizontal inset actually changes — the label ends up ~4px from each end
+BfGhostBtn: { padding: 'V X', text: 'Save assessment' }
+
+// ✅ inherit the scale
+BfGhostBtn: { text: 'Save assessment' }
+```
+
+If a genuinely denser control is needed, define a compact VARIANT on the primitive (its own `minHeight` + `padding` pair) and extend that. One named variant beats N ad-hoc overrides — and when the scale changes, every consumer moves together.
+
+Compact SPANS (pills, badges, hint chips) are not controls: they carry no `minHeight` and no tap-target obligation, so a small padding pair on them is the intended scale, not an override.
