@@ -5,8 +5,9 @@
 # `workflow_run` trigger is the gate: if Test fails, this never runs,
 # the manager is never invoked, and the broken commit cannot publish.
 #
-# Required secret on this repo: RELEASE_MANAGER_DISPATCH_TOKEN — a GitHub
-# Classic PAT with `repo` scope on symbo-ls/release-manager (SSO authorized).
+# Required secret on this repo: RELEASE_PAT — a GitHub Classic PAT with
+# `repo` scope on symbo-ls/release-manager (SSO authorized). This is the
+# org's single canonical secret name for this credential.
 
 name: Notify release-manager
 
@@ -31,19 +32,16 @@ jobs:
         # A publish-notify must not red-fail CI over a rotated external
         # credential. Dispatch when the token works; warn (and exit 0) when it
         # does not, so a missed auto-publish stays visible without blocking
-        # main. Rotate RELEASE_MANAGER_DISPATCH_TOKEN (Classic PAT, repo scope,
-        # SSO-authorized for symbo-ls) to restore auto-publish.
-        # RELEASE_PAT is the canonical single-name PAT (standardizing away
-        # from the four duplicated names it used to be stored under). The
-        # `||` fallback is temporary until the old repo-level
-        # RELEASE_MANAGER_DISPATCH_TOKEN secret is deleted.
+        # main. Rotate RELEASE_PAT (Classic PAT, repo scope, SSO-authorized
+        # for symbo-ls) to restore auto-publish. RELEASE_PAT is the org's
+        # single canonical secret name for this credential.
         env:
-          TOKEN: ${{ secrets.RELEASE_PAT || secrets.RELEASE_MANAGER_DISPATCH_TOKEN }}
+          TOKEN: ${{ secrets.RELEASE_PAT }}
           PAYLOAD: >-
             {"event_type":"source-changed","client_payload":{"repo":"${{ github.repository }}","ref":"${{ github.event.workflow_run.head_branch }}","sha":"${{ github.event.workflow_run.head_sha }}","actor":"${{ github.event.workflow_run.actor.login }}","message":${{ toJSON(github.event.workflow_run.head_commit.message) }}}}
         run: |
           if [ -z "${TOKEN:-}" ]; then
-            echo "::warning::RELEASE_MANAGER_DISPATCH_TOKEN not set — release-manager NOT notified; auto-publish will not fire."
+            echo "::warning::RELEASE_PAT not set — release-manager NOT notified; auto-publish will not fire."
             exit 0
           fi
           code=$(curl -sS -o /tmp/dispatch_resp.json -w '%{http_code}' \
@@ -56,5 +54,5 @@ jobs:
           if [ "$code" = "204" ]; then
             echo "Dispatched source-changed to release-manager (sha ${{ github.event.workflow_run.head_sha }})."
           else
-            echo "::warning::release-manager dispatch failed (HTTP ${code}: $(cat /tmp/dispatch_resp.json 2>/dev/null)). Auto-publish did NOT fire — rotate RELEASE_MANAGER_DISPATCH_TOKEN or trigger the release-manager manually. Not failing the build over an external credential."
+            echo "::warning::release-manager dispatch failed (HTTP ${code}: $(cat /tmp/dispatch_resp.json 2>/dev/null)). Auto-publish did NOT fire — rotate RELEASE_PAT or trigger the release-manager manually. Not failing the build over an external credential."
           fi
