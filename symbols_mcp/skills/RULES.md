@@ -2241,3 +2241,60 @@ BfGhostBtn: { text: 'Save assessment' }
 If a genuinely denser control is needed, define a compact VARIANT on the primitive (its own `minHeight` + `padding` pair) and extend that. One named variant beats N ad-hoc overrides — and when the scale changes, every consumer moves together.
 
 Compact SPANS (pills, badges, hint chips) are not controls: they carry no `minHeight` and no tap-target obligation, so a small padding pair on them is the intended scale, not an override.
+
+---
+
+## Rule 69 — CROSS-THEMED projects: prefer a THEME, then a SEMANTIC PAIR; a raw hue is not semantic
+
+**Scope: this rule applies only to projects that render in more than one theme**
+(a `globalTheme: 'auto'` config, a theme toggle, or an app embedded in a shell
+that pushes `?globalTheme=`). A project pinned to a single theme has no second
+ground to fail on — a raw hue is fine there, and this rule does not apply.
+
+**A semantic colour is one that has a `[light, dark]` pairing in the design
+system.** That is the whole test, and it is mechanical: if the token is not an
+array pair in `designSystem/color.js`, it is not semantic — no matter how
+token-ish the name reads.
+
+```js
+// ❌ raw HUE token — looks compliant (it IS a token, not a hex) but it is a
+//    SINGLE fixed value with no light/dark pair, so it is exactly as broken
+//    as '#E98232'. Correct in the theme it was eyeballed in, dead in the other.
+{ color: 'orange' }        // 2.42:1 as ink on a light page wash
+{ color: 'red' }           // 2.45:1
+{ color: 'white' }         // 1.14:1 on a light board — invisible
+
+// ✅ semantic PAIR — one declaration, adapts by itself, no media query
+{ color: 'warningInk' }    // ['orangeDeep', 'orangeBright']
+{ color: 'dangerInk' }
+{ color: 'title' }         // neutral pair — ['gray1', 'gray15']
+```
+
+**Reach for the layers in this order:**
+
+1. **A theme** — `theme: 'primary'`, `theme: 'common-card'`, `theme: 'success'`.
+   A theme bundles background + ink + hover/focus/active and flips as a unit, so
+   it is the least that can drift. Prefer it whenever you need a SURFACE plus
+   its ink (buttons, cards, badges, plates).
+2. **A semantic pair token** — `warningInk`, `dangerInk`, `successInk`,
+   `accentInk`, `magentaInk`, or a neutral (`title`, `caption`, `subtitle`,
+   `paragraph`, `line`, `overlay`, `hover`, `selected`). Use when only the INK
+   varies and the ground is already handled.
+3. **A raw hue** — decoration ONLY, on a ground you control: plates, dots,
+   washes, chart series. Never as text.
+
+**Prefer a pair over `@dark` / `@light` blocks.** A pair is one declaration that
+adapts; a media-query block is a manual restatement of the same intent in two
+places, and the two drift. Reserve `@dark` / `@light` for things a colour pair
+cannot express — swapping an icon, hiding an element, changing a border style.
+
+**Hue-as-text is usually the wrong shape anyway.** Prefer **wash + neutral ink**
+(a tinted plate carrying the hue, with `title`/`caption` text on it): it reads
+at any size and cannot fail contrast when the ground flips. Reach for a hue ink
+only when the hue itself IS the signal and there is no plate.
+
+**Verify in BOTH themes before calling it done.** Measured cost of not doing so
+(2026-08-09, symbols workspace): 150 raw-hue `color:` declarations across 12
+apps; `/warehouse` in light had its `LOW` badges at 1.91:1 and its expired count
+at 2.45:1; the `/` home tile glyphs were hardcoded white at 1.14:1. Every one
+had been eyeballed in dark and called correct.
