@@ -33,8 +33,12 @@ jobs:
         # does not, so a missed auto-publish stays visible without blocking
         # main. Rotate RELEASE_MANAGER_DISPATCH_TOKEN (Classic PAT, repo scope,
         # SSO-authorized for symbo-ls) to restore auto-publish.
+        # RELEASE_PAT is the canonical single-name PAT (standardizing away
+        # from the four duplicated names it used to be stored under). The
+        # `||` fallback is temporary until the old repo-level
+        # RELEASE_MANAGER_DISPATCH_TOKEN secret is deleted.
         env:
-          TOKEN: ${{ secrets.RELEASE_MANAGER_DISPATCH_TOKEN }}
+          TOKEN: ${{ secrets.RELEASE_PAT || secrets.RELEASE_MANAGER_DISPATCH_TOKEN }}
           PAYLOAD: >-
             {"event_type":"source-changed","client_payload":{"repo":"${{ github.repository }}","ref":"${{ github.event.workflow_run.head_branch }}","sha":"${{ github.event.workflow_run.head_sha }}","actor":"${{ github.event.workflow_run.actor.login }}","message":${{ toJSON(github.event.workflow_run.head_commit.message) }}}}
         run: |
