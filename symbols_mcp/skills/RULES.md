@@ -2298,3 +2298,61 @@ only when the hue itself IS the signal and there is no plate.
 apps; `/warehouse` in light had its `LOW` badges at 1.91:1 and its expired count
 at 2.45:1; the `/` home tile glyphs were hardcoded white at 1.14:1. Every one
 had been eyeballed in dark and called correct.
+
+---
+
+## Rule 70 — A lowercase custom prop set to a function is AUTO-INVOKED, not stored — use `el.call` (Rule 8) to stash a callback
+
+**Any lowercase (non-PascalCase) prop whose value is a function is a reactive
+factory prop** — the exact same mechanism `text:`, `hide:`, `background:`, and
+every other built-in factory prop use. The framework replaces it with a
+getter that calls `fn(element, element.state, element.context)` on **every
+read** and returns whatever that call returns. This is intentional and is
+what makes `text: (el, s) => s.count` work — but it also means a lowercase
+prop can never be used to stash a callback you intend to invoke later.
+
+```js
+// ❌ WRONG — looks like a stored callback, is actually a reactive factory.
+// `el.toData` is auto-invoked and OVERWRITTEN with its return value.
+export const Widget = {
+  toData: (el, root) => [1, 2, 3],
+  onRender: (el, s) => {
+    console.log(typeof el.toData)   // 'object' — NOT 'function'
+    el.toData(el, s.root)           // TypeError: el.toData is not a function
+  }
+}
+
+// ✅ RIGHT — register it as a project function and invoke via el.call (Rule 8)
+// functions/toData.js
+export const toData = function toData(root) {
+  return [1, 2, 3]
+}
+
+// component
+export const Widget = {
+  onRender: (el, s) => {
+    const data = el.call('toData', s.root)
+  }
+}
+```
+
+**The failure is completely silent at the declaration site** — nothing about
+the syntax signals that THIS particular prop name is about to be
+auto-invoked-and-replaced rather than left as a stored reference. The only
+symptom is a `TypeError` at the first call site, which can be arbitrarily far
+(in time and in file) from where the prop was declared. In the field this
+surfaced as "all three charts render with zero canvases, no visible console
+error" — the throw landed in an unguarded position.
+
+**Dev-only advisory warning:** `wrapCustomPropFunctions`
+(`smbls/packages/element/src/create.js`) logs a heuristic, advisory-only
+`console.warn` (gated by `isLoudDevRuntime()` — never in production) when a
+lowercase custom prop is a 2-argument function whose second parameter isn't
+named like the state/context convention (`s` / `state` / `ctx` / `context`) —
+the shape of a stashed callback rather than a reactive factory. This is a
+heuristic (false positives/negatives are expected) and never changes the
+resolved value — it exists only to surface the trap at declaration time
+instead of at a downstream `TypeError`.
+
+**Files:** `smbls/packages/element/src/create.js` (`wrapCustomPropFunctions`,
+`looksLikeStashedCallback`).
