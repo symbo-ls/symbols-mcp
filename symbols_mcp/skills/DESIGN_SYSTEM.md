@@ -279,7 +279,7 @@ The set of `designSystem/*.js` files a project ships varies by complexity. Commo
 | `icons.js` | Inline SVG sprite (icon registry — required for Icon component) |
 | `semantic_icons.js` | Logo/branding SVGs (NOT converted to sprite) |
 | `svg.js` / `svg_data.js` | General SVG assets (decorative, not icons) |
-| `shape.js` | Border-radius / shape presets |
+| `shape.js` | Radius token table (`radiusControl`, `radiusCard`, …) — resolved FIRST for `round:` / `borderRadius:` / corner longhands; `sizes.js` is the back-compat fallback (see the `shape` section) |
 | `shadow.js` | Named shadow presets (used via `shadow:` prop) |
 | `grid.js` | Grid presets |
 | `class.js` | Named CSS class shortcuts |
@@ -315,7 +315,7 @@ But each family configures its own `{ base, ratio }`, so the **same letter resol
 | Family | Default base | Default ratio | What "B" resolves to | Used by |
 |---|---|---|---|---|
 | `typography` | `16` (px) | `1.25` (major-third) | `~25 px` | `fontSize`, `lineHeight`, `letterSpacing` |
-| `spacing` | `16` (px) | `1.618` (phi / golden) | `~26 px` | `padding`, `margin`, `gap`, `width`, `height`, `boxSize`, `top/right/bottom/left`, `borderRadius` / `round`, `borderWidth`, `outlineWidth`, etc. |
+| `spacing` | `16` (px) | `1.618` (phi / golden) | `~26 px` | `padding`, `margin`, `gap`, `width`, `height`, `boxSize`, `top/right/bottom/left`, `borderRadius` / `round` (after `shape`/`sizes` named tokens — see the `shape` section), `borderWidth`, `outlineWidth`, etc. |
 | `timing` | `150` (ms) | `1.333` (perfect-fourth) | `~200 ms` | `transition` duration, `animationDuration` |
 
 **Why this matters:**
@@ -626,9 +626,61 @@ Title: { fontWeight: 700 }
 
 ---
 
+## shape
+
+The **canonical radius token table**. `designSystem/shape.js` exports named, verbatim CSS radius values (`radiusCard: '17px'`) that the runtime resolves for the radius family only: `round:`, `borderRadius:`, and the corner-specific longhands (`borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomLeftRadius`, `borderBottomRightRadius`).
+
+### Resolution precedence (per space-separated token)
+
+1. **`shape` named token** — `CONFIG.shape` (this table). Radius-family props only; a shape token never resolves for `padding`/`gap`/`width`.
+2. **`sizes` named token** — back-compat: projects that registered radius names in `designSystem/sizes.js` keep resolving unchanged.
+3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). ⚠️ Em-relative means a letter radius shrinks on small-font elements — use fixed shape tokens for product geometry.
+4. **Passthrough** — `'100%'` (circles/capsules), `'0'`, raw units, `var()`/`calc()` pass through untouched.
+
+### Token catalog (brand defaults — `company/packages/brand/designSystem/shape.js`)
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `radiusControl` | `12px` | Buttons, inputs, menu items |
+| `radiusCard` | `17px` | Cards, tiles, popover bodies |
+| `radiusSheet` | `24px` | Modals, sheets, docked panels |
+| `radiusPill` | `999px` | Capsules: pills, toggles, tabs |
+
+### Usage
+
+```js
+Card: { round: 'radiusCard' }                       // border-radius: 17px
+Sheet: { round: 'radiusSheet radiusSheet 0 0' }     // mixed with passthrough '0'
+Tab: { round: 'radiusPill' }                        // 999px capsule
+Row: { borderTopLeftRadius: 'radiusSheet' }         // corner longhands resolve too
+Avatar: { round: '100%' }                           // passthrough idiom, unchanged
+```
+
+Control HEIGHTS (`controlH`, `controlHCompact`) are not radii — they stay in `sizes.js`.
+
+### Defining `shape` in your project
+
+```js
+// designSystem/shape.js
+export default {
+  radiusControl: '12px',
+  radiusCard: '17px',
+  radiusSheet: '24px',
+  radiusPill: '999px',
+}
+
+// designSystem/index.js
+import shape from './shape.js'
+export default { ..., shape }
+```
+
+Radius names already living in a project's `sizes.js` continue to work via the fallback — migrate them to `shape.js` when you touch the project, don't extend the sizes pattern.
+
+---
+
 ## sizes
 
-A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-based spacing scale. Where `spacing` generates values from `base × ratio^n`, `sizes` holds intentional constants (hairline borders, avatar circles, thumbnail slots, icon containers) whose values must not drift with scale changes.
+A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-based spacing scale. Where `spacing` generates values from `base × ratio^n`, `sizes` holds intentional constants (hairline borders, avatar circles, thumbnail slots, icon containers) whose values must not drift with scale changes. **Radius tokens have their own canonical namespace — `shape` (see above); `sizes` still resolves radius names only as the back-compat fallback.**
 
 **When to use `sizes` vs `spacing`:**
 
@@ -1113,7 +1165,7 @@ Quick reference for the shorthand props the design system exposes.
 | `flow` | `display: flex` + `flexFlow` (`'x'`=row, `'y'`=column) |
 | `wrap` | `display: flex` + `flexWrap` |
 | `align` | `display: flex` + `alignItems justifyContent` (space-separated) |
-| `round` | Alias for `borderRadius` with spacing tokens |
+| `round` | Alias for `borderRadius` — resolves `shape` tokens first, then `sizes`, then spacing letters, then passthrough (`'100%'`, `'0'`) |
 | `boxSize` | `height width` (space-separated) |
 | `size` | `inlineSize blockSize` (space-separated) |
 | `widthRange` | `minWidth maxWidth` (space-separated) |
@@ -1388,7 +1440,7 @@ updateVars({ color: { primary: '#ff0000' } })  // Update CSS variables only
 - Dot-notation for opacity: `color: 'white.7'` (not `'white .7'` with space).
 - `flow: 'x'` or `flow: 'y'` (not `flow: 'row'` or `flow: 'column'` — though those work too).
 - `align: 'center center'` (space-separated: alignItems justifyContent).
-- `round` is the shorthand for `borderRadius` with spacing-token support.
+- `round` is the shorthand for `borderRadius` — precedence: `shape` named token → `sizes` named token (back-compat) → spacing letters (em-relative) → passthrough (`'100%'`, `'0'`). Prefer `shape` tokens (`radiusControl`/`radiusCard`/`radiusSheet`/`radiusPill`) for product geometry; letters shrink with small fonts.
 - `shadow` resolves from designSystem; `boxShadow` takes raw shadow syntax with color tokens.
 - `backdropFilter` must use `style: { backdropFilter: 'blur(10px)' }` to avoid text leak (css-in-props bug on this specific property).
 - Colors in `border` syntax: `border: '1px solid gray.5'` — the color token is resolved.
