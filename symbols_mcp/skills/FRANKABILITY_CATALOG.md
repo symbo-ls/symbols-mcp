@@ -724,8 +724,21 @@ Good:   el.lookdown('ModalRoot')
 Bad:    el.node.addEventListener('click', handler)
 Good:   onClick: (e, el) => handler(e, el)    // on the component itself
 
+Bad:    document.addEventListener('click', handler)   // foreign portal / outside-click
+Good:   onDocumentClick: (e, el, s) => handler(e, el) // document-level, DOMQL-owned lifecycle
+        onDocumentKeydown: 'closeOnEscape'              // string shortcut → el.call
+        onDocumentPointerdown: { capture: true, handler } // options: capture / passive / once
+Bad:    window.addEventListener('resize', handler)
+Good:   onWindowResize: (e, el, s) => handler(e, el)   // window-level sibling, same shapes
+
 Flat `onEvent` handlers are tracked by DOMQL's lifecycle and are
-cleaned up automatically when the element unmounts.
+cleaned up automatically when the element unmounts. `onDocumentXxx` /
+`onWindowXxx` (PORTAL-EVENTS-PRIMITIVE-1) extend that to events that never
+reach an element the project owns — third-party widgets portaled into
+document.body, outside-click / Escape for layers, window resize/scroll:
+registered once when the element gets its node, inert while `if:`-hidden,
+torn down in dispose(). Raw addEventListener stays banned everywhere —
+every receiver now has a sanctioned flat prop.
 
 # FA504 — classlist-mutation
 

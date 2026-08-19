@@ -385,7 +385,7 @@ const RULE_CHECKS = [
   [/\.innerHTML\s*=/, "FORBIDDEN: No direct DOM manipulation — use text: or html: prop (Rule 30)"],
   [/\.classList\./, "FORBIDDEN: No direct class manipulation — use isX + '.isX' pattern (Rule 19/30)"],
   [/\.setAttribute\b/, "FORBIDDEN: No direct DOM manipulation — set attributes at root level in DOMQL (Rule 30)"],
-  [/\.addEventListener\b/, "FORBIDDEN: No direct event binding — use onX props: onClick, onInput, etc. (Rule 30)"],
+  [/\.addEventListener\b/, "FORBIDDEN: No direct event binding — use onX props: onClick, onInput, etc.; document/window-level (foreign portals, outside-click, resize) → onDocumentClick / onWindowResize, owned by DOMQL (Rule 30 / FA503)"],
   [/\.style\.\w+\s*=/, "FORBIDDEN: No direct style manipulation — use DOMQL CSS-in-props (Rule 30)"],
   [/html\s*:\s*\(?.*\)?\s*=>\s*/, "FORBIDDEN: Never use html: as a function returning markup — use DOMQL children, nesting, text:, and if: instead (Rule 31)"],
   [/return\s*`<\w+/, "FORBIDDEN: Never return HTML template literals — use DOMQL declarative children and nesting (Rule 31)"],

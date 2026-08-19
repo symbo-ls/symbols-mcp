@@ -402,8 +402,11 @@ export const main = {
   onScroll: (e, el, s) => { /* ... */ }
 }
 
-// ✅ Imperative — addEventListener
-window.addEventListener('scroll', fn, { passive: true })
+// ✅ Window-level listener owned by DOMQL (PORTAL-EVENTS-PRIMITIVE-1) — when the
+//    event never reaches the element itself; raw addEventListener stays FA503
+export const Toolbar = {
+  onWindowScroll: { passive: true, handler: (e, el, s) => { /* ... */ } }
+}
 ```
 
 #### FA514 — Never use module-side-effect bridges

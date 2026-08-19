@@ -291,6 +291,31 @@ key.length > 2 && key[0] === 'o' && key[1] === 'n' &&
 
 Detection is structural (pattern of `onUpper...`), not registry-based — any custom event name like `onCustomThing` works as long as it's a function.
 
+### Document / Window-Level Events — `onDocumentXxx` / `onWindowXxx`
+
+Some events never reach an element you own: a third-party widget portaled into
+`document.body` (docsearch modal, date pickers), "outside click" / Escape for a
+layer, window `resize` / `scroll` / `hashchange`. Raw `document.addEventListener`
+is banned (FA503 — it skips DOMQL's lifecycle and leaks on unmount). Declare the
+listener flat on the component instead; DOMQL owns its lifecycle:
+
+```js
+onDocumentClick:       (e, el, s, ctx) => {},              // document, bubble phase
+onDocumentKeydown:     'closeOnEscape',                     // string shortcut → el.call('closeOnEscape', e)
+onDocumentPointerdown: { capture: true, handler: (e, el, s) => {} }, // options form
+onWindowResize:        (e, el, s) => {},                    // window family, same shapes
+onWindowScroll:        { passive: true, handler: (e, el, s) => {} }
+```
+
+Contract: registered ONCE when the element gets its node; torn down in
+`dispose()` (no `onRemove` bookkeeping); the handler runs only while the
+element is CONNECTED (an `if:`-hidden element is inert and re-arms when shown);
+the target is the element's OWN document / window (iframe apps listen in the
+frame); no document → no listener (SSR-safe). `capture` / `passive` / `once`
+come from the options form; touch and wheel default to passive. Name = the
+DOM event lowercased after the prefix (`onDocumentVisibilityChange` →
+`visibilitychange`, `onWindowHashChange` → `hashchange`).
+
 ### Async Events
 
 ```js

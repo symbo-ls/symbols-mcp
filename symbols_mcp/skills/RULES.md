@@ -824,7 +824,7 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 | `window.location.href = '/x'` | `el.router('/x', el.getRoot())` |
 | `window.location.assign/replace` | `el.router(...)` |
 | `window.fetch(url)` in a component file | `el.fetch` declarative or `el.call('fetchX')` (Rule 47) |
-| `addEventListener('storage'/'resize'/'scroll')` from a component | `onResize:`/`onScroll:` lifecycle on the element, or scoped via `el.scope` cleanup |
+| `addEventListener('storage'/'resize'/'scroll')` from a component | `onResize:`/`onScroll:` on the element when the event reaches it; otherwise the flat window/document family — `onWindowResize:` / `onWindowScroll:` / `onWindowStorage:` / `onDocumentClick:` (DOMQL-owned lifecycle, torn down on dispose) |
 | `el.node.style.setProperty('--var', …)` / `documentElement.style.setProperty(...)` | `vars: { '--var': value }` prop or design-system token |
 | `XMLHttpRequest` / `navigator.sendBeacon` | declarative `fetch:` prop or `el.call` wrapping `el.getDB()` (Rule 47) |
 | raw `EventSource` / raw `WebSocket` constructors in components | wrap in a `functions/` file with cleanup (`el.scope.cleanup`); never instantiate at module top level |
@@ -2081,7 +2081,7 @@ DOMQL gives you everything `window` would tempt you to use. Pick by scope and re
 | Set CSS vars / styles | `vars: { '--x': v }` or design-system tokens (Rule 30) |
 | Toggle classes | `class: { open: (el, s) => s.isOpen }` |
 | React to scroll / resize / visibility | `onScroll:` / `onResize:` lifecycle props on the element |
-| Genuine browser events (`beforeunload`, `hashchange`, `storage`) | `window.addEventListener` in `onInit`, store the cleanup on `el.scope`, remove in `onRemove` — read-only listeners only, never assignments |
+| Genuine browser events (`beforeunload`, `hashchange`, `storage`) | flat `onWindowBeforeunload:` / `onWindowHashChange:` / `onWindowStorage:` on the owning component — DOMQL registers once, tears down on dispose (no `el.scope` cleanup, no `onRemove` bookkeeping); document-level (outside-click, foreign portals) → `onDocumentClick:` etc. — read-only listeners only, never assignments |
 
 ### ✅ Correct — every banned case rewritten
 
@@ -2119,14 +2119,14 @@ onClick: () => changeGlobalTheme('dark')
 ### The two narrow read-only exceptions (NOT assignments)
 
 - **`window.location` reads** (`window.location.pathname`, `.hash`, `.search`) are tolerated for inspection — but for navigation, ALWAYS `el.router(path, el.getRoot())` (Rule 42). Never `window.location.href = '/x'`.
-- **`window.addEventListener`** for genuine browser events (`resize`, `beforeunload`, `hashchange`, `storage`) — bind in `onInit`, store the cleanup on `el.scope`, remove in `onRemove`. Prefer DOMQL lifecycle props (`onResize:` / `onScroll:`) when they cover the case. **Listeners are reads, not writes.**
+- **Window/document-level listeners** for genuine browser events (`resize`, `beforeunload`, `hashchange`, `storage`) and for events that never reach an element you own (foreign portals, outside-click, Escape) — declare the flat `onWindowXxx:` / `onDocumentXxx:` prop on the owning component (framework-owned: registered once, inert while `if:`-hidden, torn down on dispose). Prefer node-level `onResize:` / `onScroll:` when the event reaches the element. Raw `window.addEventListener` / `document.addEventListener` from project code is FA503 — there is no longer a case it is needed for. **Listeners are reads, not writes.**
 
 Anything else — including formal devtools hooks (`__REDUX_DEVTOOLS_EXTENSION__`, `__SMBLS_DEVTOOLS_GLOBAL_HOOK__`) — must be added at the framework level, not from a project. If you need a hook that doesn't exist, open a ticket in `FRAMEWORK_TICKETS.md` (per the no-hacks policy in Rule 55) — never add a project-side `window.__X = …` shim.
 
 ### Audit checks
 
 - Grep your project for `window.`, `globalThis.`, `document.title`, `document.body`, `document.documentElement`, `document.cookie`, `document.createElement`, `document.querySelector`, `document.getElementById` — every match outside the two read-only exceptions is a Rule 64 violation.
-- For each violation, identify which canonical channel replaces it (state, scope, root state, context, `el.call`, `el.lookup` / `el.lookdown`, `metadata:`, `vars:`, `class:`, `onScroll:` / `onResize:`, `el.router`).
+- For each violation, identify which canonical channel replaces it (state, scope, root state, context, `el.call`, `el.lookup` / `el.lookdown`, `metadata:`, `vars:`, `class:`, `onScroll:` / `onResize:`, `onDocumentXxx:` / `onWindowXxx:`, `el.router`).
 - A `window.X = …` write is ALWAYS a P0 fix — not a "TODO later". Silent global writes are the highest-rework class of bug in Symbols projects.
 
 **Auto-fix protocol:** when an audit finds an `html: '<svg...>'` icon, the fix is always:

@@ -104,6 +104,9 @@ if (window.Smbls?.polyglotPlugin) ctx.plugins.push(window.Smbls.polyglotPlugin)
 
 // ❌ Capturing click listeners on document — intercept SPA links before router gets them.
 document.addEventListener('click', handler, true)
+//    If a document-level listener is genuinely needed (foreign portal, outside-click),
+//    declare it: `onDocumentClick: (e, el, s) => {}` — bubble phase by default, so the
+//    router still sees link clicks first; capture only via { capture: true, handler }.
 ```
 
 ### SPA routing rules

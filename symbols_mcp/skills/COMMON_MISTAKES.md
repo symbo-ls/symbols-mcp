@@ -1017,7 +1017,7 @@ onInit: (el, s, ctx) => {
 ### Allowed exceptions (very narrow)
 
 - `window.location` reads (read-only) — but prefer `el.router(path, el.getRoot())` for navigation
-- `window.addEventListener` for genuine browser events (`resize`, `beforeunload`, `hashchange`) — bind in `onInit`, clean up in `onRemove`
+- Genuine browser events (`resize`, `beforeunload`, `hashchange`) and events that never reach an element you own (foreign portals, outside-click) — the flat `onWindowXxx:` / `onDocumentXxx:` props on the owning component (DOMQL registers once and tears down on dispose). Raw `window.addEventListener` / `document.addEventListener` is FA503 even here
 - Formal devtools hooks following the React pattern (`__REDUX_DEVTOOLS_EXTENSION__`, `__SMBLS_DEVTOOLS_GLOBAL_HOOK__`) — opt-in only, gated by `if (window.__HOOK__)`, never an unconditional write
 
 ---
