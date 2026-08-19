@@ -514,6 +514,18 @@ Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error
 
 Full reference: `plugins/polyglot/README.md`. Auto-registered when `context.polyglot` is set; auto-merges `polyglotFunctions` into `context.functions`.
 
+⛔ **Never import `@symbo.ls/polyglot` / `@symbo.ls/polyglot/functions` in
+project code** (`plugins: [polyglotPlugin]`, `functions: { ...polyglotFunctions }`).
+The runtime does both itself from `context.polyglot`. Under `smbls push` the
+package is not a declared library, so frank STUBS the import: the payload
+ships `plugins: [""]` and, when the spread enumerates, `functions.polyglot: ""`
+— a stub phantom that sat on the built-in's key and made
+`el.call('polyglot', key)` return `undefined` on every published page
+(measured on nikoloza/georgian-call, tickets/fable.md PUBLISHED-RUNTIME-GAPS-1).
+The runtime now drops non-plugin entries and lets a real function win over a
+phantom, but the import is still dead weight that only exists to be stubbed —
+delete it.
+
 ### Static translations
 
 ```js
@@ -913,6 +925,10 @@ Targets a static host:
 | External package `Cannot find module` at runtime | Listed in `package.json` but not in `symbols/dependencies.js` (or vice-versa) | Both lists are required. `package.json` is for `npm install`; `symbols/dependencies.js` is what the Symbols runtime resolves via importmap |
 | Atomic class resolves to empty body in production (`._c-neutral900 { }`) but works locally | The design-system token is missing from the published bundle (color/spacing/font defined in `designSystem/` but not present in the version that mermaid serves). The atomic-class generator runs against whatever tokens are present and silently emits an empty rule for missing ones | Re-run `frank` to recompile the published JSON, then republish. Diagnose via Chrome devtools: walk `document.styleSheets`, grep for the class name, inspect the rule body. Empty body confirms the token is missing on the server side, not a CSS-in-props bug |
 | Branded base color (`color.black: '#10241A'`) bleeds into dark-mode page background | `theme.document` falls back to bare `'black'` / `'white'` / `'neutral'` tokens, which resolve to the brand's tinted versions instead of stepped neutrals | Always pair branded core tokens with explicit `theme.document.@dark` / `@light` blocks in `designSystem/theme.js`. Use the modifier system (`neutral+45`, `neutral-45`, `neutral=50`) to step away from the tinted base; reserve bare `black` / `white` / `neutral` for places where the brand tint is intentional. See `DESIGN_SYSTEM.md` "Branded core tokens" |
+| A fix that works in the dev shell / a Parcel build does NOT show on `*.at.symbo.ls` (e.g. `hide:` true-at-birth on a Button/IconButton stays visible — FW-HIDE-UNAPPLIED-1) | The worker-injected runtime is the LAST PUBLISHED `smbls` npm package (`smbls/iife-string`, exact-pinned in `server/workers/mermaid-server/package.json`), NOT monorepo HEAD. A framework fix reaches published sites only after npm publish → pin bump → worker deploy | Check before diagnosing: download `smbls@<pinned>` and byte-compare its `dist/smbls.iife-string.js` with the `var Smbls=` script in the served page (they match exactly when the pin is live); grep the served IIFE for a marker the fix introduced (e.g. `__explicitDisplay` for 7031e3d60). Same code, different build = "stale published runtime", not a second bug |
+| "`@mobileL` / `@media` props emit no CSS on the published page" | A grep of `<style>` textContent or the HTML is BLIND — css-in-props inserts rules via CSSOM (`insertRule`), so the sheets have no text. The rules ARE emitted (verified under smbls 3.14.785: `@media screen and (max-width: 768px)` rules for `@mobileL` blocks, `display:none` included) | Read `document.styleSheets[*].cssRules` (recurse into `CSSMediaRule.cssRules`) and match the element's generated class. If the element still shows, look for an INLINE `style="display: …"` writer (explicit-display enforcement) outranking the media rule — a different defect with a different owner |
+| `el.call('polyglot', key)` returns `undefined` on the published page while `{{ key \| polyglot }}` pipes work | The project imported `@symbo.ls/polyglot` (see §6): frank stubbed it and the payload carries `functions.polyglot: ""` / `plugins: [""]` — the phantom blocked the runtime's own registration | Remove the project-side polyglot imports; the runtime registers from `context.polyglot`. (Runtime ≥ the PUBLISHED-RUNTIME-GAPS-1 fix also ignores the phantom.) |
+| `s.add('history', item)` "drops entries" — after the first add the array is gone | `s.add(key, value)` ASSIGNED the key before the PUBLISHED-RUNTIME-GAPS-1 fix: `history` became the item object, the next iteration threw inside a factory and DOMQL swallowed it. Same in a Parcel build — not a published-runtime divergence | Runtime ≥ the fix: `add` appends to an array key / merges into an object key / sets otherwise (SYNTAX.md). Until the worker carries it, write `s.update({ history: [...s.history, item] })` on published sites |
 
 ---
 

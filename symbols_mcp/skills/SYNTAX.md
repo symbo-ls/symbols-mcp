@@ -353,7 +353,7 @@ onClick: (e, el, s) => {
   s.set({ open: false })        // alias for replace
   s.reset()                     // restore to initial parsed state
   s.toggle('open')              // flip boolean
-  s.add('items', { id: 1 })     // push to array or merge into object
+  s.add('items', { id: 1 })     // APPENDS to an array key, MERGES a plain object into an object key, SETS a new/scalar key
   s.remove('selected')          // delete key
   s.setByPath('user.name', 'X') // dotted path
 }
@@ -399,7 +399,7 @@ s.root.update(
 | `s.keys()` | Property names |
 | `s.values()` | Property values |
 | `s.destroy(opts?)` | Destroy underlying signal store |
-| `s.add(key, val, opts?)` | Add to array or object |
+| `s.add(key, val, opts?)` | Append `val` to an array-valued key; merge a plain-object `val` into an object-valued key; set when the key is new or scalar. NOT the v3 `state.add(value)` form — that one no longer exists (`s.items.add(x)` is not a function). |
 | `s.toggle(key, opts?)` | Flip boolean |
 | `s.remove(key, opts?)` | Delete property |
 | `s.setByPath(path, val, opts?)` | Set via dotted path |
