@@ -505,10 +505,24 @@ Workflows that work best with AI assistance:
 
 ## Build Order
 
-When changing smbls source, rebuild in dependency order:
+After any smbls source change, build from the smbls root. `npm run build`
+builds every workspace package that declares a `build` script, and exits
+non-zero if any of them fails. A per-package `npm run build:esm` refreshes
+that one dist only.
 
 ```bash
-cd smbls/packages/utils && npm run build:esm   # utils first
-cd smbls/packages/element && npm run build:esm  # then element
-# consumer apps pick up via parcel --watch-dir=../smbls/packages
+cd smbls && npm run build                      # every package
+cd smbls && npm run build -w @symbo.ls/element # just one
 ```
+
+`npm run check:stale` prints every package whose newest source is newer than
+its dist, and exits non-zero. **Run it before you trust any browser read.** A
+stale dist boots the app fully unstyled with zero console errors, so every
+measurement taken against it is invalid.
+
+```bash
+cd smbls && npm run check:stale   # exit 0 = every built dist is current
+```
+
+After a rebuild, clear the consuming app's `.parcel-cache` and restart its dev
+server.
