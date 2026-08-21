@@ -17,7 +17,7 @@ No API keys required for documentation tools. Project management tools require a
 | Tool | Description |
 |------|-------------|
 | `get_project_context` | **CALL FIRST.** Walks up from cwd to find `symbols.json`, returns owner, key, dir, bundler, sharedLibraries, brender, env_type (local/cdn/json_runtime/remote_server), env_evidence, env_guidance, token_present, and a `next_step` hint telling the agent what to do (ask user, log in, or proceed). Replaces the older `detect_environment` for new code. |
-| `get_project_rules` | Bundled mandatory ruleset (FRAMEWORK + DESIGN_SYSTEM + RULES + DEFAULT_PROJECT, ≈180K chars). Call before any code generation task. |
+| `get_project_rules` | Mandatory ruleset. No arguments → compact CORE bundle (reuse directive + RULES essentials + every STRICT rule + frankability checklist + section index + next-step table, <80K chars — fits every client's tool-output cap). `section="SYNTAX"` (or `COMPONENTS`, `FRANKABILITY`, `RULES` + `part=N`, … 16 sections) fetches one section per call. `full=true` → legacy ~590K one-shot (capless clients only). Call before any code generation task. |
 | `get_cli_reference` | Complete Symbols CLI (`@symbo.ls/cli`) command reference. |
 | `get_sdk_reference` | Complete Symbols SDK (`@symbo.ls/sdk`) API reference. |
 | `search_symbols_docs` | Keyword search across all bundled Symbols documentation files. |

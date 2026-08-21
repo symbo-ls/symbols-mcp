@@ -8,7 +8,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 1. **Call `mcp__symbols-mcp__get_project_context` FIRST.** Walks up from cwd looking for `symbols.json`, returns owner/key/env_type/token_present and a `next_step` hint. Treat the next_step as authoritative. If owner / key / token is missing, surface a `🟢 ASK USER` block — NEVER hardcode.
 
-2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session. Bundles FRAMEWORK + DESIGN_SYSTEM + RULES + DEFAULT_PROJECT (~180K chars) into one read.
+2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session (no arguments → compact core bundle, <80K chars: reuse directive + RULES essentials + every STRICT rule + frankability checklist + section index + next-step table). Then pull the sections your task needs, one call each: `get_project_rules(section="SYNTAX")`, `section="COMPONENTS"`, `section="FRANKABILITY"`, `section="RULES", part=2` … Minimum for code: core + SYNTAX + COMPONENTS + FRANKABILITY.
 
 3. **For new components/pages**, use `mcp__symbols-mcp__generate_component` / `mcp__symbols-mcp__generate_page` — these return a structured prompt + the right context.
 
@@ -20,7 +20,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 ## Frankability — code that survives `frank.toJSON`
 
-Local dev resolves identifiers via JS module closures; the deployed payload doesn't. A handler that compiles and renders right locally can silently render wrong values in prod. The full ruleset is in `mcp__symbols-mcp__get_project_rules` (FRANKABILITY section). Most-violated:
+Local dev resolves identifiers via JS module closures; the deployed payload doesn't. A handler that compiles and renders right locally can silently render wrong values in prod. The full ruleset is in `mcp__symbols-mcp__get_project_rules(section="FRANKABILITY")`. Most-violated:
 
 - **FA001** — no sibling-imports between project files; use `el.call('fnName', …)` or PascalCase key refs
 - **FA206** — npm packages used in handlers must be `await import('pkg')` inside the handler, NEVER top-level `import`
@@ -56,7 +56,7 @@ Avatar: { extends: 'Avatar', src: 'me.jpg' }
 - **Atoms:** `Block`, `Box`, `Flex`, `Grid`, `Hgroup`, `Img`, `Picture`, `Video`, `Iframe`, `Text`, `Form`, `Svg`, `Shape`, `Theme`, `InteractiveComponent`
 - **Components:** `Avatar`, `Button`, `Dialog`, `Dropdown`, `Link`, `Notification`, `Range`, `Select`, `Tooltip`, `Icon`, `Input`
 
-Read `mcp__symbols-mcp__get_project_rules` — it bundles `COMPONENTS.md` (catalog + when to override) and `DEFAULT_COMPONENTS.md` (full source/structure of every built-in). When you need an unfamiliar built-in's prop surface, that's where to look.
+Read `mcp__symbols-mcp__get_project_rules(section="COMPONENTS")` (catalog + when to override) and `section="DEFAULT_COMPONENTS"` (full source/structure of every built-in). When you need an unfamiliar built-in's prop surface, that's where to look.
 
 **The boundary:**
 - **Components → reuse, never redefine.** Override per-instance via props on the bare key.

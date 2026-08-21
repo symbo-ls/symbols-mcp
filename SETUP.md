@@ -429,7 +429,7 @@ When you create a Symbols project (or adopt symbols-mcp in an existing one), the
 
 ### Layer 1 — MCP server `instructions` field (zero setup)
 
-Once you've connected `symbols-mcp` to your editor (see [Editor configurations](#editor--client-configurations) above), the server exposes an `instructions` string that every MCP-aware editor surfaces to its agent automatically. The current version includes a **MUST-CALL sequence** (`get_project_context` first, `get_project_rules` before generating, `audit_component` after each component, `audit_project` for full audits) plus the hard-rule list. Set once globally — works for every Symbols project you open.
+Once you've connected `symbols-mcp` to your editor (see [Editor configurations](#editor--client-configurations) above), the server exposes an `instructions` string that every MCP-aware editor surfaces to its agent automatically. The current version includes a **MUST-CALL sequence** (`get_project_context` first, `get_project_rules` before generating — compact core, then `section=...` fetches — `audit_component` after each component, `audit_project` for full audits) plus the hard-rule list. Set once globally — works for every Symbols project you open.
 
 This is invisible to you (the agent reads it on connect) and works for **every editor that speaks MCP**: Claude Code, Cursor, GitHub Copilot, Windsurf, Cline, Continue, Roo, Zed, Goose, Gemini CLI, Codex, Antigravity, Cody.
 
@@ -680,7 +680,7 @@ This bypasses any editor-side MCP wiring — useful for diagnosing "tools not lo
 | You want to… | MCP tool (works in any MCP editor) | Shell equivalent |
 |---|---|---|
 | Resolve project owner/key/env | `get_project_context` | (read `symbols.json` manually) |
-| Get framework rules | `get_project_rules` | `cat symbols_mcp/skills/RULES.md` |
+| Get framework rules | `get_project_rules` (core), `get_project_rules(section="RULES", part=1)` (full file in parts) | `cat symbols_mcp/skills/RULES.md` |
 | Validate a single component | `audit_component(code)` | (n/a — shell can't read source strings) |
 | Get the audit playbook | `audit_project()` | `cat symbols_mcp/skills/AUDIT.md` |
 | Sweep a project for violations | (n/a — call `audit_component` per file, or run shell) | `bin/symbols-audit.cjs ./symbols` |

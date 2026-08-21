@@ -47,9 +47,173 @@ function readSkill(filename) {
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : `Skill '${filename}' not found`
 }
 
-function loadAgentInstructions() {
-  const ai = path.join(SKILLS_DIR, 'AGENT_INSTRUCTIONS.md')
-  return fs.existsSync(ai) ? fs.readFileSync(ai, 'utf8') : readSkill('CLAUDE.md')
+// ---------------------------------------------------------------------------
+// get_project_rules — compact core + on-demand sections (mirrors
+// symbols_mcp/server.py: RULES_SAFE_CHARS / RULES_SECTIONS / _rules_core_bundle).
+// Every response stays under RULES_SAFE_CHARS so it survives client
+// tool-output caps (Claude Code MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens).
+// ---------------------------------------------------------------------------
+const RULES_SAFE_CHARS = 80000
+const RULES_SECTIONS = [
+  ['FRAMEWORK', 'FRAMEWORK.md', 'authoritative — project structure, plugins, theming, SSR, publish'],
+  ['DESIGN_SYSTEM', 'DESIGN_SYSTEM.md', 'authoritative — design-system contract + token catalog'],
+  ['RULES', 'RULES.md', 'the full strict rule list (Rule 0–70)'],
+  ['COMPONENTS', 'COMPONENTS.md', 'built-in component catalog — REUSE via bare PascalCase keys; never redefine'],
+  ['DEFAULT_COMPONENTS', 'DEFAULT_COMPONENTS.md', 'full source/structure of every built-in'],
+  ['SYNTAX', 'SYNTAX.md', 'DOMQL v3.14 syntax reference'],
+  ['PATTERNS', 'PATTERNS.md', 'canonical compositional patterns'],
+  ['SNIPPETS', 'SNIPPETS.md', 'project-level snippet patterns'],
+  ['SHARED_LIBRARIES', 'SHARED_LIBRARIES.md', 'when to read / never edit cross-package code'],
+  ['WORKSPACE', 'WORKSPACE.md', 'multi-app monorepo topology'],
+  ['FRANKABILITY', 'FRANKABILITY.md', 'every @symbo.ls/frank-audit rule with wrong vs canonical examples'],
+  ['FRANKABILITY_CATALOG', 'FRANKABILITY_CATALOG.md', 'the FA rule catalog in full'],
+  ['FRANK_FIX_WORKFLOW', 'FRANK_FIX_WORKFLOW.md', 'prescription → edit-op flow reference card'],
+  ['COMMON_MISTAKES', 'COMMON_MISTAKES.md', 'hard-won failure cases'],
+  ['LEARNINGS', 'LEARNINGS.md', 'more hard-won failure cases'],
+  ['DEFAULT_PROJECT', 'DEFAULT_PROJECT.md', 'recommended baseline design-system values + default-library catalog']
+]
+const RULES_NEXT_STEP = [
+  ['write or edit ANY DOMQL element/component/page', 'SYNTAX, then COMPONENTS'],
+  ['define a NEW component', 'COMPONENTS, DEFAULT_COMPONENTS, PATTERNS'],
+  ['touch designSystem/ (colors, typography, spacing, themes)', 'DESIGN_SYSTEM, DEFAULT_PROJECT'],
+  ['emit code that will be published (frank.toJSON)', 'FRANKABILITY, then FRANKABILITY_CATALOG on demand'],
+  ['run the frank fix loop (prescribe/apply edit ops)', 'FRANK_FIX_WORKFLOW'],
+  ['project layout, plugins, SSR, publish, theming internals', 'FRAMEWORK'],
+  ['multi-app monorepo / shared libraries', 'WORKSPACE, SHARED_LIBRARIES'],
+  ['read the full rule list beyond the STRICT subset', 'RULES (part=1, then part=2)'],
+  ['a result looks wrong and you do not know why', 'COMMON_MISTAKES, LEARNINGS']
+]
+const RULES_SECTION_BY_NAME = Object.fromEntries(RULES_SECTIONS.map(([n, f, d]) => [n, { file: f, desc: d }]))
+
+function normalizeSectionName(raw) {
+  let n = String(raw).trim().replace(/^['"]|['"]$/g, '').toUpperCase()
+  if (n.endsWith('.MD')) n = n.slice(0, -3)
+  return n.replace(/-/g, '_')
+}
+
+function splitMarkdownParts(text, limit = RULES_SAFE_CHARS) {
+  if (text.length <= limit) return [text]
+  const blocks = []
+  let cur = []
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ') && cur.length) { blocks.push(cur.join('\n')); cur = [] }
+    cur.push(line)
+  }
+  if (cur.length) blocks.push(cur.join('\n'))
+  const parts = []
+  let acc = ''
+  for (const b of blocks) {
+    const candidate = acc ? acc + '\n' + b : b
+    if (acc && candidate.length > limit) { parts.push(acc); acc = b } else acc = candidate
+  }
+  if (acc) parts.push(acc)
+  return parts
+}
+
+function otherSkills() {
+  const out = {}
+  for (const f of fs.readdirSync(SKILLS_DIR)) {
+    if (!f.endsWith('.md')) continue
+    const stem = f.slice(0, -3)
+    if (!RULES_SECTION_BY_NAME[stem]) out[stem.toUpperCase()] = f
+  }
+  return out
+}
+
+function rulesSectionIndex() {
+  const rows = RULES_SECTIONS.map(([n, f, d]) => {
+    const text = readSkill(f)
+    const parts = splitMarkdownParts(text).length
+    const how = `section='${n}'` + (parts > 1 ? `, part=1..${parts}` : '')
+    return `| ${n} | ${text.length.toLocaleString('en-US')} | ${parts} | ${d} | \`get_project_rules(${how})\` |`
+  })
+  const others = Object.keys(otherSkills()).sort().map(o => `\`${o}\``).join(', ')
+  return '# SECTION INDEX — fetch on demand\n\n' +
+    `Every response of this tool stays under ${RULES_SAFE_CHARS.toLocaleString('en-US')} characters so it survives client tool-output caps (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens). Fetch one section per call; sections with more than one part need one call per part.\n\n` +
+    '| Section | Chars | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n' + rows.join('\n') +
+    `\n\nAlso fetchable by name (not part of the core bundle): ${others}.\n\n` +
+    '`get_project_rules(full=true)` returns the legacy one-shot concatenation (~590k chars) — only for clients with no tool-output cap.\n'
+}
+
+function rulesNextStep() {
+  return '# NEXT STEP — which sections to pull for your task\n\n' +
+    'This core bundle is NOT the full ruleset. Before you write code, pull the sections your task needs (one call each):\n\n' +
+    '| Your task | Call `get_project_rules(section=...)` for |\n|---|---|\n' +
+    RULES_NEXT_STEP.map(([t, s]) => `| ${t} | ${s} |`).join('\n') +
+    '\n\nMinimum for any code-writing task: `SYNTAX` + `COMPONENTS` + `FRANKABILITY`.\n'
+}
+
+function rulesEssentials() {
+  const text = readSkill('RULES.md')
+  const lines = text.split('\n')
+  const heads = lines.map((l, i) => (l.startsWith('## Rule ') ? i : -1)).filter(i => i >= 0)
+  if (!heads.length) return text
+  const preamble = lines.slice(0, heads[0]).join('\n').trimEnd()
+  const bounds = heads.concat([lines.length])
+  const strict = []
+  const index = []
+  heads.forEach((start, n) => {
+    const body = lines.slice(start, bounds[n + 1])
+    const heading = body[0].slice(3).trim()
+    const isStrict = heading.includes('STRICT')
+    index.push(`- ${isStrict ? '**' : ''}${heading}${isStrict ? '**' : ''}` + (isStrict ? '' : " — full text: `section='RULES'`"))
+    if (isStrict) strict.push(body.join('\n').trimEnd())
+  })
+  return '# RULES — ESSENTIALS (preamble + every STRICT rule, from RULES.md)\n\n' + preamble +
+    "\n\n---\n\n# RULES — ALL RULE HEADINGS (STRICT ones in bold are reproduced in full below; the rest are in `section='RULES'`)\n\n" +
+    index.join('\n') + '\n\n---\n\n# RULES — STRICT RULES IN FULL\n\n' + strict.join('\n\n')
+}
+
+function frankabilityChecklist() {
+  const text = readSkill('FRANKABILITY.md')
+  const i = text.indexOf('\n## Quick reference')
+  const tail = i >= 0 ? text.slice(i + 1) : text
+  return "# FRANKABILITY — HARD CHECKLIST (from FRANKABILITY.md; full rule text: `section='FRANKABILITY'`)\n\n" + tail.trimEnd()
+}
+
+function rulesCoreBundle() {
+  const header = '# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n' +
+    'This is the compact core of the mandatory ruleset: the reuse directive, the RULES preamble + every STRICT rule, the frankability checklist, a SECTION INDEX, and a NEXT STEP table. ' +
+    "The full skills are fetched per section: `get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … " +
+    'Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n---\n\n'
+  return header + readSkill('REUSE.md') + '\n\n---\n\n' + rulesEssentials() + '\n\n---\n\n' + frankabilityChecklist() + '\n\n---\n\n' + rulesSectionIndex() + '\n\n---\n\n' + rulesNextStep()
+}
+
+function rulesFullBundle() {
+  return [readSkill('REUSE.md')].concat(RULES_SECTIONS.map(([, f]) => readSkill(f))).join('\n\n---\n\n')
+}
+
+function rulesSectionResponse(rawSections, part) {
+  const names = String(rawSections).split(/[,\s]+/).filter(Boolean).map(normalizeSectionName)
+  const others = otherSkills()
+  const resolved = []
+  for (const name of names) {
+    if (RULES_SECTION_BY_NAME[name]) resolved.push([name, splitMarkdownParts(readSkill(RULES_SECTION_BY_NAME[name].file))])
+    else if (others[name]) resolved.push([name, splitMarkdownParts(readSkill(others[name]))])
+    else throw new Error(`Unknown section '${name}'. Valid bundle sections: ${RULES_SECTIONS.map(r => r[0]).join(', ')}. Other fetchable skills: ${Object.keys(others).sort().join(', ')}. Call get_project_rules() with no arguments for the core bundle + section index.`)
+  }
+  if (resolved.length > 1) {
+    const multi = resolved.filter(([, p]) => p.length > 1).map(([n]) => n)
+    if (multi.length) throw new Error(`Section(s) ${multi.join(', ')} have more than one part and must be fetched alone: get_project_rules(section='<name>', part=N).`)
+    const total = resolved.reduce((a, [, p]) => a + p[0].length, 0)
+    if (total > RULES_SAFE_CHARS) throw new Error(`Requested sections total ${total} chars, above the ${RULES_SAFE_CHARS}-char safe cap. Fetch them one call at a time.`)
+    return resolved.map(([n, p]) => `<!-- section ${n} (${p[0].length} chars) -->\n` + p[0]).join('\n\n---\n\n')
+  }
+  const [name, parts] = resolved[0]
+  const n = Number(part) || 1
+  if (n < 1 || n > parts.length) throw new Error(`Section '${name}' has ${parts.length} part(s); part=${n} is out of range. Use part=1..${parts.length}.`)
+  const body = parts[n - 1]
+  const head = parts.length === 1
+    ? `<!-- section ${name} (${body.length} chars) -->\n`
+    : `<!-- section ${name} part ${n}/${parts.length} (${body.length} chars) -->\n`
+  const tail = n < parts.length ? `\n\n<!-- continues: get_project_rules(section='${name}', part=${n + 1}) (of ${parts.length}) -->\n` : ''
+  return head + body + tail
+}
+
+function loadAgentInstructions(args = {}) {
+  if (args.full === true || args.full === 'true') return rulesFullBundle()
+  if (args.section && String(args.section).trim()) return rulesSectionResponse(args.section, args.part)
+  return rulesCoreBundle()
 }
 
 function searchDocs(query, maxResults = 3) {
@@ -452,8 +616,15 @@ function auditCode(code) {
 const TOOLS = [
   {
     name: 'get_project_rules',
-    description: 'ALWAYS call this first before any generate_* tool. Returns the mandatory Symbols.app rules that MUST be followed. Violations cause silent failures — black page, nothing renders.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'ALWAYS call this first before any generate_* tool. No arguments → the compact CORE bundle of the mandatory Symbols.app rules (RULES essentials + every STRICT rule + frankability checklist + SECTION INDEX + NEXT STEP table; under 80k chars so it fits every client tool-output cap). Then fetch sections one call each: section="SYNTAX", "COMPONENTS", "FRANKABILITY", "RULES" + part=N (16 sections; unknown names error with the valid list). full=true → legacy ~590k one-shot, capless clients only. Violations cause silent failures — black page, nothing renders.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        section: { type: 'string', description: 'Section name (e.g. SYNTAX, COMPONENTS, FRANKABILITY, RULES). Empty → compact core bundle + section index. Several small sections may be comma-separated.' },
+        part: { type: 'number', description: 'Part number for sections larger than the safe cap (see the index: RULES has 2 parts). Default 1.', default: 1 },
+        full: { type: 'boolean', description: 'Legacy one-shot concatenation of all 16 sections (~590k chars). Only for clients with no tool-output cap.', default: false }
+      }
+    }
   },
   {
     name: 'search_symbols_docs',
@@ -671,7 +842,7 @@ const TOOLS = [
 
 async function handleTool(name, args) {
   // Documentation tools (sync)
-  if (name === 'get_project_rules') return loadAgentInstructions()
+  if (name === 'get_project_rules') return loadAgentInstructions(args || {})
   if (name === 'search_symbols_docs') return searchDocs(args.query, args.max_results || 3)
   if (name === 'get_cli_reference') return readSkill('CLI.md')
   if (name === 'get_sdk_reference') return readSkill('SDK.md')

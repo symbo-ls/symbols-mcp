@@ -137,8 +137,12 @@ mcp = FastMCP(
         "1. **`get_project_context`** FIRST — resolves owner/key/env from cwd's symbols.json. "
         "Treat its `next_step` field as the source of truth for what to do next. Missing owner/key/token "
         "are NEVER hardcoded — surface a `🟢 ASK USER` block.\n"
-        "2. **`get_project_rules`** before generating ANY component or page — bundles RULES + FRAMEWORK + "
-        "DESIGN_SYSTEM + DEFAULT_PROJECT into one read.\n"
+        "2. **`get_project_rules`** (no arguments) before generating ANY component or page — returns the compact "
+        "CORE bundle (reuse directive + RULES essentials + every STRICT rule + frankability checklist + a "
+        "SECTION INDEX + a NEXT STEP table). Then pull the sections your task needs, one call each: "
+        "`get_project_rules(section='SYNTAX')`, `section='COMPONENTS'`, `section='FRANKABILITY'`, "
+        "`section='RULES', part=2`, … Minimum for code: core + SYNTAX + COMPONENTS + FRANKABILITY. "
+        "`full=True` is the legacy ~590k-char one-shot — only for clients with no tool-output cap.\n"
         "3. **`generate_component` / `generate_page`** for new code — these return a prompt + the right context bundle.\n"
         "4. **`audit_component(code)`** after each component — inline validator, returns ~1K of violations. "
         "Pass `include_playbook=True` only if you don't already have AUDIT.md.\n"
@@ -183,7 +187,7 @@ mcp = FastMCP(
         "`Icon`, `Input`). Just write `Avatar: { src: '...' }` — DOMQL auto-extends the built-in by key "
         "name. NEVER write `Avatar: { tag: 'div', borderRadius: 'A', Img: {...} }` from scratch — that "
         "loses theme/SSR/sprite/a11y wiring already baked into the canonical version. Search COMPONENTS.md "
-        "+ DEFAULT_COMPONENTS.md (both bundled in `get_project_rules`) before defining anything. **Design "
+        "+ DEFAULT_COMPONENTS.md (`get_project_rules(section='COMPONENTS')` / `section='DEFAULT_COMPONENTS'`) before defining anything. **Design "
         "system, in contrast, IS meant to be branded** — colors / typography / spacing / themes are "
         "customized per project via `designSystem/` token files; built-in components consume those tokens.\n"
         "- Flat element API: props live at `el.X` (NEVER `el.props.X`); events at `el.onClick` (NEVER `on: {}`); "
@@ -712,212 +716,300 @@ def _convert_findings_to_legacy(payload: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
-def get_project_rules() -> str:
-    """ALWAYS call this first before any generate_* tool.
 
-    Returns the mandatory Symbols.app rules that MUST be followed:
-    - FRAMEWORK.md (authoritative — project structure, plugins, theming, SSR, publish)
-    - DESIGN_SYSTEM.md (authoritative — design-system contract + token catalog)
-    - RULES.md (62 strict rules — flat API, signal reactivity, design tokens, polyglot, fetch, helmet, theme, reusability, icons)
-    - COMPONENTS.md (built-in component catalog from @symbo.ls/default-config — REUSE these via bare PascalCase keys; do NOT redefine)
-    - DEFAULT_COMPONENTS.md (full source/structure of every built-in — what they look like, what props they expose, how to compose them)
-    - SYNTAX.md (DOMQL v3.14 syntax reference — flat element API, signal reactivity, factory patterns)
-    - PATTERNS.md (canonical compositional patterns)
-    - SNIPPETS.md (project-level snippet patterns)
-    - SHARED_LIBRARIES.md (when to read/never edit cross-package code)
-    - WORKSPACE.md (multi-app monorepo topology — two project shapes, two-file contract, no-transitive-resolution, onboarding checklist)
-    - FRANKABILITY.md (every `@symbo.ls/frank-audit` rule with wrong vs canonical examples — patterns that survive frank.toJSON serialization, so generated code is provably frankable from the start)
-    - FRANK_FIX_WORKFLOW.md (LLM reference card for the prescription → edit-op flow — the strict 8-kind contract for `apply_frankability_edit_ops`)
-    - COMMON_MISTAKES.md + LEARNINGS.md (hard-won failure cases — read these to avoid replaying them)
-    - DEFAULT_PROJECT.md (recommended baseline design-system values + the default-library catalog)
+# ---------------------------------------------------------------------------
+# get_project_rules — compact core + on-demand sections
+# ---------------------------------------------------------------------------
+# Harness caps: Claude Code truncates any MCP tool result above
+# MAX_MCP_OUTPUT_TOKENS (default 25 000 tokens ≈ 100 000 chars) to a file
+# path — the text never reaches the model. The legacy one-shot bundle was
+# ~590 000 chars. Every response this tool emits (core, any section part)
+# stays under RULES_SAFE_CHARS so it survives that cap with margin.
+RULES_SAFE_CHARS = 80_000
 
-    Violations cause silent failures — black page, nothing renders, or a working app
-    with degraded UX you'll later have to rebuild.
+# The 16 bundle sections, in canonical read order. (name, file, description)
+RULES_SECTIONS: tuple[tuple[str, str, str], ...] = (
+    ("FRAMEWORK", "FRAMEWORK.md", "authoritative — project structure, plugins, theming, SSR, publish"),
+    ("DESIGN_SYSTEM", "DESIGN_SYSTEM.md", "authoritative — design-system contract + token catalog"),
+    ("RULES", "RULES.md", "the full strict rule list (Rule 0–70) — flat API, signal reactivity, tokens, polyglot, fetch, helmet, theme, reuse, icons"),
+    ("COMPONENTS", "COMPONENTS.md", "built-in component catalog from @symbo.ls/default-config — REUSE via bare PascalCase keys; never redefine"),
+    ("DEFAULT_COMPONENTS", "DEFAULT_COMPONENTS.md", "full source/structure of every built-in — props they expose, how to compose them"),
+    ("SYNTAX", "SYNTAX.md", "DOMQL v3.14 syntax reference — flat element API, signal reactivity, state, router, fetch, polyglot, helmet"),
+    ("PATTERNS", "PATTERNS.md", "canonical compositional patterns"),
+    ("SNIPPETS", "SNIPPETS.md", "project-level snippet patterns"),
+    ("SHARED_LIBRARIES", "SHARED_LIBRARIES.md", "when to read / never edit cross-package code"),
+    ("WORKSPACE", "WORKSPACE.md", "multi-app monorepo topology — two project shapes, two-file contract, onboarding checklist"),
+    ("FRANKABILITY", "FRANKABILITY.md", "every @symbo.ls/frank-audit rule with wrong vs canonical examples — code that survives frank.toJSON"),
+    ("FRANKABILITY_CATALOG", "FRANKABILITY_CATALOG.md", "the FA rule catalog (FA0xx–FA9xx) in full"),
+    ("FRANK_FIX_WORKFLOW", "FRANK_FIX_WORKFLOW.md", "LLM reference card for the prescription → edit-op flow (apply_frankability_edit_ops contract)"),
+    ("COMMON_MISTAKES", "COMMON_MISTAKES.md", "hard-won failure cases — read before replaying them"),
+    ("LEARNINGS", "LEARNINGS.md", "more hard-won failure cases"),
+    ("DEFAULT_PROJECT", "DEFAULT_PROJECT.md", "recommended baseline design-system values + the default-library catalog"),
+)
+_RULES_SECTION_BY_NAME = {name: (fname, desc) for name, fname, desc in RULES_SECTIONS}
 
-    Call this before: generate_component, generate_page, convert_react, convert_html,
-    or any code generation task.
+# Task → sections to pull after the core (the `next_step` table).
+RULES_NEXT_STEP: tuple[tuple[str, str], ...] = (
+    ("write or edit ANY DOMQL element/component/page", "SYNTAX, then COMPONENTS"),
+    ("define a NEW component", "COMPONENTS, DEFAULT_COMPONENTS, PATTERNS"),
+    ("touch designSystem/ (colors, typography, spacing, themes)", "DESIGN_SYSTEM, DEFAULT_PROJECT"),
+    ("emit code that will be published (frank.toJSON)", "FRANKABILITY, then FRANKABILITY_CATALOG on demand"),
+    ("run the frank fix loop (prescribe/apply edit ops)", "FRANK_FIX_WORKFLOW"),
+    ("project layout, plugins, SSR, publish, theming internals", "FRAMEWORK"),
+    ("multi-app monorepo / shared libraries", "WORKSPACE, SHARED_LIBRARIES"),
+    ("read the full rule list beyond the STRICT subset", "RULES (part=1, then part=2)"),
+    ("a result looks wrong and you do not know why", "COMMON_MISTAKES, LEARNINGS"),
+)
 
-    READ ALL SECTIONS — do NOT skim past COMPONENTS.md / DEFAULT_COMPONENTS.md / PATTERNS.md.
-    The single most-violated rule is reusing built-in components. Skipping the catalog
-    leads to redefining `Avatar`, `Button`, `Dialog`, etc. from scratch when a bare
-    `Avatar: {}` would have rendered the canonical built-in.
+def _builtin_directive() -> str:
+    """The built-in-reuse + 3-tier-search directive (skills/REUSE.md — edit the skill, not this code)."""
+    return _read_skill("REUSE.md")
+
+
+def _normalize_section_name(raw: str) -> str:
+    name = raw.strip().strip("'\"").upper()
+    if name.endswith(".MD"):
+        name = name[:-3]
+    return name.replace("-", "_")
+
+
+def _split_markdown_parts(text: str, limit: int = RULES_SAFE_CHARS) -> list[str]:
+    """Split markdown into parts ≤ limit chars, cutting only at `## ` headings.
+
+    A single heading block larger than the limit is emitted as its own
+    part (never truncated) — the size test guards that this never happens
+    for the shipped skills.
     """
-    framework = _read_skill("FRAMEWORK.md")
-    design_system = _read_skill("DESIGN_SYSTEM.md")
-    rules = _load_agent_instructions()
-    components = _read_skill("COMPONENTS.md")
-    default_components = _read_skill("DEFAULT_COMPONENTS.md")
-    syntax = _read_skill("SYNTAX.md")
-    patterns = _read_skill("PATTERNS.md")
-    snippets = _read_skill("SNIPPETS.md")
-    shared_libs = _read_skill("SHARED_LIBRARIES.md")
-    workspace = _read_skill("WORKSPACE.md")
-    frankability = _read_skill("FRANKABILITY.md")
-    frankability_catalog = _read_skill("FRANKABILITY_CATALOG.md")
-    frank_fix_workflow = _read_skill("FRANK_FIX_WORKFLOW.md")
-    common_mistakes = _read_skill("COMMON_MISTAKES.md")
-    learnings = _read_skill("LEARNINGS.md")
-    default_project = _read_skill("DEFAULT_PROJECT.md")
+    if len(text) <= limit:
+        return [text]
+    blocks: list[str] = []
+    cur: list[str] = []
+    for line in text.split("\n"):
+        if line.startswith("## ") and cur:
+            blocks.append("\n".join(cur))
+            cur = []
+        cur.append(line)
+    if cur:
+        blocks.append("\n".join(cur))
+    parts: list[str] = []
+    acc = ""
+    for b in blocks:
+        candidate = b if not acc else acc + "\n" + b
+        if acc and len(candidate) > limit:
+            parts.append(acc)
+            acc = b
+        else:
+            acc = candidate
+    if acc:
+        parts.append(acc)
+    return parts
 
-    builtin_directive = (
-        "# 🧱 BUILT-IN COMPONENTS — REUSE, DO NOT REDEFINE (READ THIS BEFORE GENERATING)\n\n"
-        "Every Symbols project automatically inherits the catalog from `@symbo.ls/default-config` "
-        "(see COMPONENTS.md + DEFAULT_COMPONENTS.md below). The catalog includes:\n\n"
-        "  • **Atoms**: `Block`, `Box`, `Flex`, `Grid`, `Hgroup`, `Img`, `Picture`, `Video`, `Iframe`, "
-        "`Text`, `Form`, `Svg`, `Shape`, `Theme`, `InteractiveComponent`\n"
-        "  • **Components**: `Avatar`, `Button`, `Dialog`, `Dropdown`, `Link`, `Notification`, `Range`, "
-        "`Select`, `Tooltip`, `Icon`, `Input`\n\n"
-        "## The auto-extend rule\n\n"
-        "DOMQL automatically extends a component when the key name matches a registered component. "
-        "**`Avatar: {}` renders the built-in Avatar.** No `extends:` needed. Same for every other "
-        "built-in.\n\n"
-        "```js\n"
-        "// ❌ WRONG — redefining a built-in from scratch\n"
-        "Avatar: {\n"
-        "  tag: 'div',\n"
-        "  borderRadius: 'A',\n"
-        "  Img: { src: '...' }\n"
-        "}\n\n"
-        "// ❌ WRONG — redundant `extends`\n"
-        "Avatar: { extends: 'Avatar', src: '...' }\n\n"
-        "// ✅ RIGHT — just use the bare key, override only what changes\n"
-        "Avatar: { src: '...' }\n\n"
-        "// ✅ Multi-instance — _N suffix\n"
-        "Avatar_1: { src: 'a.jpg' }\n"
-        "Avatar_2: { src: 'b.jpg' }\n"
-        "```\n\n"
-        "## The boundary — what IS overridable\n\n"
-        "**Components** = reuse, do NOT redefine. Override per-instance via props on the bare key.\n"
-        "**Design system** = MUST be customized for each brand — colors, typography (fonts, base, ratio), "
-        "spacing (base, ratio), timing, themes (`@dark` / `@light` / custom). That's the entire point of a "
-        "design system; per-project branding flows through `designSystem/` token files. See DESIGN_SYSTEM.md.\n\n"
-        "## When IS it OK to write a new component definition?\n\n"
-        "1. **The component genuinely doesn't exist in the catalog.** Search COMPONENTS.md / "
-        "DEFAULT_COMPONENTS.md first. Use `mcp__symbols-mcp__search_symbols_docs` if unsure.\n"
-        "2. **The catalog component has the wrong primitive shape for your use case.** (Rare — most "
-        "of the time you compose, override props, or use `childExtends`.)\n"
-        "3. **You need a project-specific composition** (e.g. `MemberCard` made of `Avatar` + `Text` + "
-        "`Button`). Define the new component, but **its children should still be bare-key references "
-        "to built-ins**: `MemberCard: { Avatar: {...}, Heading: {...}, Button: {...} }`.\n\n"
-        "If you redefine a built-in (e.g. write `Avatar: { tag: 'div', borderRadius: ..., ... }` from "
-        "scratch), you (a) lose theme/SSR/sprite/a11y wiring already baked into the canonical version, "
-        "(b) bypass the design-system contract, (c) duplicate code that updates centrally when the "
-        "built-in is improved upstream. Don't do this unless you can articulate exactly why the "
-        "catalog version is wrong for your case.\n\n"
-        "---\n\n"
-        "# 🔁 REUSE — 3-TIER SEARCH ORDER (SEARCH BEFORE CREATING)\n\n"
-        "Reuse is mandatory across THREE concentric tiers. Search in this order before defining anything new:\n\n"
-        "1. **Framework built-ins** (`@symbo.ls/default-config`) — every Symbols project automatically "
-        "inherits the Atoms + Components catalog. See COMPONENTS.md / DEFAULT_COMPONENTS.md (bundled above).\n"
-        "2. **Shared libraries** linked via `sharedLibraries.js` at the project root. Most projects depend "
-        "on `system/default` (the canonical default library, ~127 components covering common patterns) "
-        "plus any org-specific library. Library files merge into `context.components` / `context.functions` "
-        "at runtime. **READ-ONLY** — overwritten on every `smbls fetch` / `smbls sync`. Override by "
-        "defining the same key in your local project (local always wins on collision).\n"
-        "3. **Current project** — `components/`, `snippets/`, `functions/`, `methods/`.\n\n"
-        "DOMQL's bare-key resolver walks all three tiers automatically — `Card: { ... }` works whether "
-        "`Card` is a built-in, a shared-library export, or a local component. Reuse is free; the cost is "
-        "in remembering to look first.\n\n"
-        "## Where shared libraries land on disk\n\n"
-        "Resolution depends on the project's `sharedLibrariesMode` field in `symbols.json`:\n\n"
-        "| Mode | Triggered by | Location |\n"
-        "|---|---|---|\n"
-        "| `npm` | Default for npm/bun/yarn/pnpm projects, or explicit `sharedLibrariesMode: 'npm'` | `node_modules/<package-name>/` (resolved via standard package resolution; `package-name` is whatever the entry in `sharedLibraries.js` imports as) |\n"
-        "| `local` | Browser/CDN setups, or explicit `sharedLibrariesMode: 'local'` | `.symbols_local/libs/<owner>/<key>/` (gitignored) |\n"
-        "| custom `destDir` | Per-entry override in `sharedLibraries.js` | Whatever path the entry's `destDir` points at (e.g. `../shared/brand`) |\n\n"
-        "Always start by reading `sharedLibraries.js` and `symbols.json` to see what's linked and where.\n\n"
-        "## The discovery loop (run BEFORE writing new code)\n\n"
-        "```bash\n"
-        "# 0. See what tier-2 libraries are linked + their resolution mode\n"
-        "cat sharedLibraries.js\n"
-        "grep -E 'sharedLibrariesMode|packageManager' symbols.json 2>/dev/null\n\n"
-        "# 1. Built-ins — see catalog (already in get_project_rules output above)\n\n"
-        "# 2a. Shared libraries — `local` mode\n"
-        "ls .symbols_local/libs/*/*/components/ 2>/dev/null\n"
-        "grep -rE '^export const [A-Z]' .symbols_local/libs/*/*/components/ 2>/dev/null | head -40\n\n"
-        "# 2b. Shared libraries — `npm` mode (resolve each sharedLibraries.js entry against node_modules)\n"
-        "# For each library `<pkg>` listed in sharedLibraries.js:\n"
-        "#   ls node_modules/<pkg>/components/  &&  grep -rE '^export const [A-Z]' node_modules/<pkg>/components/\n\n"
-        "# 3. Current project\n"
-        "grep -rE '^export const [A-Z]' components/ snippets/ | head -40\n"
-        "grep -rE '^export (const|function) ' functions/ methods/ | head -40\n\n"
-        "# 4. Semantic search across ALL tiers (built-ins via MCP docs + project + libs)\n"
-        "# Prefer mcp__symbols-mcp__search_symbols_docs(query) — searches all bundled skill docs.\n"
-        "```\n\n"
-        "## The reuse-vs-extract decision\n\n"
-        "| Situation | Action |\n"
-        "|---|---|\n"
-        "| Built-in or shared-library component covers your case | Reference by bare key: `Avatar: { ... }` — DOMQL auto-resolves |\n"
-        "| A library component covers ~80% but needs different visuals | Override the divergent props on the bare key — never copy the source |\n"
-        "| A library component is semantically close but not identical | `extends: 'LibComponent'` + add what's new in the local file |\n"
-        "| Existing local component covers your case | Reference by bare key |\n"
-        "| You're writing the SECOND near-duplicate (local) | Acceptable — but flag for refactor |\n"
-        "| You're writing the THIRD near-duplicate (local) | **STOP**. Extract the shared shape. |\n"
-        "| A pattern recurs across MULTIPLE projects in the org | Promote it to a shared library (separate concern; ask first) |\n\n"
-        "## When you find duplication, fix it inline\n\n"
-        "If you discover `UserCard.js`, `MemberCard.js`, `ProfileCard.js` with the same structure:\n\n"
-        "1. Check each tier first — does a built-in or shared-library component already cover this?\n"
-        "   If yes, the duplicates were the bug; replace all three with bare-key references to the\n"
-        "   library version.\n"
-        "2. Otherwise, lift the shared shape into ONE canonical component at `components/<Name>.js`.\n"
-        "3. Replace the duplicates with bare-key references + per-instance prop overrides.\n"
-        "4. Page wrappers call the canonical: `Card: { user: ... }` or `Card_1: {...}, Card_2: {...}`.\n"
-        "5. Delete the redundant files; their `index.js` re-exports auto-propagate the deletion.\n\n"
-        "## Functions — same 3-tier rule\n\n"
-        "Project functions register on `context.functions`. Shared libraries also contribute "
-        "(e.g. `polyglot`, `currency`, common formatters from `system/default`). Before writing a new "
-        "helper, check the same locations as for components — substitute `functions/` and `methods/` for "
-        "`components/` in the discovery commands above. Resolution mode (`npm` vs `local` vs `destDir`) "
-        "is identical to the component case.\n\n"
-        "If two pages compute the same thing inline, extract to `functions/<name>.js` and invoke via "
-        "`el.call('name', …)`. NEVER copy logic between files; NEVER `import` between project files "
-        "(FA001).\n\n"
-        "## Shared-library override pattern\n\n"
-        "When a shared-library component is *almost* right but needs a project-level tweak, override at "
-        "the consumer level — local always wins on key collision:\n\n"
-        "```js\n"
-        "// <library-resolved-path>/components/Card.js  (READ-ONLY — never edit)\n"
-        "// → defines Card with default styling\n\n"
-        "// components/Card.js  (your project — overrides the library version)\n"
-        "export const Card = {\n"
-        "  extends: 'Card',                      // pull in the library's Card as the base\n"
-        "  borderRadius: 'C',                    // add your override\n"
-        "  background: 'brand'\n"
-        "}\n"
-        "```\n\n"
-        "Both consumers in the project still write `Card: {...}`; DOMQL resolves your local override\n"
-        "rather than the library version.\n\n"
-        "## Folder placement (frank-discovered slots)\n\n"
-        "- `components/` — reusable DOMQL components (the default for a new shared shape)\n"
-        "- `snippets/` — composable element fragments smaller than a full component\n"
-        "- `functions/` — pure / project-state helpers, called via `el.call('fn', …)`\n"
-        "- `methods/` — `this`-binding helpers (lifecycle utilities)\n\n"
-        "Anything outside the frank-discovered slots (`utils/`, `lib/`, `helpers/`) is silently dropped at "
-        "publish time — see FA006. So 'extracting to a helper' MUST land in `functions/` or `methods/`, "
-        "never `utils/`.\n\n"
-        "---\n\n"
+
+def _rules_section_parts(name: str) -> list[str]:
+    fname, _ = _RULES_SECTION_BY_NAME[name]
+    return _split_markdown_parts(_read_skill(fname))
+
+
+def _rules_section_index() -> str:
+    rows = []
+    for name, fname, desc in RULES_SECTIONS:
+        size = len(_read_skill(fname))
+        parts = len(_split_markdown_parts(_read_skill(fname)))
+        how = f"section='{name}'" + (f", part=1..{parts}" if parts > 1 else "")
+        rows.append(f"| {name} | {size:,} | {parts} | {desc} | `get_project_rules({how})` |")
+    others = sorted(
+        p.stem for p in SKILLS_PATH.glob("*.md")
+        if p.stem not in _RULES_SECTION_BY_NAME
     )
-
     return (
-        builtin_directive
-        + framework
-        + "\n\n---\n\n" + design_system
-        + "\n\n---\n\n" + rules
-        + "\n\n---\n\n" + components
-        + "\n\n---\n\n" + default_components
-        + "\n\n---\n\n" + syntax
-        + "\n\n---\n\n" + patterns
-        + "\n\n---\n\n" + snippets
-        + "\n\n---\n\n" + shared_libs
-        + "\n\n---\n\n" + workspace
-        + "\n\n---\n\n" + frankability
-        + "\n\n---\n\n" + frankability_catalog
-        + "\n\n---\n\n" + frank_fix_workflow
-        + "\n\n---\n\n" + common_mistakes
-        + "\n\n---\n\n" + learnings
-        + "\n\n---\n\n" + default_project
+        "# SECTION INDEX — fetch on demand\n\n"
+        f"Every response of this tool stays under {RULES_SAFE_CHARS:,} characters so it survives "
+        "client tool-output caps (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens). "
+        "Fetch one section per call; sections with more than one part need one call per part.\n\n"
+        "| Section | Chars | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n"
+        + "\n".join(rows)
+        + "\n\nAlso fetchable by name (not part of the core bundle): "
+        + ", ".join(f"`{o}`" for o in others)
+        + ".\n\n`get_project_rules(full=True)` returns the legacy one-shot concatenation "
+        "(~590k chars) — only for clients with no tool-output cap.\n"
     )
+
+
+def _rules_next_step() -> str:
+    rows = "\n".join(f"| {task} | {secs} |" for task, secs in RULES_NEXT_STEP)
+    return (
+        "# NEXT STEP — which sections to pull for your task\n\n"
+        "This core bundle is NOT the full ruleset. Before you write code, pull the sections "
+        "your task needs (one call each):\n\n"
+        "| Your task | Call `get_project_rules(section=...)` for |\n|---|---|\n"
+        + rows
+        + "\n\nMinimum for any code-writing task: `SYNTAX` + `COMPONENTS` + `FRANKABILITY`.\n"
+    )
+
+
+def _rules_essentials() -> str:
+    """RULES.md preamble + every STRICT rule in full + an index of all rule headings.
+
+    Derived from RULES.md at call time — the skill file stays the single
+    source of truth; nothing is hand-duplicated here.
+    """
+    text = _read_skill("RULES.md")
+    lines = text.split("\n")
+    heads = [i for i, l in enumerate(lines) if l.startswith("## Rule ")]
+    if not heads:
+        return text
+    preamble = "\n".join(lines[: heads[0]]).rstrip()
+    bounds = heads + [len(lines)]
+    strict_bodies = []
+    index_rows = []
+    for n, start in enumerate(heads):
+        body_lines = lines[start: bounds[n + 1]]
+        heading = body_lines[0][3:].strip()
+        is_strict = "STRICT" in heading
+        index_rows.append(f"- {'**' if is_strict else ''}{heading}{'**' if is_strict else ''}"
+                          + ("" if is_strict else " — full text: `section='RULES'`"))
+        if is_strict:
+            strict_bodies.append("\n".join(body_lines).rstrip())
+    return (
+        "# RULES — ESSENTIALS (preamble + every STRICT rule, from RULES.md)\n\n"
+        + preamble
+        + "\n\n---\n\n# RULES — ALL RULE HEADINGS (STRICT ones in bold are reproduced in full below; "
+        "the rest are in `section='RULES'`)\n\n"
+        + "\n".join(index_rows)
+        + "\n\n---\n\n# RULES — STRICT RULES IN FULL\n\n"
+        + "\n\n".join(strict_bodies)
+    )
+
+
+def _frankability_checklist() -> str:
+    """The tail of FRANKABILITY.md: placement quick-reference + generation checklists."""
+    text = _read_skill("FRANKABILITY.md")
+    marker = "\n## Quick reference"
+    i = text.find(marker)
+    tail = text[i + 1:] if i >= 0 else text
+    return (
+        "# FRANKABILITY — HARD CHECKLIST (from FRANKABILITY.md; full rule text: "
+        "`section='FRANKABILITY'`)\n\n" + tail.rstrip()
+    )
+
+
+def _rules_core_bundle() -> str:
+    header = (
+        "# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n"
+        "This is the compact core of the mandatory ruleset: the reuse directive, the RULES "
+        "preamble + every STRICT rule, the frankability checklist, a SECTION INDEX, and a "
+        "NEXT STEP table. The full skills are fetched per section: "
+        "`get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … "
+        "Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n"
+        "---\n\n"
+    )
+    return (
+        header
+        + _builtin_directive()
+        + "\n\n---\n\n" + _rules_essentials()
+        + "\n\n---\n\n" + _frankability_checklist()
+        + "\n\n---\n\n" + _rules_section_index()
+        + "\n\n---\n\n" + _rules_next_step()
+    )
+
+
+def _rules_full_bundle() -> str:
+    """Legacy one-shot concatenation of all 16 sections (~590k chars)."""
+    return _builtin_directive() + "\n\n---\n\n" + "\n\n---\n\n".join(
+        _read_skill(fname) for _, fname, _ in RULES_SECTIONS
+    )
+
+
+def _rules_section_response(raw_sections: str, part: int) -> str:
+    names = [_normalize_section_name(s) for s in re.split(r"[,\s]+", raw_sections) if s.strip()]
+    other_skills = {p.stem.upper(): p.name for p in SKILLS_PATH.glob("*.md")}
+    resolved: list[tuple[str, list[str]]] = []
+    for name in names:
+        if name in _RULES_SECTION_BY_NAME:
+            resolved.append((name, _rules_section_parts(name)))
+        elif name in other_skills:
+            resolved.append((name, _split_markdown_parts(_read_skill(other_skills[name]))))
+        else:
+            valid = ", ".join(n for n, _, _ in RULES_SECTIONS)
+            extra = ", ".join(sorted(k for k in other_skills if k not in _RULES_SECTION_BY_NAME))
+            raise ValueError(
+                f"Unknown section '{name}'. Valid bundle sections: {valid}. "
+                f"Other fetchable skills: {extra}. Call get_project_rules() with no "
+                "arguments for the core bundle + section index."
+            )
+    if len(resolved) > 1:
+        multi = [n for n, parts in resolved if len(parts) > 1]
+        if multi:
+            raise ValueError(
+                f"Section(s) {', '.join(multi)} have more than one part and must be fetched "
+                "alone: get_project_rules(section='<name>', part=N)."
+            )
+        total = sum(len(parts[0]) for _, parts in resolved)
+        if total > RULES_SAFE_CHARS:
+            sizes = ", ".join(f"{n}={len(parts[0]):,}" for n, parts in resolved)
+            raise ValueError(
+                f"Requested sections total {total:,} chars, above the {RULES_SAFE_CHARS:,}-char "
+                f"safe cap ({sizes}). Fetch them one call at a time."
+            )
+        return "\n\n---\n\n".join(
+            f"<!-- section {n} ({len(parts[0]):,} chars) -->\n" + parts[0] for n, parts in resolved
+        )
+    name, parts = resolved[0]
+    if part < 1 or part > len(parts):
+        raise ValueError(
+            f"Section '{name}' has {len(parts)} part(s); part={part} is out of range. "
+            f"Use part=1..{len(parts)}."
+        )
+    body = parts[part - 1]
+    if len(parts) == 1:
+        head = f"<!-- section {name} ({len(body):,} chars) -->\n"
+    else:
+        head = f"<!-- section {name} part {part}/{len(parts)} ({len(body):,} chars) -->\n"
+    tail = ""
+    if part < len(parts):
+        tail = (f"\n\n<!-- continues: get_project_rules(section='{name}', part={part + 1}) "
+                f"(of {len(parts)}) -->\n")
+    return head + body + tail
+
+
+@mcp.tool()
+def get_project_rules(section: str = "", part: int = 1, full: bool = False) -> str:
+    """ALWAYS call this first before any generate_* tool — the mandatory Symbols.app rules.
+
+    Call with NO arguments first. That returns the compact CORE bundle (well under
+    80k chars — it survives every client's tool-output cap):
+    - the built-in-reuse directive (Atoms/Components catalog — REUSE via bare PascalCase keys),
+    - RULES essentials: the RULES.md preamble (canonical-syntax table, flat API) + EVERY
+      STRICT rule in full + an index of all rule headings,
+    - the FRANKABILITY hard checklist (patterns that survive frank.toJSON),
+    - a SECTION INDEX (all 16 sections, sizes, parts, how to fetch),
+    - a NEXT STEP table telling you which sections to pull for your task.
+
+    Then fetch sections on demand, one call each:
+      get_project_rules(section="SYNTAX")              → DOMQL v3.14 syntax reference
+      get_project_rules(section="COMPONENTS")          → built-in component catalog
+      get_project_rules(section="RULES", part=2)       → large sections come in parts
+      get_project_rules(section="FRANKABILITY_CATALOG")
+    Sections: FRAMEWORK, DESIGN_SYSTEM, RULES, COMPONENTS, DEFAULT_COMPONENTS, SYNTAX,
+    PATTERNS, SNIPPETS, SHARED_LIBRARIES, WORKSPACE, FRANKABILITY, FRANKABILITY_CATALOG,
+    FRANK_FIX_WORKFLOW, COMMON_MISTAKES, LEARNINGS, DEFAULT_PROJECT (case-insensitive,
+    `.md` optional; several small sections may be comma-separated if they fit the cap).
+    Unknown section names raise a clear error listing the valid names.
+
+    full=True returns the legacy one-shot concatenation of all 16 sections (~590k chars).
+    Use it ONLY on a client with no tool-output cap — Claude Code truncates it to a file
+    path and the rules never reach the model.
+
+    Minimum for any code-writing task: core + SYNTAX + COMPONENTS + FRANKABILITY.
+    Violations cause silent failures — black page, nothing renders, or a working app
+    with degraded UX you'll later have to rebuild. The single most-violated rule is
+    reusing built-in components: a bare `Avatar: {}` renders the canonical built-in.
+    """
+    if full:
+        return _rules_full_bundle()
+    if section and section.strip():
+        return _rules_section_response(section, part)
+    return _rules_core_bundle()
 
 
 @mcp.tool()
@@ -2205,6 +2297,11 @@ def get_project_context(cwd: str = "") -> str:
             "Project context resolved AND token is available. You can call auth-required "
             "tools directly — pass owner/key from this context."
         )
+    result["next_step"] += (
+        " Before writing ANY DOMQL code: call `get_project_rules()` (no arguments — compact core "
+        "bundle, under 80k chars) and follow its NEXT STEP table to pull the sections your task "
+        "needs (`get_project_rules(section='SYNTAX')`, `section='COMPONENTS'`, `section='FRANKABILITY'`, …)."
+    )
 
     return json.dumps(result, indent=2)
 
