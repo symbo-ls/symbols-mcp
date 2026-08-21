@@ -371,7 +371,7 @@ These are **hard requirements** when the CLI is invoked from a non-TTY agent (MC
 3. **Pin the channel explicitly** with `NODE_ENV=<name>` env var (or `--local`/`--next`/`--no-next` flag). Don't rely on the `next` default — agents may be running against `production` in deployment.
 4. **Authenticate via token, not browser.** Agent flows can't open a browser. Use:
    ```bash
-   SYMBOLS_AUTH_TOKEN=<token> smbls <cmd>
+   SYMBOLS_TOKEN=<token> smbls <cmd>
    # OR pre-login with:
    smbls login --non-interactive --token <token>
    ```
@@ -383,7 +383,7 @@ These are **hard requirements** when the CLI is invoked from a non-TTY agent (MC
 ```bash
 # Set channel + auth once per session
 export NODE_ENV=next
-export SYMBOLS_AUTH_TOKEN=<from-secret-store>
+export SYMBOLS_TOKEN=<from-secret-store>
 
 # Then run with hard non-interactive + auto-confirm:
 smbls push --non-interactive --yes
@@ -402,7 +402,7 @@ Errors the CLI surfaces:
 | Symptom | Source | Fix |
 |---|---|---|
 | `Cannot reach API server at <host>:<port>` | `bin/index.js:49-53` (ECONNREFUSED) | Wrong channel or server down. Override with `SYMBOLS_API_URL` or `--next/--no-next` |
-| `Authentication required` (`code: 'AUTH_REQUIRED'`) | `helpers/authEnsure.js:272` | Need `smbls login` or `SYMBOLS_AUTH_TOKEN` env var |
+| `Authentication required` (`code: 'AUTH_REQUIRED'`) | `helpers/authEnsure.js:272` | Need `smbls login` or `SYMBOLS_TOKEN` env var |
 | `Missing app key in symbols.json` | `helpers/symbolsConfig.js:29` | Run `smbls init` or hand-write `symbols.json` with `{ owner, key }` |
 | `Project ${owner}/${key} not found on server` (with `--non-interactive`) | `bin/publish.js:89-92` | Run `smbls project create` first OR `smbls workspace create-missing` |
 | Empty `inquirer` prompt that hangs | Missing required input + no `--non-interactive` | Always pass `--non-interactive` for scripted runs |
@@ -436,7 +436,7 @@ Each subcommand file is registered by importing it in the `bin/<family>.js` pare
 
 - Don't run `smbls publish` as the first command in a fresh session without `--dry-run`. If your local config is wrong, you publish to the wrong project.
 - Don't manually `rm -rf .symbols_local/`. Use `smbls clean` (preserves credentials, removes stale snapshots/locks).
-- Don't pass auth tokens via `--token` flag in shared logs. Use `SYMBOLS_AUTH_TOKEN` env var instead — it doesn't appear in `ps`/process listings.
+- Don't pass auth tokens via `--token` flag in shared logs. Use `SYMBOLS_TOKEN` env var instead — it doesn't appear in `ps`/process listings.
 - Don't use `--no-next` casually. It targets `api.symbols.app` (production), and any push/publish there is real-user-visible. Default to `next` for development.
 - Don't rely on the global `smbls` binary version matching the monorepo `@symbo.ls/cli@3.14.0` — they may drift. Use `smbls --version` to check.
 - A subcommand's own `--version <v>` option (e.g. `smbls publish --version <id>`, `smbls config --version <v>`) is a normal per-command flag, not the global `-V/--version` — Commander's positional-options handling means the two no longer collide; the subcommand's own flag reaches its `.action()` correctly as long as it appears after the subcommand name (`smbls publish --version <id>`, not `smbls --version publish <id>`).
