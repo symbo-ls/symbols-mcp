@@ -1046,6 +1046,31 @@ If the icon doesn't exist in `designSystem/icons` yet, **add it there first**, t
 
 `Svg` component is for **decorative SVG backgrounds** (illustrations, hero patterns) — NOT for icons. Decorative SVG data lives in `designSystem/svg.js` / `svg_data.js`.
 
+### `iconsLoader` — optional lazy-on-miss icon resolution
+
+A design system MAY register icons after boot. Set an OPTIONAL
+`designSystem.iconsLoader` and the `Icon` component asks it for any name that
+misses `designSystem.icons`:
+
+```js
+// designSystem/index.js
+iconsLoader: async (name) => {
+  const chunk = await import('./icons.extra.js')   // your own split, your own map
+  return chunk.default[name] || null               // string | { [name]: svg } | null
+}
+```
+
+- The loader is called ONCE per name per design system; every element asking
+  for that name shares the one in-flight promise.
+- While it is pending the element keeps the `noIcon` placeholder and NO
+  warning is printed.
+- On resolve the entries go through the normal icon pipeline (sprite
+  conversion + document sprite append) and every waiting element repaints.
+- On `null`, an empty result, or a throw, the usual
+  `[Icon] Unknown icon name …` warning is printed and the name is not retried.
+- Without `iconsLoader` the behaviour is unchanged. It is opt-in, and no
+  built-in design system defines it.
+
 ---
 
 ## cases
