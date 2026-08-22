@@ -316,7 +316,7 @@ smbls sdk                                     Proxy SDK service methods (debuggi
 smbls sdk --list                              List all available SDK methods
 smbls sdk --service <name>                    Filter methods by service
 smbls ask [question...]                       Chat with AI about your project
-smbls channels                                List + switch active CLI channel (API base URL)
+smbls channels                                List + switch active CLI channel, with per-channel auth state
 smbls config                                  Configure project settings (interactive or flag-driven)
 smbls install                                 Install Symbols
 smbls upgrade                                 Upgrade all Symbols deps to latest
@@ -325,6 +325,18 @@ smbls link-packages                           Links all smbls packages into the 
 ```
 
 `ask` flags: `--provider <claude|openai|gemini|ollama>`, `--model <name>`, `--init` (configure AI/MCP).
+
+`channels` (agents read this): the bare command is INTERACTIVE. In a TTY it
+waits for the choice and applies it. Without a TTY (or with
+`--non-interactive`, or `CI` set) it prints the list, explains that it cannot
+prompt, names the non-interactive flags and **exits 1** — it never picks a
+channel silently, and never falls back to production. Non-interactive flags:
+`--list` (print and exit 0, never prompts — use this in scripts),
+`--server <url>`, `--local`, `--dev`, `--next`, `--no-next` (production).
+The listing shows each channel's auth state from the stored session —
+signed in + expiry date, `auth expired <date>` with the exact
+`smbls login --api-base-url <url>` to run, or not signed in; `--verify` adds a
+status-code-only `/core/auth/me` probe. Token values are never printed.
 
 `upgrade` flags: `--global-only`, `--local-only`, `--skip-mcp`, `--dry-run`.
 
