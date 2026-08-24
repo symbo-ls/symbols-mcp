@@ -1,12 +1,23 @@
 [project]
 name = "symbols-mcp"
-version = "3.14.763"
+version = "3.14.764"
 description = "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference"
 readme = "README.md"
 license = "CC-BY-NC-4.0"
 requires-python = ">=3.10"
 dependencies = [
-    "mcp[cli]>=1.9.0",
+    # UPPER BOUND IS LOAD-BEARING, not caution. symbols_mcp/server.py imports
+    # `from mcp.server.fastmcp import FastMCP, Context`, and the 2.x SDK
+    # REMOVED that module entirely — the 2.1.0 wheel ships no `fastmcp` path at
+    # all, replacing it with `mcp/server/mcpserver/`. Without this bound a fresh
+    # resolve installs mcp 2.x and the server dies at import with
+    # `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`, which a
+    # client reports only as CONNECTION_CLOSED.
+    #
+    # That is not hypothetical: every `uvx symbols-mcp` since mcp 2.0 shipped
+    # has been resolving 2.x against this unbounded spec. Lifting the bound is
+    # a PORT (FastMCP -> MCPServer across 28 tools), not a version bump.
+    "mcp[cli]>=1.9.0,<2",
     "httpx>=0.27.0",
 ]
 
