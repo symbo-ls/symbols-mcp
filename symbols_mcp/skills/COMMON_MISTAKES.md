@@ -382,6 +382,29 @@ Dropdown: {
 
 Use `show` only for elements that should be fully removed from layout with no animation. For modals, dropdowns, tooltips, drawers — always use the opacity pattern.
 
+### 16b. `animation:` + your own `transform`/`opacity` — know when the last keyframe HOLDS
+
+A finished keyframe that holds an end state (fill mode `forwards`/`both`) sits in the animation origin of the cascade — above every class AND every inline style. `fadeInUp` ends at `translate3d(0,0,0)`; held for life, it erases an element's own `transform: translate(-50%, -50%)` centring (measured: modal panel anchored at the viewport centre, extending right+down).
+
+The framework default (smbls ≥ 3.14.786): an animation whose last keyframe sets only natural values (identity transform, `opacity: 1`) gets `animation-fill-mode: backwards` and RELEASES; one that holds a real end state (`fadeOut`, `scaleInOut`) keeps `both`. Declare `animationFillMode` explicitly whenever the element also owns `transform`/`opacity` — never rely on the default when the two meet.
+
+```js
+// ❌ WRONG — entry animation + own transform, fill left to the animation
+ModalPanel: {
+  position: 'fixed', top: '50%', left: '50%',
+  transform: 'translate(-50%, -50%)',
+  animation: 'fadeInUp',
+}
+
+// ✅ CORRECT — say which state wins after the animation ends
+ModalPanel: {
+  position: 'fixed', top: '50%', left: '50%',
+  transform: 'translate(-50%, -50%)',
+  animation: 'fadeInUp',
+  animationFillMode: 'backwards',  // release: the element's own transform returns
+}
+```
+
 ---
 
 ## 17. CSS selectors — nest media and pseudo, never chain into one string
