@@ -280,6 +280,8 @@ Every property on an element is resolved top-down through this pipeline. The fir
 
 **Why this matters:** Only properties routed through `CSS_PROPS_REGISTRY` (priority 2) resolve theme tokens. Shorthand properties like `borderColor` resolve themes, but directional variants (`borderTopColor`) require explicit registry entries or they pass through raw.
 
+**A `null` value short-circuits ALL four priorities.** Before this table even applies, the loop that walks the prop object skips a key outright when its value — or its function's return value — is `null`: no classlist, no registry, no passthrough, no declaration at all (the tombstone contract, SYNTAX.md → "`null` Is a Tombstone"). `undefined` does NOT short-circuit; it flows into whichever priority normally claims the key.
+
 ---
 
 ## CSS Override Precedence

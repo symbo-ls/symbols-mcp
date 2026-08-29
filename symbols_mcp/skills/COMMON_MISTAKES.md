@@ -1109,3 +1109,23 @@ onClick: (e, el, s) => {
   doRiskyThing()
 }
 ```
+
+---
+
+## 36. White / `currentColor` border after a `null` prop — recognizable failure shape (fixed in e1ada1387)
+
+If a border (or any CSS declaration) resets to `currentColor` or its browser default right after a project — or a platform merge — writes `null` to remove an inherited declaration, with no wrong-looking value anywhere in the component: that is the symptom of FW-NULL-PROP-EMITS-SPACING-NULL-VAR-1, fixed in smbls `e1ada1387`.
+
+Pre-fix, a `null` CSS prop reached its resolver as if it were authored input: `border: null` stringified to the literal `'null'`, and the spacing cascade minted `var(--spacing-NULL)` for it — an undeclared custom property, i.e. an invalid-but-present shorthand. Wherever it ordered after the `borderColor` longhand, it reset `border-color` to `currentColor`.
+
+```js
+// ✅ CORRECT (current contract) — `null` is a tombstone: it emits NOTHING, never a stringified 'null'
+Decision: {
+  extends: 'ThemedCard',
+  border: null    // removes the inherited border declaration entirely — no CSS is emitted for it
+}
+```
+
+The rule covers every registered CSS prop (including `show` — `show: null` no longer forces `display: none`) and a prop written as a function that RETURNS `null`. `undefined` is NOT a tombstone. See SYNTAX.md → "CSS Props (Top-Level)" → "`null` Is a Tombstone" for the full contract and the `undefined`-fallback exception.
+
+If you still see the `var(--spacing-NULL)` shape, you are on a pre-fix smbls version — upgrade the framework; do not hand-patch a border color to work around it.

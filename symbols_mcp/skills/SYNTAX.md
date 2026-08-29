@@ -140,6 +140,32 @@ export const Card = {
 }
 ```
 
+### `null` Is a Tombstone — Removes the Declaration
+
+A CSS prop set to `null` emits **nothing**: no declaration, no atomic class. This holds for a raw value and for a prop written as a function that RETURNS `null`. It covers every registered CSS prop, including `show` — `show: null` no longer forces `display: none`.
+
+```js
+export const Decision = {
+  extends: 'ThemedCard',
+  border: null    // removes the inherited border declaration entirely — nothing is emitted
+}
+
+// Same tombstone when a function returns null
+border: (el, s) => s.hasCustomBorder ? undefined : null
+```
+
+`null` is how a project, or a platform merge, REMOVES an inherited declaration. It is not a way to author `none` / `0` / `unset` — write those values explicitly when you mean them.
+
+**`undefined` is deliberately NOT a tombstone.** Several props read `undefined` as "fall back to my alias":
+
+```js
+borderRadius: (val, el) => transformBorderRadius(val ?? el.round, …)   // undefined → falls back to el.round
+```
+
+Use `null` to remove a declaration outright; use `undefined`, or omit the prop, when a fallback should still apply.
+
+> Scope: this is the CSS-prop contract (`usePropsAsCSS` / `CSS_PROPS_REGISTRY`), fixed in smbls `e1ada1387`. `attr:` / HTML attributes are a separate mechanism (below) where BOTH `null` and `undefined` remove the attribute.
+
 ### Pseudo-Classes and Pseudo-Elements
 
 ```js
