@@ -2360,6 +2360,63 @@ async def _api_request(method: str, path: str, token: str = "", api_key: str = "
         return {"success": False, "error": f"HTTP {resp.status_code}", "message": resp.text}
 
 
+def _looks_like_project_key(project: str) -> bool:
+    """True when the identifier is a key (pr_xxxx / slug / owner-slash-key),
+    False when it looks like a raw MongoDB ObjectId. ONE heuristic, shared by
+    `_resolve_project_id` and `_build_push_source` so the two can never
+    disagree about what the caller declared."""
+    return project.startswith("pr_") or not all(c in "0123456789abcdef" for c in project)
+
+
+def _mcp_client_string() -> str:
+    try:
+        ver = _pkg_version("symbols-mcp")
+    except PackageNotFoundError:
+        ver = "dev"
+    return f"symbols-mcp@{ver}"
+
+
+def _read_cwd_lock_project_id() -> str | None:
+    """The projectId this process's working tree legitimately carries in its
+    `.symbols_local/lock.json` (next to the nearest symbols.json above cwd).
+    Used as proof-of-possession by the server's shared-library push gate —
+    never resolved from the server, only read from disk."""
+    try:
+        found = _find_symbols_json(Path.cwd())
+        if not found:
+            return None
+        lock_path = found.parent / ".symbols_local" / "lock.json"
+        data = json.loads(lock_path.read_text())
+        pid = data.get("projectId")
+        return pid if isinstance(pid, str) and pid.strip() else None
+    except Exception:
+        return None
+
+
+def _build_push_source(project: str) -> dict:
+    """The client half of the server's PushSourceGuard contract
+    (`POST /core/projects/:id/changes` → `body.source`): declare what the
+    CALLER named (never what the server resolved), plus this tree's lock id
+    and a versioned client string. A declared owner/key that mismatches the
+    record is refused server-side (409 push_owner_mismatch/push_key_mismatch);
+    an `isSharedLibrary` record additionally requires the lock id to equal the
+    record's own id, or an explicit forceSharedLibrary (403 otherwise)."""
+    src: dict = {"client": _mcp_client_string()}
+    if project and _looks_like_project_key(project):
+        if "/" in project:
+            owner, _, key = project.partition("/")
+            if owner.strip():
+                src["owner"] = owner.strip()
+            if key.strip():
+                src["key"] = key.strip()
+        else:
+            src["key"] = project.strip()
+    lock_pid = _read_cwd_lock_project_id()
+    if lock_pid:
+        src["lockProjectId"] = lock_pid
+    return src
+
+
 async def _resolve_project_id(project: str, token: str = "", api_key: str = "") -> tuple[str, str | None]:
     """Resolve a project key (pr_xxxx) or ID to (project_id, error).
 
@@ -2368,7 +2425,7 @@ async def _resolve_project_id(project: str, token: str = "", api_key: str = "") 
     if not project:
         return "", "Project identifier is required."
     # If it looks like a key (starts with pr_ or contains non-hex chars), resolve via API
-    is_key = project.startswith("pr_") or not all(c in "0123456789abcdef" for c in project)
+    is_key = _looks_like_project_key(project)
     if is_key:
         result = await _api_request("GET", f"/core/projects/key/{project}", token=token, api_key=api_key)
         if result.get("success"):
@@ -2564,6 +2621,7 @@ async def save_to_project(
     api_key: str = "",
     message: str = "",
     branch: str = "main",
+    force_shared_library: bool = False,
 ) -> str:
     """Save components, pages, or design system data to a Symbols project.
 
@@ -2605,6 +2663,11 @@ async def save_to_project(
         api_key: API key (sk_live_...) from project integration settings.
         message: Version commit message describing the changes.
         branch: Branch to save to (default: "main").
+        force_shared_library: Explicitly allow writing to a project flagged
+            isSharedLibrary when this tree's .symbols_local/lock.json does not
+            carry that record's id. Without it the server refuses such saves
+            (403 shared_library_lock_required) — shared libraries feed every
+            consumer project, so an accidental write is an incident.
     """
     if not token and not api_key:
         return f"Authentication required.\n\n{_AUTH_HELP}"
@@ -2636,7 +2699,14 @@ async def save_to_project(
         "message": message or "Updated via Symbols MCP",
         "branch": branch,
         "type": "patch",
+        # PushSourceGuard contract (server PushSourceGuard.js / smbls CLI
+        # pushSync.js): declare the caller's identity + this tree's lock id
+        # so the server can refuse cross-owner replays and unproven
+        # shared-library writes instead of trusting the URL id.
+        "source": _build_push_source(project),
     }
+    if force_shared_library:
+        body["forceSharedLibrary"] = True
 
     result = await _api_request(
         "POST", f"/core/projects/{project_id}/changes",
