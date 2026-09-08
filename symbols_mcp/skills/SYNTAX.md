@@ -100,7 +100,7 @@ Any key NOT in this list and not PascalCase is promoted as a CSS prop.
 | Pattern | Syntax |
 | -- | -- |
 | Single extend | `extends: 'Button'` |
-| Multiple (first = highest priority) | `extends: ['Link', 'RouterLink']` |
+| Multiple (**LAST = highest priority**) | `extends: ['Link', 'RouterLink']` — `RouterLink` wins every conflicting key |
 | String reference (from `context.components`) | `extends: 'Hoverable'` |
 | Auto-extend by key | `Icon: {...}` auto-extends 'Icon'; `Icon_1: {...}` also auto-extends 'Icon' |
 
@@ -109,6 +109,7 @@ Any key NOT in this list and not PascalCase is promoted as a CSS prop.
 | Type | Rule |
 | -- | -- |
 | Own properties | Always win over extends |
+| `extends: [A, B]` array | **LAST wins** — later entries override earlier ones on every conflicting key, like later CSS declarations. Keys only one entry declares are all kept. A component still beats what it extends. |
 | Plain objects | Deep-merged (PascalCase children deep-merge child overrides) |
 | Special keys (`childProps`, `attr`, `style`, `scope`, `data`) | Shallow merge {...base, ...override} |
 | Functions | NOT merged; element's function replaces extend's |
