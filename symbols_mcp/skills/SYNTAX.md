@@ -203,6 +203,21 @@ Toolbar: {
 
 `backdropFilter` and `userSelect` automatically get a paired `-webkit-` declaration in every generated rule (atomic classes, compound `css()` bodies, `injectGlobal`, keyframes) — WebKit-based engines historically ignored the unprefixed form for these two properties. You do not need to hand-write the `-webkit-` variant or reach for a `style: {}` escape hatch just to get vendor coverage; write the plain prop and both declarations are emitted for you.
 
+### Attribute Selectors
+
+A key that starts with a bare attribute selector — `[attr="value"]` — compounds onto the element's OWN class, exactly like a leading `:pseudo`. It is never a descendant search for some other element carrying that attribute:
+
+```js
+export const Disclosure = {
+  aria: { expanded: (el, s) => (s.open ? 'true' : 'false') },
+  '[aria-expanded="true"]':    { background: 'primary' },  // .cls[aria-expanded="true"]     — attribute on THIS element
+  '[aria-expanded="true"] .x': { opacity: 1 },              // .cls[aria-expanded="true"] .x  — compound head, then a real descendant
+  '&[aria-expanded="true"]':   { background: 'primary' }    // identical result — the `&` form, useful when mixed with other `&`-anchored keys
+}
+```
+
+`'[attr] .x'` and `'&[attr] .x'` compile to the same head (`.cls[attr]`); the space before `.x` is a genuine descendant combinator, not an extra ancestor hop. There is no bare-`[attr]`-searches-descendants form — to match the attribute on a descendant instead of this element, name the descendant explicitly: `'& [data-key="Target"][attr]'`.
+
 ### Conditional Props (Cases)
 
 Three prefix types for conditional CSS and attributes:
