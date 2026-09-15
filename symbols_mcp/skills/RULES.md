@@ -1625,10 +1625,10 @@ Component-based `AppShell` with `extends: 'Page'` still works fine for non-root 
 | -- | -- | -- |
 | **Extract to `components/`** | Any shape used 2+ times anywhere in the project | `components/PriceCard.js` referenced as `PriceCard: {}` (auto-extend by key) |
 | **`extends: 'Name'`** | Component needs a different key but same base | `MyLink: { extends: 'Link', color: 'brand' }` |
-| **`extends: ['A', 'B']`** | Multi-base composition | `extends: ['Hgroup', 'Form']` |
+| **`extends: ['A', 'B']`** | Multi-base composition — **LAST wins** on conflicting keys (`Form` beats `Hgroup`) | `extends: ['Hgroup', 'Form']` |
 | **`extends: 'Parent > Child > Sub'`** | Reference a nested-child shape from another component | `extends: 'AppShell > Sidebar'` |
 | **`childExtends: 'Name'`** | All children of a list/group share one base | `NavList: { childExtends: 'NavLink' }` |
-| **`childExtends: ['A', 'B']`** | Children compose multiple bases | rare — usually extract instead |
+| **`childExtends: ['A', 'B']`** | Children compose multiple bases — **LAST wins**, and a child's own `extends` beats the inherited `childExtends` | rare — usually extract instead |
 | **`childProps: { … }`** | Inject one-level prop overrides into every named child | `Layout: { childProps: { fontSize: 'A', color: 'caption' } }` |
 | **`childProps: (parent, child) => ({ … })`** | Per-child computed overrides | dynamic key/props from parent state |
 
