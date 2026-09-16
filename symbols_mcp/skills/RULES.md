@@ -522,13 +522,15 @@ The framework registers reactive effects (via `createEffect`) ONLY for these pro
 - Any prop in `CSS_PROPS_REGISTRY` (color, background, padding, margin, gap, fontSize, fontWeight, lineHeight, borderRadius, etc.)
 - Any prop in `DEFAULT_CSS_PROPERTIES_LIST`
 
-Custom non-CSS function props — including `isX` conditionals — are NOT wrapped in `createEffect`. They evaluate ONCE during initial render (`applyStaticMixins` → `applyConditionals`) and never re-evaluate when state changes.
+A custom non-CSS function prop with no paired `.isX` / `'!isX'` block (nothing else on the element reads it) is NOT itself wrapped in a `createEffect` — the framework never computes that value on the element's own account, so there is nothing there to re-run. This does NOT extend to a boolean condition that DOES have a paired `.isX` / `'!isX'` block: see the next section — that pairing gets its own dedicated effect and stays reactive for the life of the element.
 
-### Conditional props (`.isX` / `'!isX'` / `$isX`) — fully reactive
+### Conditional props (`.isX` / `'!isX'`) — fully reactive; `$isX` does not currently apply at all
 
-The conditional-cases syntax is the canonical way to express grouped conditional CSS. `isX: (el, s) => …` defines a condition, and the `.isX: {…}` / `'!isX': {…}` block contributes CSS/attrs when the condition resolves truthy/falsy. `$isX` references a global condition from `context.cases`.
+The conditional-cases syntax is the canonical way to express grouped conditional CSS. `isX: (el, s) => …` defines a condition, and the `.isX: {…}` / `'!isX': {…}` block contributes CSS/attrs when the condition resolves truthy/falsy.
 
-The framework wraps `isX` conditions in `createEffect` so the matching `.isX` / `'!isX'` block re-applies whenever any state read by the condition changes. State-driven appearance changes work out of the box.
+The framework wraps each `.isX` / `'!isX'` PAIR in its own `createEffect` (`registerConditionalEffects`), so the matching block re-applies — and the non-matching block correctly reverts — every time state read by the condition changes, in both directions, whether the condition is a plain declared state key, a key that arrives later, or a function reading root state. State-driven appearance changes work out of the box; no workaround (two-branch reactive prop functions, manual toggling) is needed.
+
+**`$isX` is the one exception and currently does NOT apply at all** — nothing in the runtime reads a `$`-prefixed key, so a `$isSafari: {...}` block silently emits no CSS, not even once at create. Do not use it; express a global-case condition (`context.cases`) as an ordinary reactive prop function instead.
 
 **STRICTLY enforce this pattern when two or more CSS properties share the same condition.** Repeating the same condition across multiple property functions is redundant and harder to read — collapse them into a single `isX` + `'.isX'` block.
 
@@ -555,8 +557,8 @@ export const Item = {
   '!isSelected': { opacity: 0.6 }
 }
 
-// ✅ CORRECT — $isX for global cases from context.cases (browser / device detection)
-$isSafari: { paddingTop: 'env(safe-area-inset-top)' }
+// ❌ AVOID — $isX does not apply at all (see above); write the condition as a plain reactive prop instead
+paddingTop: (el, s) => isSafari(s) ? 'env(safe-area-inset-top)' : undefined
 
 // ❌ AVOID — same condition repeated across many property functions
 export const TabBtn = {

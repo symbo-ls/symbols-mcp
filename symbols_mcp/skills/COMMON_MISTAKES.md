@@ -770,8 +770,10 @@ export const Item = {
   '!isSelected': { opacity: 0.6 }
 }
 
-// ✅ $isX for global cases from context.cases
+// ❌ AVOID — $isX (global cases) does not apply at all in the current runtime, not even once
 $isSafari: { paddingTop: 'env(safe-area-inset-top)' }
+// ✅ write the condition as a plain reactive prop instead
+paddingTop: (el, s) => isSafari(s) ? 'env(safe-area-inset-top)' : undefined
 ```
 
 **Same gotcha shape for `if:` and animation:** `if:` IS reactive but each toggle re-creates / destroys the DOM node, killing CSS transitions. For animated show/hide, use `hide:` / `show:` (CSS_PROPS_REGISTRY entries that reactively toggle `display` without destroying the node).

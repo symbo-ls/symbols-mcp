@@ -599,8 +599,9 @@ export const ComponentName = {
   // DOM events
   onClick: (e, el, s) => {},
 
-  // Conditional cases (.isX / '!isX' / $isX) — reactive. Use whenever multiple CSS
-  // props share a single condition; the block re-applies whenever the state read by isX changes.
+  // Conditional cases (.isX / '!isX') — reactive; $isX does not currently apply at all.
+  // Use .isX/'!isX' whenever multiple CSS props share a single condition; the block
+  // re-applies whenever the state read by isX changes.
   isActive: (el, s) => s.active,
   '.isActive': { background: 'primary', color: 'white' },
 

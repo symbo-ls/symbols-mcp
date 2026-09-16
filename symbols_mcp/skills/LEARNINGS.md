@@ -20,7 +20,7 @@ These are mandatory technical rules for the DOMQL/Symbols runtime. Violating any
 | Function values for keys in `DEFAULT_CSS_PROPERTIES_LIST` (raw CSS pass-through props) | ✅ | Each property gets a reactive effect |
 | Function values for tag-recognized HTML attributes (src, href, etc.) at root | ✅ | Reactive per-attribute |
 | `isX` conditional (function) + `'.isX'` / `'!isX'` blocks | ✅ | Block re-applies whenever the state read by `isX` changes |
-| `$isX` global cases from `context.cases` | ✅ | Block re-applies whenever the case condition's reads change |
+| `$isX` global cases from `context.cases` | ❌ | Not wired into the runtime at all — the block never applies, not even once at create |
 | `extends` chain | ❌ | Resolved once at element creation |
 | Other custom non-CSS function props | ❌ | Tracked in `__exec` but never wrapped — only run on explicit `el.update()` |
 

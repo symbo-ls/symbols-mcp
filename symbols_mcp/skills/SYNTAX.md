@@ -225,13 +225,15 @@ Three prefix types for conditional CSS and attributes:
 
 | Prefix | Resolution | Example |
 | -- | -- | -- |
-| `$` | Global case from `context.cases` | `$isSafari: { padding: 'B' }` |
+| `$` | Global case from `context.cases` — **currently does not apply at all, see below** | `$isSafari: { padding: 'B' }` |
 | `.` | Element/state first, then `context.cases` | `'.isActive': { opacity: 1 }` |
 | `!` | Inverted — applies when falsy | `'!isActive': { opacity: 0 }` |
 
-Cases are defined in `cases.js` at the project root and added to `context.cases`. CSS props AND HTML attributes inside conditional blocks are applied.
+Cases are defined in `cases.js` at the project root and added to `context.cases`. CSS props AND HTML attributes inside `.`/`!` conditional blocks are applied.
 
-`.isX` / `'!isX'` / `$isX` blocks are fully reactive — the framework wraps `isX` conditions in `createEffect`, so the matching block re-applies whenever the state read by the condition changes. Use the pattern when two or more CSS props share a single condition; it's cleaner than repeating the same condition across many prop functions.
+`.isX` / `'!isX'` blocks are fully reactive — the framework wraps the `isX` condition in its own `createEffect` (both directions: applying AND reverting), so the matching block re-applies every time the state read by the condition changes, for a flag on the element's own state or on root state, whether the state key is declared up front or arrives later. Use the pattern when two or more CSS props share a single condition; it's cleaner than repeating the same condition across many prop functions.
+
+**`$isX` (global cases) does not currently apply at all — do not use it.** Unlike `.isX`/`!isX`, nothing in the runtime reads a `$`-prefixed key: it is neither compiled once at create nor wired into a reactive effect, so a `$isSafari: {...}` block silently emits no CSS, ever. Express a global-case condition as an ordinary reactive prop function instead (`padding: (el, s) => isSafari(s) ? 'B' : undefined`).
 
 ```js
 // ✅ Reactive grouped CSS via .isX
