@@ -335,7 +335,7 @@ key.length > 2 && key[0] === 'o' && key[1] === 'n' &&
 
 Detection is structural (pattern of `onUpper...`), not registry-based — any custom event name like `onCustomThing` works as long as it's a function.
 
-### Document / Window-Level Events — `onDocumentXxx` / `onWindowXxx`
+### Global-Target Events — `onDocumentXxx` / `onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange`
 
 Some events never reach an element you own: a third-party widget portaled into
 `document.body` (docsearch modal, date pickers), "outside click" / Escape for a
@@ -351,6 +351,41 @@ onWindowResize:        (e, el, s) => {},                    // window family, sa
 onWindowScroll:        { passive: true, handler: (e, el, s) => {} }
 ```
 
+Two more TARGETS, identical shapes and identical lifecycle — neither is the
+element's document or its window, so neither has any other declarative form:
+
+```js
+onVisualViewportResize: (e, el, s) => {},                   // window.visualViewport
+onVisualViewportScroll: (e, el, s) => {},                   //   soft keyboard, pinch-zoom
+onMediaQueryChange:     { query: '(max-width: 768px)', handler: (e, el, s) => {} },
+onMediaQueryChange:     [ { query: '(max-width: 768px)', handler: a },
+                          { query: '(pointer: coarse)', handler: b } ]
+```
+
+`matchMedia(query)` MINTS its target, so the query is the target's identity and
+travels in the options form — a CSS media query cannot be spelled in a prop
+name. That is also why `onMediaQueryChange` alone accepts an ARRAY: each entry
+is a different target, not a second handler on one target. `e.matches` carries
+the new answer. A `MediaQueryList` with only `addListener`/`removeListener`
+(Safari < 14) is watched and unwatched through those; no `visualViewport` /
+no `matchMedia` on the window → no listener and no throw, like a missing
+document.
+
+**A custom event name that is not identifier-shaped** (a namespaced
+`CustomEvent`) is still a key — it just has to be QUOTED, because everything
+after the prefix is taken verbatim and lowercased:
+
+```js
+'onWindowSymbols:auth-callback': (e, el) => el.call('onAuth', e.detail)
+'onDocumentApp-ready':           'handleReady'
+```
+
+Two limits follow from the convention: the name is lowercased (declare the
+event lowercase, which is the DOM convention anyway — `symbols:authCallback`
+is NOT reachable), and the character right after the prefix must be `A-Z` —
+the rule that keeps `onWindows` / `onDocuments` ordinary props instead of
+events.
+
 Contract: registered ONCE when the element gets its node; torn down in
 `dispose()` (no `onRemove` bookkeeping); the handler runs only while the
 element is CONNECTED (an `if:`-hidden element is inert and re-arms when shown);
@@ -359,6 +394,11 @@ frame); no document → no listener (SSR-safe). `capture` / `passive` / `once`
 come from the options form; touch and wheel default to passive. Name = the
 DOM event lowercased after the prefix (`onDocumentVisibilityChange` →
 `visibilitychange`, `onWindowHashChange` → `hashchange`).
+
+The element's OWN document is the only document a component can name. A host
+element cannot declare a listener INSIDE an iframe it renders: an iframe that
+hosts its own DOMQL app is the supported shape, and every component in that
+inner app already gets the frame's document from plain `onDocumentXxx`.
 
 ### Async Events
 

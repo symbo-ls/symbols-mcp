@@ -731,12 +731,28 @@ Good:   onDocumentClick: (e, el, s) => handler(e, el) // document-level, DOMQL-o
 Bad:    window.addEventListener('resize', handler)
 Good:   onWindowResize: (e, el, s) => handler(e, el)   // window-level sibling, same shapes
 
+Bad:    window.visualViewport.addEventListener('resize', apply)
+Good:   onVisualViewportResize: (e, el, s) => apply(el) // visualViewport target
+Bad:    window.matchMedia('(max-width: 768px)').addEventListener('change', fn)
+Good:   onMediaQueryChange: { query: '(max-width: 768px)', handler: fn }
+        // the query MINTS the target, so it travels in the options form;
+        // an array of { query, handler } watches several queries at once
+
+A custom event name that is not identifier-shaped is still a key — it
+just has to be QUOTED, because everything after the prefix is taken
+verbatim and lowercased:
+
+Bad:    window.addEventListener('symbols:auth-callback', onAuth)
+Good:   'onWindowSymbols:auth-callback': (e, el) => onAuth(e, el)
+
 Flat `onEvent` handlers are tracked by DOMQL's lifecycle and are
 cleaned up automatically when the element unmounts. `onDocumentXxx` /
-`onWindowXxx` (PORTAL-EVENTS-PRIMITIVE-1) extend that to events that never
+`onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange`
+(PORTAL-EVENTS-PRIMITIVE-1) extend that to events that never
 reach an element the project owns — third-party widgets portaled into
-document.body, outside-click / Escape for layers, window resize/scroll:
-registered once when the element gets its node, inert while `if:`-hidden,
+document.body, outside-click / Escape for layers, window resize/scroll,
+the soft-keyboard viewport and a media-query flip: registered once when
+the element gets its node, inert while `if:`-hidden,
 torn down in dispose(). Raw addEventListener stays banned everywhere —
 every receiver now has a sanctioned flat prop.
 
