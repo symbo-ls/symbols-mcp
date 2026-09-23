@@ -622,6 +622,16 @@ export const Input = {
 
 Return `null` or `undefined` from a prop function to remove the attribute.
 
+### Updating an attribute prop after mount
+
+`el.update({ … })` and `el.setProps({ … })` write an attribute prop to the node after mount — `disabled`, `checked`, `readonly`, `required`, `hidden`, ARIA props (`ariaPressed`) and any other attribute valid for the tag. `false`, `null` and `undefined` remove a presence attribute; an ARIA attribute keeps the literal `'false'`. If the element declares a function for that attribute (the built-in `Button`'s `disabled`, `Input`'s `attr.disabled`), that function runs again and its result wins — a factory that reads state keeps following state. CSS props and non-attribute props are never written as attributes. (smbls `217e7c7eb`)
+
+```js
+el.update({ disabled: true })      // node.disabled === true — not focusable, not clickable
+el.update({ disabled: false })     // the attribute is removed
+el.update({ ariaPressed: false })  // aria-pressed="false" — literal, never removed
+```
+
 ---
 
 ## `text` and `html`

@@ -628,7 +628,7 @@ Title: { fontWeight: 700 }
 
 ## shape
 
-The **canonical radius token table**. `designSystem/shape.js` exports named, verbatim CSS radius values (`radiusCard: '17px'`) that the runtime resolves for the radius family only: `round:`, `borderRadius:`, and the corner-specific longhands (`borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomLeftRadius`, `borderBottomRightRadius`).
+The **canonical radius token table**. `designSystem/shape.js` exports named CSS radius values (`radiusCard: '17px'`) or aliases of a spacing letter (`radiusControl: 'Z1'`, see below) that the runtime resolves for the radius family only: `round:`, `borderRadius:`, and the corner-specific longhands (`borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomLeftRadius`, `borderBottomRightRadius`).
 
 ### Resolution precedence (per space-separated token)
 
@@ -636,6 +636,10 @@ The **canonical radius token table**. `designSystem/shape.js` exports named, ver
 2. **`sizes` named token** — back-compat: projects that registered radius names in `designSystem/sizes.js` keep resolving unchanged.
 3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). ⚠️ Em-relative means a letter radius shrinks on small-font elements — use fixed shape tokens for product geometry.
 4. **Passthrough** — `'100%'` (circles/capsules), `'0'`, raw units, `var()`/`calc()` pass through untouched.
+
+### A shape value may be a spacing letter
+
+A shape token may alias a bare spacing letter: `radiusControl: 'Z1'`. The letter resolves exactly as `round: 'Z1'` does — the same sequence var, the same em base (so the alias is em-relative too), and an isolated app's own var prefix (`var(--<prefix>-spacing-Z1)`). Every other token in a shape value (`'999px'`, `'50%'`, `var()`/`calc()`, an unknown name) passes through verbatim. A multi-token value resolves per token: `'A2 A2 0 0'` → `var(--spacing-A2) var(--spacing-A2) 0 0`. Do not alias with a hand-written `var(--spacing-Z1)`: an isolated app names its vars `--<prefix>-spacing-*`, so that var does not resolve there. (smbls `3ff22a587`)
 
 ### Token catalog (brand defaults — `company/packages/brand/designSystem/shape.js`)
 
