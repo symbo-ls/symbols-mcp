@@ -645,10 +645,12 @@ A shape token may alias a bare spacing letter: `radiusControl: 'Z1'`. The letter
 
 | Token | Value | Use |
 |-------|-------|-----|
-| `radiusControl` | `12px` | Buttons, inputs, menu items |
-| `radiusCard` | `17px` | Cards, tiles, popover bodies |
-| `radiusSheet` | `24px` | Modals, sheets, docked panels |
+| `radiusControl` | `Z1` — `0.763942em` (12.987px at the 17px base) | Buttons, inputs, menu items |
+| `radiusCard` | `A` — `1em` (17px) | Cards, tiles, popover bodies |
+| `radiusSheet` | `A2` — `1.381953em` (23.493px) | Modals, sheets, docked panels |
 | `radiusPill` | `999px` | Capsules: pills, toggles, tabs |
+
+Since company `7ba29f9` (the radius law: letters everywhere) the first three follow the em spacing scale — each is its letter's own em value, so it scales with the element's font size.
 
 ### Usage
 
