@@ -634,7 +634,7 @@ The **canonical radius token table**. `designSystem/shape.js` exports named CSS 
 
 1. **`shape` named token** — `CONFIG.shape` (this table). Radius-family props only; a shape token never resolves for `padding`/`gap`/`width`.
 2. **`sizes` named token** — back-compat: projects that registered radius names in `designSystem/sizes.js` keep resolving unchanged.
-3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). ⚠️ Em-relative means a letter radius shrinks on small-font elements — use fixed shape tokens for product geometry.
+3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). Em-relative means a letter radius follows the element's font size — this is the radius law (Nika, 2026-09-23: "always use token vars (A,B,C)"): the brand's own shape tokens are letter aliases (`radiusControl` = `Z1`, `radiusCard` = `A`, `radiusSheet` = `A2`, company 7ba29f9), and a shape value may itself be a bare letter (smbls 3ff22a587). Only capsules keep a fixed value (`radiusPill: '999px'`). Never write a raw px radius where a token exists.
 4. **Passthrough** — `'100%'` (circles/capsules), `'0'`, raw units, `var()`/`calc()` pass through untouched.
 
 ### A shape value may be a spacing letter
