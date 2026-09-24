@@ -312,7 +312,9 @@ context.router = { customRouterElement: 'AppShell.Main' }   // dot path
 context.router = { initRouter: false }                       // disable auto-init
 ```
 
-Default `routerOptions` (from `@symbo.ls/router` README): `pushState`, `popState`, `scrollToTop`, `injectRouterInLinkComponent`, `useParamsMatching`, `removeOldElement`, `level`, `contentElementKey: 'content'`.
+Default `routerOptions` (from `@symbo.ls/router` README): `pushState`, `replace`, `popState`, `scrollToTop`, `injectRouterInLinkComponent`, `useParamsMatching`, `removeOldElement`, `level`, `contentElementKey: 'content'`.
+
+**Replace, do not push, for a redirect.** `el.router(path, el.getRoot(), {}, { replace: true })` (or `app.navigate(path, { replace: true })`) rewrites the current history entry with `history.replaceState` — a legacy-URL forward, a canonical rewrite, or a filter/query change then adds no Back-button entry. `replace` only picks how the entry is written; `pushState: false` still writes none, so a `{ pushState: false }` "redirect" renders the new route but leaves the OLD URL in the address bar. Never hand-write `history.replaceState` next to a router call. Available after `@symbo.ls/router` 3.14.601 (smbls repo commit `9f498831e`); up to smbls 3.14.805 the option is ignored and the call pushes. Full example: SYNTAX.md → Router → "Replace instead of push".
 
 Param routes: `{ '/blog/:id': BlogPost }`. Wildcard fallback: `{ '/*': NotFound }`. Param routes are skipped by `smbls brender` since they need runtime data.
 

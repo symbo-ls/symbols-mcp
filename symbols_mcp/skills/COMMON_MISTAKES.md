@@ -1131,3 +1131,81 @@ Decision: {
 The rule covers every registered CSS prop (including `show` — `show: null` no longer forces `display: none`) and a prop written as a function that RETURNS `null`. `undefined` is NOT a tombstone. See SYNTAX.md → "CSS Props (Top-Level)" → "`null` Is a Tombstone" for the full contract and the `undefined`-fallback exception.
 
 If you still see the `var(--spacing-NULL)` shape, you are on a pre-fix smbls version — upgrade the framework; do not hand-patch a border color to work around it.
+
+---
+
+## 37. A row keyed by DATA must declare its tag — a key that equals an HTML tag name BECOMES that tag
+
+With no explicit `tag:`, DOMQL takes the tag from the element's key (`detectTag`, `packages/element/src/cache.js`): lowercase the key, strip a `_suffix` / `.suffix`, and use it when it names an HTML tag. That is how `Nav: {}` becomes `<nav>` — and a collection row keyed by a DATA id gets the same treatment. Three rows measured on dev.my.symbols.app (smbls 3.14.805):
+
+- a service row keyed `canvas` rendered as `<canvas>` — invisible, a canvas never paints its child nodes;
+- a row keyed `search` rendered as `<search>`;
+- a row keyed `data` rendered as `<data>` (an inline element).
+
+Any tag name does it: `input` (a void element — the row's children never render), `dialog` (hidden until opened), `button`, `a`, `form`, `select`, `option`, `img`, `menu`, `main`, `time`, `code`, … Only document-structure and table-internal names (`html`, `body`, `script`, `style`, `title`, `template`, `th`, `tr`, `td`, …) are never inferred.
+
+```js
+// ❌ The row's tag comes from its data id
+ServiceList: {
+  childrenAs: 'state',
+  childExtends: 'ServiceRow',          // declares no tag
+  children: (el, s) => s.services       // keys: 'canvas', 'search', 'data', 'billing'
+}
+// → <canvas> <search> <data> <div>
+
+// ✅ The row declares its tag
+ServiceList: {
+  childrenAs: 'state',
+  childExtends: 'ServiceRow',
+  childProps: { tag: 'div' },          // or `tag: 'div'` inside ServiceRow itself
+  children: (el, s) => s.services
+}
+// → <div> <div> <div> <div>
+
+// ✅ Or prefix the key so it never names a tag
+children: (el, s) => s.services.map(it => ({ ...it, key: 'svc-' + it.key }))
+```
+
+An explicit `tag:` always wins over the key. Full rule: SYNTAX.md → Children → "A key that equals an HTML tag name BECOMES that tag".
+
+Related: row keys are strings. A NUMBER key (`key: it.id` with a numeric id) is normalized by the framework (smbls `e3a9bcc3e`); up to smbls 3.14.805 a number-keyed row with nested children and no `childExtends` threw `g.indexOf is not a function` and was dropped — on those runtimes write `key: String(it.id)`.
+
+---
+
+## 38. A function-valued base fill plus a `:hover` / `:active` fill forces `!important` — keep the base static
+
+A reactive CSS prop (`background: (el, s) => …`) is written as an INLINE style on the node. An inline declaration beats every stylesheet rule whatever its selector specificity — including the `:hover` / `:active` / `:focus-visible` rule for the same property. So when an element declares BOTH a function-valued base and a pseudo-state (or `@media`, theme, `&` selector) declaration for the same property, the framework marks that pseudo declaration `!important` — the only way it can show at all (`resolveCssBlock`, the reactive-collision guard in `packages/element/src/create.js`). Three admin lanes measured this on 81 elements across 5 pages (IntegrationScopePicker and others).
+
+Measured (smbls source, jsdom):
+
+```
+background: (el, s) => s.active ? 'blue' : 'red', ':hover': { background: 'green' }
+  inline:  background: var(--color-red)
+  rule:    .C.C:hover { background: var(--color-green) !important }   (under @media (hover: hover))
+
+background: 'red', ':hover': { background: 'green' }
+  rule:    .C { background: var(--color-red) }
+  rule:    .C.C:hover { background: var(--color-green) }               (no !important)
+```
+
+That `!important` is a trap: it outranks the element's own state fills (a `.isSelected` block is an INLINE write without `!important`, so hovering a selected row paints the hover fill over the selected fill), and no later override can beat it without another `!important`.
+
+```js
+// ❌ Function-valued base + pseudo fill → the :hover rule is emitted with !important
+Row: {
+  background: (el, s) => (s.selected ? 'selected' : 'transparent'),
+  ':hover': { background: 'hover' }
+}
+
+// ✅ Static base; the state variant rides a .isX block; the pseudo fill needs no !important
+Row: {
+  background: 'transparent',
+  isSelected: (el, s) => s.selected,
+  '.isSelected': { background: 'selected' },
+  ':hover': { background: 'hover' }
+}
+```
+
+With the static base, the hover rule (`.C.C:hover`) outranks the base class by specificity alone, and the `.isSelected` inline fill keeps the selected row selected under the pointer. Keep every property that has a pseudo-state, `@media` or theme variant STATIC at the base; put the state logic in `.isX` / `!isX` blocks.
+
+This is a framework contract, not a bug to patch per page: a pseudo rule cannot outrank an inline style by selector specificity, and moving reactive values off inline styles would change the cascade position of every reactive CSS prop (against `@media`, theme and `.isX` blocks). Do not add your own `!important` to "fix" a dead hover — make the base static.

@@ -723,7 +723,45 @@ When `children` is a function, the framework reconciles by `child.key || childPr
 children: (el, s) => s.items.map(it => ({ key: it.id, ...it }))
 ```
 
+An element key is a string. A NUMBER key (a numeric id, a row index) is normalized to its string form where it enters the engine, so `key: 7` and `key: '7'` are the same row, and `key: 0` is the key `'0'` (smbls `e3a9bcc3e`). Runtimes up to smbls 3.14.805 did NOT normalize: a row keyed by a number with its own nested children and no `childExtends` threw `key.indexOf is not a function` (minified: `g.indexOf is not a function`) and was dropped, and a `key: 0` row lost its `data-key`. On those runtimes write `key: String(it.id)`.
+
 Keyed reconcile preserves both **identity and order**: kept nodes are diffed against the new key order and repositioned in the DOM (`insertBefore`) rather than left wherever they were first inserted — so a pure reorder, or a new item landing mid-array, moves existing nodes instead of destroying and recreating them. Moving a node this way preserves its listeners, focus, and any in-progress CSS transition on it. No key-rotation workaround is needed to force a reorder to "take" — a plain re-sort of the array with stable keys is sufficient.
+
+### A key that equals an HTML tag name BECOMES that tag
+
+With no explicit `tag:`, the tag comes from the element's KEY (`detectTag`, `packages/element/src/cache.js`): the key is lowercased, a `_suffix` / `.suffix` is stripped, and if the rest is a known HTML tag name, that is the tag. This is what makes `Nav: {}` a `<nav>` — and it applies to DATA keys too. A row keyed by data is rendered as whatever element its data id happens to name:
+
+| Data key (measured on dev.my.symbols.app, smbls 3.14.805) | Rendered as | Effect |
+| -- | -- | -- |
+| a service row keyed `canvas` | `<canvas>` | invisible — a canvas never paints its child nodes |
+| a row keyed `search` | `<search>` | a landmark element, not a plain row |
+| a row keyed `data` | `<data>` | an inline element, not a block row |
+
+The same holds for `input` (a void `<input>` — its children never render), `dialog` (hidden until opened), `button`, `a`, `form`, `select`, `option`, `label`, `img`, `video`, `menu`, `main`, `nav`, `time`, `mark`, `code`, … — every key that is a tag name. `fragment` and `string` are special tags too (a DocumentFragment, a text node). Only document-structure and table-internal names (`html`, `head`, `body`, `script`, `style`, `title`, `template`, `th`, `tr`, `td`, `thead`, `tbody`, …) are never inferred.
+
+**Rule: a row keyed by DATA declares its tag.** Put `tag: 'div'` on the row — on the `childExtends` component, or through `childProps` — or give the key a prefix that is not a tag name:
+
+```js
+// ❌ Row tag comes from the data id — 'canvas' becomes an invisible <canvas>
+ServiceList: {
+  childrenAs: 'state',
+  childExtends: 'ServiceRow',          // ServiceRow declares no tag
+  children: (el, s) => s.services       // [{ key: 'canvas', … }, { key: 'search', … }]
+}
+
+// ✅ The row declares its tag — every row is a <div> whatever its key
+ServiceList: {
+  childrenAs: 'state',
+  childExtends: 'ServiceRow',
+  childProps: { tag: 'div' },
+  children: (el, s) => s.services
+}
+
+// ✅ Or a key prefix that no tag name matches
+children: (el, s) => s.services.map(it => ({ ...it, key: 'svc-' + it.key }))
+```
+
+An explicit `tag:` always wins over the key. A declared PascalCase key that is a tag name (`Canvas: {}`, `Data: {}`) follows the same rule unless the component it auto-extends declares its own `tag` — name the key after what it is, or set `tag:`.
 
 ### `state: 'key'` (Narrow state scope) vs `childrenAs: 'state'`
 
@@ -973,6 +1011,23 @@ onClick: (e, el, s) => {
   })
 }
 ```
+
+### Replace instead of push — `replace: true`
+
+`replace: true` rewrites the CURRENT history entry (`history.replaceState`) instead of adding one. Use it for a redirect, a canonical-URL rewrite, or a filter / query change that must not stack Back-button entries:
+
+```js
+// A legacy URL forwards to its new home — Back does not return to the old URL
+onRender: (el) => el.router('/admin/flags', el.getRoot(), {}, { replace: true })
+
+// A filter change rewrites the query without stacking Back entries
+onInput: (e, el) => el.router('/search?q=' + encodeURIComponent(e.target.value), el.getRoot(), {}, { replace: true })
+
+// Same through the app handle returned by create()
+app.navigate('/login', { replace: true })
+```
+
+`replace` only chooses HOW the entry is written: `pushState: false` still writes no history at all (the popstate handler and the initial render use it), so `{ pushState: false }` renders the route but leaves the OLD URL in the address bar. `replace` ships in `@symbo.ls/router` after 3.14.601 (smbls repo commit `9f498831e`); a runtime up to smbls 3.14.805 ignores it and pushes.
 
 ### Custom Router Element (Persistent Layouts)
 
