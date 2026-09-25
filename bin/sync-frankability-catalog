@@ -27,18 +27,26 @@ fi
 COUNT=$(echo "$IDS" | wc -l | tr -d ' ')
 echo "syncing $COUNT rules → $OUT"
 
-declare -A CATEGORY_TITLES=(
-  [0]="FA0xx — Project structure & imports"
-  [1]="FA1xx — Flat element API"
-  [2]="FA2xx — DOMQL syntax & scope movers"
-  [3]="FA3xx — Design-system tokens"
-  [4]="FA4xx — Fix-time rules"
-  [5]="FA5xx — Banned runtime APIs & frank-serialization"
-  [6]="FA6xx — Lifecycle & events"
-  [7]="FA7xx — State"
-  [8]="FA8xx — Pages & routing"
-  [9]="FA9xx — Reference resolution"
-)
+# Bucket titles. A plain function, NOT `declare -A`: associative arrays are
+# bash 4+, and macOS ships bash 3.2 as /bin/bash, so `declare -A` aborted this
+# script under `set -e` before it wrote a single rule — the catalog silently
+# stayed at the previous release's wording
+# (FW-FRANKAUDIT-FA107-FLAGS-FETCH-ON-TRIGGER-1).
+category_title () {
+  case "$1" in
+    0) echo "FA0xx — Project structure & imports" ;;
+    1) echo "FA1xx — Flat element API" ;;
+    2) echo "FA2xx — DOMQL syntax & scope movers" ;;
+    3) echo "FA3xx — Design-system tokens" ;;
+    4) echo "FA4xx — Fix-time rules" ;;
+    5) echo "FA5xx — Banned runtime APIs & frank-serialization" ;;
+    6) echo "FA6xx — Lifecycle & events" ;;
+    7) echo "FA7xx — State" ;;
+    8) echo "FA8xx — Pages & routing" ;;
+    9) echo "FA9xx — Reference resolution" ;;
+    *) echo "FA${1}xx" ;;
+  esac
+}
 
 {
   cat <<'EOF'
@@ -59,7 +67,7 @@ EOF
     BUCKET="${ID:2:1}"
     if [ "$BUCKET" != "$CUR_BUCKET" ]; then
       CUR_BUCKET="$BUCKET"
-      TITLE="${CATEGORY_TITLES[$BUCKET]:-FA${BUCKET}xx}"
+      TITLE="$(category_title "$BUCKET")"
       printf '\n---\n\n## %s\n\n' "$TITLE"
     fi
     frank-audit explain "$ID" 2>&1

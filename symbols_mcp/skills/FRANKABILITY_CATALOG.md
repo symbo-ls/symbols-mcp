@@ -288,6 +288,17 @@ The audit reports these but does not auto-fix because synthesizing the
 handler body requires intent. Open the file, find the legacy-style
 handler attached to this component, and inline it as `onEvent: fn`.
 
+CARVE-OUT — a `fetch` config trigger is NOT this rule:
+
+  { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit' } }
+
+`on` is a documented key of the fetch plugin ('create' | 'click' |
+'submit' | 'stateChange'); the plugin binds the listener itself. An
+`onSubmit: fn` there does NOT run the declarative mutation, so an `on`
+string that sits directly on a fetch config is skipped — in the object
+form, in the `fetch: [ ... ]` array form, and in the function form
+`fetch: (el, s) => ({ ... })`. Any other `on` string still reports.
+
 # FA108 — style-wrapping-flat
 
 DOMQL handles every standard CSS property as a flat top-level prop

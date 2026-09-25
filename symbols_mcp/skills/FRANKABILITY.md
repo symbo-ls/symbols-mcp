@@ -161,7 +161,17 @@ Form:   { on: ['init', 'render'] }
 // ✅ Good — bind the handler in one place
 Button: { onClick: (e, el) => { ... } }
 Form:   { onInit: (el) => { ... }, onRender: (el) => { ... } }
+
+// ✅ Also good — a fetch config trigger is NOT this rule
+Form:   { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit' } }
 ```
+
+`on` is a documented key of the fetch plugin (`'create'` | `'click'` |
+`'submit'` | `'stateChange'`) and the plugin binds the listener itself. An
+`onSubmit: fn` there does NOT run the declarative mutation, so the audit skips
+an `on` string that sits directly on a fetch config — object form,
+`fetch: [ ... ]` array form and `fetch: (el, s) => ({ ... })` function form
+alike. Any other `on` string still reports.
 
 ---
 
