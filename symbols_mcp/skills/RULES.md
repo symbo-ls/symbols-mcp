@@ -825,7 +825,7 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 | `el.remove()` (raw DOM API on `el.node`) | `el.remove()` (DOMQL method) — disposes effects too |
 | `window.location.href = '/x'` | `el.router('/x', el.getRoot())` |
 | `window.location.assign/replace` | `el.router(...)` |
-| `window.fetch(url)` in a component file | `el.fetch` declarative or `el.call('fetchX')` (Rule 47) |
+| `window.fetch(url)` in a component file | `el.fetch` declarative or `el.call('fetchX')` (Rule 47); streaming / binary / multipart: `responseType` + body pass-through (Rule 47) |
 | `addEventListener('storage'/'resize'/'scroll')` from a component | `onResize:`/`onScroll:` on the element when the event reaches it; otherwise the flat window/document family — `onWindowResize:` / `onWindowScroll:` / `onWindowStorage:` / `onDocumentClick:` (DOMQL-owned lifecycle, torn down on dispose) |
 | `el.node.style.setProperty('--var', …)` / `documentElement.style.setProperty(...)` | `vars: { '--var': value }` prop or design-system token |
 | `XMLHttpRequest` / `navigator.sendBeacon` | declarative `fetch:` prop or `el.call` wrapping `el.getDB()` (Rule 47) |
@@ -1302,6 +1302,8 @@ onRender: async (el, s) => {
   s.update({ data: r })
 }
 ```
+
+**Streaming (SSE), binary downloads and multipart uploads go through the plugin too — never a raw `fetch` for them.** On the REST adapter, `responseType: 'stream' | 'blob' | 'arrayBuffer' | 'response'` (on any `db.*` call or in a declarative `fetch:`) returns a `ReadableStream`, `Blob`, `ArrayBuffer` or the raw `Response`, and a `FormData` / `Blob` / `File` / `ArrayBuffer` / `URLSearchParams` / `ReadableStream` in `data` is sent as it is, with no adapter `Content-Type`. Per-call `headers` (a per-user `Authorization`, say) merge over the configured ones. Worked examples: SYNTAX → Data Fetching → "Response types and request bodies".
 
 If you genuinely need imperative control (e.g. a multi-step flow), wrap it in a `functions/` file and call via `el.call('loadX')` — but `el.fetch` declarative is the default.
 

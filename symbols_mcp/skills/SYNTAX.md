@@ -1145,7 +1145,60 @@ Deduplication: identical concurrent queries share one network request.
 { fetch: { from: 'settings', initialData: { theme: 'dark' } } }
 ```
 
-> NEVER call `window.fetch` / `axios` from a component. Use `fetch:` declaratively, or a `functions/loadX.js` for imperative flows. (Rule 47.)
+### Response types and request bodies (REST adapter)
+
+`responseType` sets how the REST adapter reads the response body. It works on `db.select / rpc / insert / update / upsert / delete` and in a declarative `fetch:`.
+
+| `responseType` | `data` on success |
+|---|---|
+| `'auto'` (default) | JSON when the `content-type` says json, else text |
+| `'json'` / `'text'` | parsed JSON, whatever the `content-type` says / the body string |
+| `'blob'` / `'arrayBuffer'` | a `Blob` (bytes and content type kept — audio, xlsx, csv) / an `ArrayBuffer` |
+| `'stream'` | the body `ReadableStream`, returned before the body is read |
+| `'response'` | the raw `Response`, unread (use it to read response headers) |
+
+A failed response keeps `{ data, error, status }` for every type. An unknown `responseType` throws before the request is sent.
+
+```js
+// In a handler (in a functions/ file use `this.getDB()`)
+const db = await el.getDB()
+
+// SSE / streamed answer — read it chunk by chunk
+const { data: stream, error } = await db.insert({ from: '/ask', data: { question }, responseType: 'stream' })
+if (!error) {
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader()
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    onChunk(value)  // 'data: …\n\n' lines, as the server sends them
+  }
+}
+
+// Blob download
+const { data: blob } = await db.select({ from: '/reports/q3.xlsx', responseType: 'blob' })
+el.state.update({ reportUrl: URL.createObjectURL(blob) })
+
+// FormData upload — the adapter sets no Content-Type, fetch writes the multipart boundary
+const form = new FormData()
+form.append('audio', recording, 'voice.webm')
+await db.insert({ from: '/voice', data: form })
+
+// Per-call headers win over the configured headers and the token; null removes one
+await db.select({ from: '/me', headers: { Authorization: `Bearer ${userToken}` } })
+await db.select({ from: '/public/feed', headers: { Authorization: null } })
+```
+
+Declarative — a `Blob`, `ArrayBuffer`, stream or `Response` lands in state only under `as`:
+
+```js
+{ state: { answerAudio: null }, fetch: { from: '/voice/answer', responseType: 'blob', as: 'answerAudio' } }
+{ tag: 'form', fetch: { method: 'insert', from: '/upload', on: 'submit', transform: (data, el) => new FormData(el.node) } }
+```
+
+- Sent as they are, with no adapter `Content-Type`: `FormData`, `Blob` / `File`, `ArrayBuffer`, typed arrays / `DataView`, `URLSearchParams`, `ReadableStream`. Any other `data` / `params` value is JSON, as before.
+- A `'stream'` or `'response'` body can be read once, so those queries are never cached or deduplicated. They refetch on window focus / reconnect only when `refetchOnWindowFocus` / `refetchOnReconnect` is `true`.
+
+> NEVER call `window.fetch` / `axios` from a component — streaming, binary and multipart calls included: use the options above. Use `fetch:` declaratively, or a `functions/loadX.js` for imperative flows. (Rule 47.)
 
 ---
 

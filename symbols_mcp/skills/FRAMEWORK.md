@@ -433,6 +433,9 @@ fetch: [
 
 // Mutations
 { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit', fields: true } }
+
+// Binary / streamed response (REST) — a Blob / ArrayBuffer / stream / Response lands in state only under `as`
+{ state: { answerAudio: null }, fetch: { from: '/voice/answer', responseType: 'blob', as: 'answerAudio' } }
 ```
 
 ### Cache, retry, dedupe, focus refetch — all default-on
@@ -488,11 +491,19 @@ const db = await this.getDB()
 const { data, error } = await db.select({ from: 'articles' })
 // also: db.insert / .update / .delete / .rpc / .upload / .signIn / .onAuthStateChange ...
 
+// REST adapter — every call takes responseType: 'auto' (default) | 'json' | 'text' | 'blob' | 'arrayBuffer' | 'stream' | 'response'
+const { data: blob } = await db.select({ from: '/reports/q3.xlsx', responseType: 'blob' })              // a Blob
+const { data: stream } = await db.insert({ from: '/ask', data: { question }, responseType: 'stream' })  // a ReadableStream (SSE)
+await db.insert({ from: '/voice', data: formData })                                                     // FormData / Blob / ArrayBuffer bodies are sent as they are
+await db.select({ from: '/me', headers: { Authorization: `Bearer ${userToken}` } })                     // per-call headers win over the configured ones
+
 import { queryClient } from '@symbo.ls/fetch'
 queryClient.invalidateQueries('articles')
 queryClient.setQueryData('articles:select:', (old) => [...old, newOne])
 queryClient.prefetchQuery({ from: 'profile' }, context)
 ```
+
+`responseType` and per-call `headers` also work in a declarative `fetch:`. Worked examples (SSE read, Blob download, FormData upload): SYNTAX → Data Fetching.
 
 ### Auth guard
 
@@ -506,7 +517,7 @@ Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error
 
 ### Anti-patterns
 
-- Don't bypass adapter — `await fetch(...)` from inside DOMQL skips cache, retry, dedupe, optimistic, and the `Accept-Language` header injection.
+- Don't bypass adapter — `await fetch(...)` from inside DOMQL skips cache, retry, dedupe, optimistic, and the `Accept-Language` header injection. Streaming (SSE), binary downloads and multipart uploads are no exception: the REST adapter reads them through `responseType` and sends `FormData` / `Blob` bodies as they are (see Imperative).
 - Don't ship `db.createClient` (a function) in published JSON. `mermaid/src/bundle.js:65-66` strips it (`delete context.db.createClient`). The Supabase adapter at `plugins/fetch/adapters/supabase.js:16-19` falls back to `await import('@supabase/supabase-js')` when no `createClient` is provided, so put the package in `dependencies.js` and let the runtime import it. Trying to keep the function reference across JSON is futile.
 - Don't write to state inside a fetch's own `transform` and a parent's `onFetchComplete` for the same key — race on cache resolution. Pick one.
 
