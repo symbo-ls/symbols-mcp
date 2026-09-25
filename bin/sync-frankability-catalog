@@ -3,6 +3,16 @@
 # `explain` output. Run before each release so the bundled catalog tracks
 # whatever rules frank-audit currently ships.
 #
+# ⚠ THIS SCRIPT DELETES HAND-AUTHORED PROSE. The catalog calls itself
+# auto-generated, but paragraphs no rule's `explain()` carries have been added
+# to it by hand — FA304's sizes-token section (symbols-mcp a6eace5), FA701's
+# polyglot block and the onDocumentXxx notes (1945ffd, 7e3dc05). A full resync
+# on 2026-09-25 dropped 29 such lines. Until
+# FW-MCP-CATALOG-SYNC-OVERWRITES-HAND-AUTHORED-SKILL-DOCS-1 decides which side
+# owns the prose: to add ONE rule's wording, splice that rule's
+# `frank-audit explain <ID>` output into the file instead of running this.
+# Diff the result before committing, every time.
+#
 # Usage: ./bin/sync-frankability-catalog
 set -e
 
