@@ -443,6 +443,14 @@ audit warnings and bundle output:
   reachable even when source declares `() => ...`).
 - `async` modifier preserved when arrow→function conversion happens for
   globalScope helpers calling peer keys.
+- A helper promoted into `globalScope` reads its peers through a scope
+  derived from its receiver (`const __peers = …` at the top of the emitted
+  body): called on a scope (`el.scope.fn()`, `__scope.fn()`) it reads that
+  scope; handed the ELEMENT (`sibling.call(this)` from a `functions/*`
+  export) it reads `el.scope`, then `context.globalScope`. So a
+  `functions/*` export may pass its element on to a sibling export that
+  reads `this.state` and module helpers — the promoted copy no longer reads
+  those helpers off the element (`this._helper is not a function`).
 - `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
   swallow async user-code rejections (won't crash frank).
 - The free-variable scanner no longer false-positives on object-literal
