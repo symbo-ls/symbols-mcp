@@ -461,6 +461,15 @@ audit warnings and bundle output:
   `functions/*` export may pass its element on to a sibling export that
   reads `this.state` and module helpers — the promoted copy no longer reads
   those helpers off the element (`this._helper is not a function`).
+- A top-level ARROW export in `functions/` or `methods/` whose emitted body
+  reads `this` (frank's own `__scope` preamble for a free variable or a
+  module-state write does) is emitted as a `function` expression, so the
+  element `el.call` passes as `this` reaches it. An arrow cannot take a
+  receiver: before this, such an entry read `{}` as its scope in every
+  published consumer (`Cannot set properties of undefined`). Write
+  `functions/*` exports as `function` declarations anyway (Rule 8) — a
+  module-level arrow's own `this` is `undefined`, and esbuild compiles a
+  source `this` there to `void 0`.
 - `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
   swallow async user-code rejections (won't crash frank).
 - The free-variable scanner no longer false-positives on object-literal
