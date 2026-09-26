@@ -593,6 +593,30 @@ style: (el, s) => ({ transform: `translateX(${s.x}px)` })
 
 **Always `(el, s)`. NEVER `({ state })` or `({ props, state })` — those destructured signatures are forbidden.**
 
+### Reactive CSS Props Write Inline — a Declared Longhand Still Wins
+
+A STATIC CSS prop compiles to an atomic **class**. A REACTIVE one (a function) is written **inline** on the node, because its value changes. Inline beats a class in the cascade whatever order you wrote the two keys in.
+
+That split used to lose a shorthand/longhand pair: `transition` (reactive, inline) reset `transition-property` (static, class), so the element animated `all` and every layout property with it.
+
+```js
+export const NkButton = {
+  transitionProperty: 'background, color',              // class
+  transition: (el, s) => s.pressed ? 'A' : 'B defaultBezier'   // inline
+}
+// -> transition-property: background, color   (the declared longhand wins)
+```
+
+The framework re-asserts the element's OWN declared longhands inline, after the reactive shorthand, so the longhand wins — which is what a longhand written beside a shorthand asks for. It holds for every shorthand family: `margin`/`marginTop`, `padding`/`paddingBlock`, `background`/`backgroundColor`, `border`/`borderTopWidth`, `borderRadius`/`borderTopLeftRadius`, `outline`/`outlineColor`, `gap`/`rowGap`, `flex`/`flexBasis`, `inset`/`top`, `overflow`/`overflowX`, `font`/`lineHeight`, `grid`/`gridTemplateRows`, `transition`/`transitionProperty`, plus `mask`, `listStyle`, `textDecoration`, `columns` and the `place-*` group.
+
+Three things the rule deliberately does NOT do:
+
+- **A reactive longhand still beats a static shorthand.** `transition: 'B defaultBezier'` plus `transitionProperty: (el, s) => …` is unchanged — the reactive value is the one that moves, so it stays on top.
+- **A longhand that resolves to a theme PAIR stays in its class.** `backgroundColor: 'primary'` under `@dark`/`@light` has no single inline value, so a reactive `background` still wins over it. Write the reactive half as a longhand too when you need both.
+- **`style: (el, s) => ({ … })` is untouched.** The raw-style escape hatch is inline by contract and beats every class, longhand included.
+
+Where a preset and a prop disagree the ladder is unchanged: `theme` < design-system `class` fragment < the element's own prop. A reactive prop is the element's own prop, so it beats both.
+
 ---
 
 ## `attr` (HTML Attributes)
