@@ -261,12 +261,16 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 
 ### Methods named like built-in element methods
 
-A library can NOT replace a built-in element method (`getRoot`, `getRootState`, `getRef`, `getChildren`, `getRootData`, `getRootContext`, `getContext`, `log`, `warn`, `error`, `verbose`, `update`, `set`, `lookup`, `call`, … — every element method):
+**Built-in element methods are protected; the logging hooks `log` / `warn` / `error` / `verbose` are override points.**
 
-- **The merge refuses the entry.** A library `methods` key named like a built-in is skipped on both merge branches (add-missing into the app's bag, and the wholesale copy when the app has no `methods` bag). The library's other methods merge as before. In a dev runtime (`NODE_ENV` not `production`, or a `localhost` / `*.localhost` host) one warning per refused name names the method and the library.
-- **A later fold cannot bring it back.** `refreshContextProto(context)` re-syncs the element prototype with `context.methods`, but it never installs a built-in name that the prototype did not already carry when it was built. Code that copies a library's methods into the live `context.methods` after boot therefore cannot shadow a built-in either.
-- **`el.call(name)` agrees with `el[name]` for a built-in name** — it resolves the element's own method (the built-in, or the app's own override), never a stray `context.methods` entry.
-- **The app's OWN methods still win.** A key the app declares in its own `methods/` is an explicit decision and replaces the built-in exactly as before (Rule 63: an intentional override is declared by the app, never inherited from a library). If the app wants a library's version of a built-in, it re-exports it from its own `methods/index.js`.
+A library can NOT replace a protected built-in element method (`getRoot`, `getRootState`, `getRef`, `getChildren`, `getRootData`, `getRootContext`, `getContext`, `update`, `set`, `lookup`, `call`, … — every element method except the four override points):
+
+- **The merge refuses the entry.** A library `methods` key named like a protected built-in is skipped on both merge branches (add-missing into the app's bag, and the wholesale copy when the app has no `methods` bag). The library's other methods merge as before. In a dev runtime (`NODE_ENV` not `production`, or a `localhost` / `*.localhost` host) one warning per refused name names the method and the library.
+- **A later fold cannot bring it back.** `refreshContextProto(context)` re-syncs the element prototype with `context.methods`, but it never installs a protected built-in name that the prototype did not already carry when it was built. Code that copies a library's methods into the live `context.methods` after boot therefore cannot shadow a protected built-in either.
+- **`el.call(name)` agrees with `el[name]` for a protected built-in name** — it resolves the element's own method (the built-in, or the app's own override), never a stray `context.methods` entry.
+- **The app's OWN methods still win.** A key the app declares in its own `methods/` is an explicit decision and replaces the built-in exactly as before (Rule 63: an intentional override is declared by the app, never inherited from a library).
+
+**Override points — `log`, `warn`, `error`, `verbose`.** These four are observability hooks, not element semantics, so a library's version merges like any other library method and wins over the built-in (the app's own version still wins over both). A shared library typically ships "log and continue" versions its own methods rely on — for example an `error` that reports and returns, where the built-in `error()` throws in development builds and is silent in production. A fold may install them too, and `el.call('error')` keeps the normal lookup order.
 
 Why: the element prototype layers `context.methods` over the built-in element methods, so a library copy used to replace the built-in silently — and kept replacing it after the framework fixed the built-in. Measured on a live app: a library shipped an old copy of `getRoot` that read only `getRootState().__element`. The built-in resolves the app root element first (`el.__ref.root`, stamped on every element at create). Inside an installed module the root state is the module's own store, which names no element — so the copy answered `undefined`, and every popover inside the module (a dropdown reads `el.getRoot().DropdownRoot`) did nothing, with no error.
 
@@ -406,7 +410,7 @@ prepareContext() {
 5. **Order matters** — first library in the array has priority over later ones for filling undefined slots.
 6. **Key format is `owner/key`** — bare keys default to `system/` owner.
 7. **`smbls create` defaults to `system/default`** — use `--blank-shared-libraries` for no libraries.
-8. **Built-in element methods are protected from libraries** — a library `methods` entry named like one (`getRoot`, `getRootState`, `log`, …) is refused and the built-in wins (dev warning names it). Only the app's OWN `methods` can override a built-in (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
+8. **Built-in element methods are protected; the logging hooks are override points** — a library `methods` entry named like a protected built-in (`getRoot`, `getRootState`, `update`, …) is refused and the built-in wins (dev warning names it); a library's `log` / `warn` / `error` / `verbose` merge and win as before. The app's OWN `methods` win over both (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
 9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). Reports drift by library *slug*, not exact path, so it survives the `dir: "."` path-resolution edge case.
 10. **`sharedLibraries.js` has a canonical shape** — the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
 
