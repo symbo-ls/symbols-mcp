@@ -154,6 +154,51 @@ Custom schemes (`@ocean`, `@sunset`, …) activate via `data-theme` only; `prefe
 
 ---
 
+## Skins (`designSystem.skins`) — a dimension orthogonal to light / dark
+
+A **skin** rewrites THEME variables (`--theme-<theme>-<param>`) under `[data-skin="<name>"]`. Components never branch on the skin: `theme: 'card'` reads `var(--theme-card-background)`, and the skin changes what that variable holds. Light / dark keep working inside every skin, because a skin value that names a colour token becomes that colour's variable — and the colour pair flips with `data-theme` on its own.
+
+```js
+// designSystem/skins.js
+export default {
+  solid: {
+    card: { background: 'cardSolid', backdropFilter: 'none' },
+    pill: { background: 'pillSolid', backdropFilter: 'blur(35px)' }
+  },
+  ambient: {
+    fallback: 'solid',   // under prefers-reduced-transparency: reduce → solid's values
+    card: { background: 'cardGlass', backdropFilter: 'blur(18px)' },
+    pill: { background: 'cardGlass', backdropFilter: 'blur(18px)' }
+  }
+}
+```
+
+Rules:
+- The keys under a skin are **theme names**; their keys are that theme's **params**. A skin can only rewrite a param the theme itself declares (the theme's value is the no-skin value) — a param the theme lacks is never read by any element, and scratch warns in a dev runtime.
+- A value naming a **colour token** → `var(--color-<token>)` (flips with the scheme). Anything else is CSS as written (`blur(18px)`, `none`).
+- `fallback: '<other skin>'` is the one reserved key.
+- **No `data-skin` attribute = the themes' own values.** Nothing is emitted for that state, and a design system without `skins` emits nothing at all.
+- Skins rewrite variables, so they need variable mode (`useVariable: true`, the default).
+
+What lands in the document (primary app; emitted AFTER the scheme table, so on an equal specificity the skin wins):
+
+```css
+:root[data-skin="solid"], [data-skin="solid"]     { --theme-card-background: var(--color-cardSolid); --theme-card-backdropFilter: none; … }
+:root[data-skin="ambient"], [data-skin="ambient"] { --theme-card-background: var(--color-cardGlass); --theme-card-backdropFilter: blur(18px); … }
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-skin="ambient"], [data-skin="ambient"] { /* solid's values */ }
+}
+
+/* Secondary / scoped app (scope = its app selector) — never document-wide */
+<scope>[data-skin="S"], [data-skin="S"] <scope>, <scope> [data-skin="S"] { … }
+```
+
+Choosing a skin: `data-skin` on the theme root skins the whole document; `data-skin` on any element skins that subtree only (e.g. `attr: { 'data-skin': 'solid' }` on a frame that must stay solid inside an ambient page). The same rules ship in brender's SSR global CSS, so a server-rendered page paints the skin before the client boots.
+
+Emission path: scratch `applySkins()` (runs in `set()` after colours and themes) fills `CONFIG.cssSkinVars` / `CONFIG.cssSkinFallback`; `buildSkinVarStyles(skinVars, skinFallback, scope)` (exported from `@symbo.ls/scratch` / `smbls`) builds the rules; smbls `init` / `reinit` / `updateVars` / `prepareDesignSystem` inject them next to the scheme table. Never emit skin variables by hand from a project `reset`.
+
+---
+
 ## Per-element `@dark` / `@light` / custom variants
 
 `@dark`, `@light`, or any `@name` inside a DOMQL element compiles to a single `[data-theme="<scheme>"] &` rule with `!important`:
@@ -268,6 +313,7 @@ The set of `designSystem/*.js` files a project ships varies by complexity. Commo
 | `color.js` | Named color palette (incl. opacity / theme-dependent variants) |
 | `gradient.js` | Named gradient tokens |
 | `theme.js` | Per-scheme blocks (`@light` / `@dark` / custom); semantic surface themes |
+| `skins.js` | Skins — per-skin rewrites of theme params under `[data-skin="<name>"]`, orthogonal to light / dark (see the Skins section) |
 | `font.js` | Font definitions (size, weight, family) and `fontFace` strings |
 | `font_family.js` | Family name → stack mapping (use `font_family` not `fontFamily` in config) |
 | `typography.js` | Named typography presets + ratio config |
