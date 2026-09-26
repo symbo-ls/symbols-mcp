@@ -946,7 +946,7 @@ export const Chart = {
 | **Content** | `el.removeContent()` | Dispose & remove `content` child |
 | **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
 | | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
-| **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` |
+| **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` (a built-in element method name resolves the element's own method) |
 | **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |
 | **Debug** | `el.parse(exclude)` | Plain object snapshot |
 | | `el.parseDeep(exclude)` | Deep parse including children |
@@ -973,6 +973,8 @@ export const Chart = {
 ## `el.call()` — Function Lookup
 
 Lookup order: `context.methods → context.functions → context.utils → element prototype`.
+
+Exception — built-in element method names (`getRoot`, `getRootState`, `update`, `set`, `log`, `warn`, `error`, …): `el.call(name)` resolves the element's own method, exactly like `el[name]()` — the built-in, or the app's own override declared in its `methods/`. A shared library's `methods` never replace a built-in (see SHARED_LIBRARIES.md, "Methods named like built-in element methods").
 
 ```js
 // functions/findUser.js
