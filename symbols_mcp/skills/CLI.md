@@ -324,7 +324,7 @@ smbls completion                              Generate shell completion script
 smbls link-packages                           Links all smbls packages into the project
 ```
 
-`ask` flags: `--provider <claude|openai|gemini|ollama>`, `--model <name>`, `--init` (configure AI/MCP).
+`ask` flags: `--provider <symbols|claude|openai|gemini|ollama>` (default `symbols` — the hosted Symbols Service, no API key), `--model <name>`, `--code` (Symbols-aware codegen lane, symbols provider only), `--init` (configure AI/MCP). The `symbols` provider's model lane: a named model (`--model` / the one saved by `--init`) keeps the lane that serves it; otherwise the platform's default AI (`defaultProvider` of `GET /core/ai/providers` on the active channel); otherwise `ai.simoneProvider` in `~/.smblsrc`, else Gemini.
 
 `channels` (agents read this): the bare command is INTERACTIVE. In a TTY it
 waits for the choice and applies it. Without a TTY (or with
