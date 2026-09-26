@@ -184,6 +184,8 @@ export const prepareSharedLibs = (context) => {
 
 ### deepMerge Behavior
 
+`deepMerge` is the ELEMENT-DEFINITION merge (extends chains). The shared-library merge above never calls it, so its `METHODS_EXL` filter does NOT apply to library bags — see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods).
+
 `smbls/packages/utils/object.js:61-76`:
 
 ```js
@@ -207,7 +209,7 @@ Key rules:
 - **App always wins** — only merges when the app property is `undefined`
 - Skips `__` prefixed properties
 - Recursively merges nested objects
-- Skips METHODS_EXL keys: `node`, `context`, `extends`, `__element`, `__ref`, and all element/state/props methods
+- Skips METHODS_EXL keys: `node`, `context`, `extends`, `__element`, `__ref`, and all element/state/props methods — when merging element definitions only
 
 ---
 
@@ -242,19 +244,27 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 
 ## What Gets Merged
 
-| Merged | Not Merged (METHODS_EXL) |
+| Merged (key by key, only where the app has no such key) | Never merged from a library |
 |--------|--------------------------|
-| components | node |
-| functions | context |
-| methods | extends |
-| snippets | __element, __ref |
-| pages / routes | Element methods (set, reset, update, remove, lookup...) |
-| state | State methods (parse, create, destroy, toggle...) |
-| designSystem | Props methods |
-| files | Properties starting with `__` |
+| components | `app` — the library's own root definition |
+| functions | `sharePages`, `sharedLibIgnore` — merge directives, not content |
+| methods | any path in the consumer's `ignoreList` or the library's `sharedLibIgnore` |
+| snippets | `pages`, when the library sets `sharePages: false` |
+| pages / routes | |
+| state | |
+| designSystem (deep defaults) | |
+| files | |
 | dependencies | |
 | dependenciesOnDemand | |
 | utils, cases, plugins | |
+
+### Methods named like built-in element methods
+
+A library's `methods` bag merges key by key like every other bag — INCLUDING keys that share a name with a built-in element method (`getRoot`, `getRootState`, `getRef`, `getChildren`, `getRootData`, `getRootContext`, `getContext`, `log`, `warn`, `error`, `verbose`, `update`, `lookup`, …). The element prototype layers `context.methods` over the built-in element methods, and `el.call(name)` reads `context.methods` first, so such an entry REPLACES the built-in on every element of the consuming app. Nothing warns, and the copy keeps replacing the built-in after the framework fixes or improves it.
+
+Measured: a library shipped an old copy of `getRoot` that read only `getRootState().__element`. The built-in resolves the app root element first (`el.__ref.root`, stamped on every element at create). Inside an installed module the root state is the module's own store, which names no element — so the copy answered `undefined`, and every popover inside the module (a dropdown reads `el.getRoot().DropdownRoot`) did nothing, with no error.
+
+Rule: a library never ships a copy of a built-in element method (Rule 63). An app that overrides one on purpose declares it in its OWN `methods/` and documents why — the app's own keys always win.
 
 ---
 
@@ -392,7 +402,7 @@ prepareContext() {
 5. **Order matters** — first library in the array has priority over later ones for filling undefined slots.
 6. **Key format is `owner/key`** — bare keys default to `system/` owner.
 7. **`smbls create` defaults to `system/default`** — use `--blank-shared-libraries` for no libraries.
-8. **Methods are protected** — METHODS_EXL prevents shared libraries from overwriting element methods and internal references.
+8. **Built-in element methods are NOT protected from a library's `methods`** — a library entry named like one (`getRoot`, `getRootState`, `log`, …) replaces it on every element of the consuming app. Never ship a copy of a built-in in a library (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
 9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). Reports drift by library *slug*, not exact path, so it survives the `dir: "."` path-resolution edge case.
 10. **`sharedLibraries.js` has a canonical shape** — the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
 
