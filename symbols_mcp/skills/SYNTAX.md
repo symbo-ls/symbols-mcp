@@ -1077,6 +1077,30 @@ el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard] })
 
 ---
 
+### Route events — `onRouteChanged` and exit motion with `onRouteExit`
+
+Both events fire on the routed element (the app root for `el.router(path, el.getRoot())`). `onRouteChanged(el, state, context, options)` runs AFTER the new page is mounted — use it for an entrance. `onRouteExit(el, state, context, exit)` runs BEFORE the router swaps the page, with the page that is leaving; return a promise and the router waits for it before it writes history, updates the route state and mounts the new page:
+
+```js
+// app.js
+export const app = {
+  onRouteExit: (el, s, ctx, exit) => {
+    // exit = { page, from, to, pathname, params, query, hash, signal, timeout }
+    const anim = exit.page.node.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150 })
+    exit.signal?.addEventListener('abort', () => anim.cancel())
+    return anim.finished.catch(() => {}) // a cancelled exit is a finished exit
+  },
+  onRouteChanged: (el) => { /* animate el.content.node in */ }
+}
+```
+
+- The wait is bounded by the router option `exitTimeout` (default `300` ms): on the timeout `exit.signal` aborts and the swap goes ahead; a rejected promise is a finished exit. A slow exit never blocks navigation.
+- No exit runs (and nothing is awaited) for the first route of an element, for a navigation that keeps the page (query-only, same-path hash), under `prefers-reduced-motion: reduce`, or in a tab that is not visible. Without the handler the swap happens in the same synchronous run as before.
+- A navigation that starts during an exit takes over: the older one never mounts its page and writes no history entry; a newer one that leaves the same page joins the running exit.
+- Ships in `@symbo.ls/router` after smbls 3.14.810 (smbls repo commit `07c4b483b`); an older runtime never calls `onRouteExit`.
+
+---
+
 ## Data Fetching (`@symbo.ls/fetch`)
 
 Declarative fetch on any element. Caching, dedup, retry, refetch-on-focus, pagination — all built in.
