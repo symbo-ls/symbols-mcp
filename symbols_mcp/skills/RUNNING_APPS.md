@@ -171,6 +171,36 @@ For non-module usage, the IIFE build exposes `window.Smbls`:
 </script>
 ```
 
+### Embed Bundle (`SymbolsEmbed`) — a Small Runtime for Third-Party Embeds
+
+For a widget embedded in someone else's page (chat widget, partner surface), `smbls` ships a small IIFE, `dist/smbls.embed.iife.js` (package export `smbls/embed.iife`), that exposes `window.SymbolsEmbed`:
+
+```html
+<div id="widget"></div>
+<script src="https://cdn.jsdelivr.net/npm/smbls/dist/smbls.embed.iife.js"></script>
+<script>
+  SymbolsEmbed.mount(
+    {
+      tag: 'section',
+      state: { count: 0 }, // state on the definition
+      text: (el, s) => `Clicked ${s.count} times`,
+      onClick: (e, el, s) => s.update({ count: s.count + 1 })
+    },
+    document.getElementById('widget')
+  )
+</script>
+```
+
+The contract (locked by the smbls embed contract test, ≤ 64 KiB gzip):
+
+- **Inside:** element creation (`mount`, `create` / `createElement`, `applyExtends`, `registerEvent`), signal state (`createStore`, `createEffect`, `createSignal`, `batch`), the design-system core (`pushConfig`, `popConfig`, `getActiveConfig`).
+- **Not inside:** the router, pages, the default create options, and **every plugin — the fetch plugin included**. Declarative `fetch:` does not run in the embed, and `el.getDB()` loads `@symbo.ls/fetch` as a *runtime* import:
+  - without `context.fetch`, `getDB()` answers `null`;
+  - with `context.fetch`, add `@symbo.ls/fetch` to the page's importmap (the runtime import then resolves) or use the full smbls bundle — otherwise `getDB()` rejects with exactly that message.
+- Up to smbls 3.14.810 the embed inlined the whole fetch plugin through that lazy import (≈ 9 KB gzip); the release after 3.14.810 keeps it out.
+
+Need routing, pages, plugins or fetch? Use the full bundle (ESM above, or the `Smbls` IIFE).
+
 ### Full CDN App Pattern
 
 ```html
