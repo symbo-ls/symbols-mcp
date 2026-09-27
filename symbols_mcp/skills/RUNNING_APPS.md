@@ -182,11 +182,12 @@ For a widget embedded in someone else's page (chat widget, partner surface), `sm
   SymbolsEmbed.mount(
     {
       tag: 'section',
-      state: { count: 0 }, // state on the definition
+      state: { count: 0 }, // the widget's own default state
       text: (el, s) => `Clicked ${s.count} times`,
       onClick: (e, el, s) => s.update({ count: s.count + 1 })
     },
-    document.getElementById('widget')
+    document.getElementById('widget'),
+    { state: { count: 5 } } // opts.state: the host page's initial state — wins over the default
   )
 </script>
 ```
@@ -197,7 +198,8 @@ The contract (locked by the smbls embed contract test, ≤ 64 KiB gzip):
 - **Not inside:** the router, pages, the default create options, and **every plugin — the fetch plugin included**. Declarative `fetch:` does not run in the embed, and `el.getDB()` loads `@symbo.ls/fetch` as a *runtime* import:
   - without `context.fetch`, `getDB()` answers `null`;
   - with `context.fetch`, add `@symbo.ls/fetch` to the page's importmap (the runtime import then resolves) or use the full smbls bundle — otherwise `getDB()` rejects with exactly that message.
-- Up to smbls 3.14.810 the embed inlined the whole fetch plugin through that lazy import (≈ 9 KB gzip); the release after 3.14.810 keeps it out.
+- `mount(def, host, { state, context })`: `state` seeds the ROOT state before the first render, merged over a plain-object `state` the definition declares (the mount's values win; a store is used as-is).
+- Up to smbls 3.14.810 the embed inlined the whole fetch plugin through that lazy import (≈ 9 KB gzip), and `mount` ignored `opts.state` (the root rendered with an empty state — put the state on the definition there); the release after 3.14.810 fixes both.
 
 Need routing, pages, plugins or fetch? Use the full bundle (ESM above, or the `Smbls` IIFE).
 
