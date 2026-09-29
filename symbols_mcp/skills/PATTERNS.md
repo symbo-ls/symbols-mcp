@@ -426,10 +426,35 @@ When to use: Custom interactive widgets (listbox, dropdown, menu).
       e.preventDefault()
       el.call('selectItem', s.items[s.activeIndex])
     }
-    if (e.key === 'Escape') el.call('closeDropdown')
+    if (e.key === 'Escape') {
+      e.preventDefault() // spent: the layer under this one stays open
+      el.call('closeDropdown')
+    }
   }
 }
 ```
+
+#### Escape — one press closes one layer
+
+A layer that closes on Escape SPENDS the key with `e.preventDefault()`. A layer
+that listens for Escape skips a key that is already spent (`e.defaultPrevented`),
+so the layer under it stays open for the next press. `DropdownRoot` follows
+this law: an Escape that a surface on top of an open dropdown already spent
+(a menu opened from one of its rows) leaves the dropdown open.
+
+```js
+onDocumentKeydown: (e, el, s) => {
+  if (e.key !== 'Escape' || e.defaultPrevented) return // a layer on top spent it
+  if (!s.open) return
+  e.preventDefault() // spend it — one layer per press
+  s.update({ open: false })
+}
+```
+
+Listeners run in propagation order: element handlers, then `onDocumentXxx`,
+then `onWindowXxx` (`DropdownRoot` and `ModalRoot` listen on `window`).
+`ModalRoot` pops its top layer on ANY Escape, spent or not: a list inside a
+modal that owns the key also calls `e.stopPropagation()`.
 
 #### Tabindex Rules
 
