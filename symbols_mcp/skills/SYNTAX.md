@@ -479,9 +479,9 @@ s.root.update(
 | `s.replace(value, opts?)` | Replace entire state (drops missing keys) |
 | `s.set(value, opts?)` | Alias for replace |
 | `s.clean(opts?)` | Remove all keys |
-| `s.parse()` | Snapshot as plain object |
-| `s.keys()` | Property names |
-| `s.values()` | Property values |
+| `s.parse()` | Snapshot as plain object — the keys the state HOLDS. A key a reactive prop only READ (and nothing wrote) is not in it, nor in `s.keys()`, `Object.keys(s)` or `'key' in s`; the read still subscribes, so the prop re-runs when the key arrives |
+| `s.keys()` | Property names (held keys only, as above) |
+| `s.values()` | Property values (held keys only) |
 | `s.destroy(opts?)` | Destroy underlying signal store |
 | `s.add(key, val, opts?)` | Append `val` to an array-valued key; merge a plain-object `val` into an object-valued key; set when the key is new or scalar. NOT the v3 `state.add(value)` form — that one no longer exists (`s.items.add(x)` is not a function). |
 | `s.toggle(key, opts?)` | Flip boolean |
