@@ -150,6 +150,8 @@ smbls publish                   Push + version + republish all enabled environme
 
 `push`'s differ is idempotent: an unchanged project reports "No changes to push" on every consecutive run — it does not re-report the same delete/update set forever or mint a junk version each time. (The differ specifically accounts for server-side read-path conveniences — e.g. missing design-system namespaces getting default-filled on read, or environment-export flags always being present on the fetched side — so those never show up as phantom deletes; and key-order drift inside a property bag like `attr`/`style`/`state` no longer counts as a real change unless it's a genuine reorder of child elements, where order IS meaningful DOM order.) If you ever see the same change set reported twice in a row with truly nothing edited locally, that's a regression worth filing, not expected behavior.
 
+Every command that SENDS the local project — `push`, `sync`, `collab` and `github sync` — ships frank's stringified emission, never a raw `fn.toString()` of the live build. A handler's `await import('<pkg>')` arrives as that literal `import('<pkg>')` (the raw build carried esbuild's `init_X(), X_exports` wiring, which throws at runtime). frank's emission gate stands in front of every send: a globalScope defect blocks (`push`, `sync` and `github sync` exit 1; `collab` prints `[collab] Local change NOT sent` and keeps watching), and per-function debt is printed as a named warning. `SMBLS_NO_VERIFY_SERIALIZATION=1` bypasses the gate for all four; `push` also takes `--no-verify-serialization`.
+
 ### Project management (server-side)
 
 ```
