@@ -438,9 +438,10 @@ When to use: Custom interactive widgets (listbox, dropdown, menu).
 
 A layer that closes on Escape SPENDS the key with `e.preventDefault()`. A layer
 that listens for Escape skips a key that is already spent (`e.defaultPrevented`),
-so the layer under it stays open for the next press. `DropdownRoot` follows
-this law: an Escape that a surface on top of an open dropdown already spent
-(a menu opened from one of its rows) leaves the dropdown open.
+so the layer under it stays open for the next press. `DropdownRoot` and
+`ModalRoot` follow this law: an Escape that a surface on top already spent (a
+menu opened from a dropdown row, a list or combobox inside a modal) leaves the
+dropdown or the modal open.
 
 ```js
 onDocumentKeydown: (e, el, s) => {
@@ -452,9 +453,15 @@ onDocumentKeydown: (e, el, s) => {
 ```
 
 Listeners run in propagation order: element handlers, then `onDocumentXxx`,
-then `onWindowXxx` (`DropdownRoot` and `ModalRoot` listen on `window`).
-`ModalRoot` pops its top layer on ANY Escape, spent or not: a list inside a
-modal that owns the key also calls `e.stopPropagation()`.
+then `onWindowXxx`. `DropdownRoot` and `ModalRoot` listen on `window`, so they
+run LAST. A list inside a modal that spends Escape keeps its modal; it needs no
+`e.stopPropagation()`.
+
+A handler cannot tell WHO spent a key, only THAT it was spent. A LOWER layer
+that listens on the document (a drawer, a detail pane) runs BEFORE the window
+roots, so it must not act on Escape while a modal or a dropdown is open above
+it. If it spends that Escape, it closes itself and the overlay above it stays
+open.
 
 #### Tabindex Rules
 
