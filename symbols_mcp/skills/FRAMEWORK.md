@@ -580,7 +580,7 @@ polyglot          → translate(key, lang?)
 getLocalStateLang → reads `state.<key>_<lang>` for per-language state fields
 getActiveLang     → reads state.root.lang or context.polyglot.defaultLang
 getLang           → alias for getActiveLang
-setLang           → switch + persist + load remote (async)
+setLang           → switch + persist + load remote (async); setLang(lang, { persist: false }) stores nothing
 getLanguages      → array of available language codes
 loadTranslations  → manually trigger remote load for a lang
 upsertTranslation → CMS write (optimistic + persists)
@@ -603,8 +603,13 @@ re-evaluates inside text-effect createEffect on state change:
 // Per-language state field (e.g. CMS title_en / title_ka):
 { text: '{{ title_ | getLocalStateLang }}' }
 
-// Switch language
+// Switch language (the person's choice: persisted to localStorage)
 { onClick: (e, el) => el.call('setLang', 'ka') }
+
+// A switch that is NOT the person's choice (a language the host resolved,
+// the echo of a choice another tab stored): the screen switches, storage is
+// untouched, so no `storage` event reaches other tabs
+{ onRender: (el) => el.call('setLang', 'ka', { persist: false }) }
 
 // Read current language
 { text: (el) => el.call('getLang') }

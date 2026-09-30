@@ -1306,7 +1306,7 @@ When `state.root.lang` changes, every fetch request gets an `Accept-Language` he
 | `getLocalStateLang(prefix)` | Read per-language state field (`state.<prefix>_<activeLang>`) |
 | `getActiveLang()` | Active language code |
 | `getLang()` | Alias for getActiveLang |
-| `setLang(lang)` | Switch language + persist + load remote (async) |
+| `setLang(lang, { persist? })` | Switch language + persist + load remote (async). `persist: false` switches the screen and writes nothing to storage |
 | `getLanguages()` | Available language codes |
 | `loadTranslations(lang)` | Manually trigger remote load |
 | `upsertTranslation(key, lang, value)` | CMS write (optimistic + persists) |
