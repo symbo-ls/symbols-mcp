@@ -637,6 +637,7 @@ el.call('upsertTranslation', 'ui.nav.home', 'en', 'Home')   // optimistic + pers
 
 - Don't mirror `lang` into a separate state field. `state.root.lang` is the source of truth — polyglot reads/writes it directly.
 - Don't rebuild your own language switcher; `setLang` already handles localStorage + remote refetch + state.
+- Don't read UI text from root state (`s.root.hello`), and never name a state flag after a text key. At boot polyglot copies each translation key that NOTHING in state declares into `state.root`; a language switch re-translates only those seeded keys, and only while each still holds the text polyglot wrote. A key the app has set since, and a key that was never seeded (a module's text keys join after boot), is left alone — a switch never fills an empty key by name. Read text through `'{{ key | polyglot }}'`, a bare `'{{ key }}'` (it falls back to the active translation map) or `el.call('polyglot', 'key')`, and declare every flag in `state.js`: an undeclared flag that shares a text key's name boots holding that text.
 - Don't put the language switch UI's `show:` logic on JS — flag the UI with `data-lang="ka"` and use CSS `[data-lang="ka"] &` selectors in design tokens if you want pure-CSS reactivity.
 
 ---
