@@ -1168,6 +1168,8 @@ children: (el, s) => s.services.map(it => ({ ...it, key: 'svc-' + it.key }))
 
 An explicit `tag:` always wins over the key. Full rule: SYNTAX.md → Children → "A key that equals an HTML tag name BECOMES that tag".
 
+The same happens to a DECLARED key: `Mark: {}` is a yellow `<mark>`, `Sub`/`Sup` shift and shrink their text, `Dialog` brings a border and a white sheet, `Menu` list padding. frank-audit **FA809** warns on every child key that names a browser-styled tag (mark, sub, sup, small, s, u, ins, del, b, i, q, cite, dfn, var, abbr, kbd, samp, dialog, menu, details, summary, legend, fieldset) with no `tag:` and no `extends:`: "this key renders a `<x>`; add `tag: 'x'` if you mean it, else `tag: 'div'`". The first 19 are planned to leave key detection in smbls, so pin the tag you mean now.
+
 Related: row keys are strings. A NUMBER key (`key: it.id` with a numeric id) is normalized by the framework (smbls `e3a9bcc3e`); up to smbls 3.14.805 a number-keyed row with nested children and no `childExtends` threw `g.indexOf is not a function` and was dropped — on those runtimes write `key: String(it.id)`.
 
 ---

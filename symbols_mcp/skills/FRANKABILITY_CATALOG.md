@@ -573,23 +573,9 @@ Raw px/rem literals bypass the token scale and break responsive scaling.
 Bad:    padding: '16px'      fontSize: '14px'      borderRadius: '4px'
 Good:   padding: 'B'         fontSize: 'A'         borderRadius: 'A'
 
-For fixed-dimension UI primitives (avatars, icons, hairline borders, thumbnails)
-a raw px value may have no close equivalent in the spacing scale. When a project
-has designSystem/sizes.js, FA304 will suggest the matching sizes token instead
-of a spacing letter:
-
-Bad:    width: '48px'       height: '1px'        boxSize: '24px'
-Good:   width: 'avatarMd'   borderWidth: 'hairline'   boxSize: 'iconLg'
-
-Resolution priority:
-1. If the project has designSystem/sizes.js and there is an exact pixel match,
-   use that token (e.g. 'avatarMd' for 48px).
-2. Otherwise find the closest spacing-scale letter (e.g. 'C' for ~42px).
-3. If no token is within 10% and no sizes token matches, add the needed token to
-   designSystem/sizes.js (for fixed UI primitives) or adjust the spacing
-   base/ratio (for layout tokens).
-
-See DESIGN_SYSTEM.md § sizes for the full default token catalog.
+See designSystem/spacing.js (or sizing.js, typography.js) for the available
+tokens. The audit cannot pick the right one — open the design system and
+choose the token whose declared value matches the literal.
 
 
 ---
@@ -610,6 +596,22 @@ Good:   el.router('/dashboard', el.getRoot())
 
 For programmatic redirects from a non-element scope, plumb `el` through
 a function and call `el.router(...)` from there.
+
+## Cross-origin redirects (OAuth, payment, …)
+
+External URLs aren't routable by `el.router` — the in-app router
+only knows about same-origin routes. FA401 already auto-suppresses
+when the call argument is a string literal starting with `https://`,
+`http://`, `mailto:`, `tel:`, or `sms:`. For URLs built at runtime
+(`new URL(SUPABASE_URL + …).toString()`), the literal detection misses
+them — use the inline pragma:
+
+    window.location.assign(authUrl) // frank-allow FA401
+
+Or above the line:
+
+    // frank-allow FA401 — OAuth provider redirect
+    window.location.assign(authUrl)
 
 # FA402 — window-fetch
 
@@ -867,8 +869,9 @@ Fixes by context:
 
        Bad:    window.update({ onScroll: onScroll })
        Good:   declare onScroll on the page/root component, OR
-               window.addEventListener("scroll", onScroll, { passive: true })
-               from a functions/ helper invoked via el.call("setup")
+               onWindowScroll: (e, el, s) => onScroll(e, el, s) on the
+               owning component (window-level listener owned by DOMQL —
+               PORTAL-EVENTS-PRIMITIVE-1; raw addEventListener stays FA503)
 
   2. DOM ref (querySelector result, el.node, sibling ref):
 
@@ -879,6 +882,64 @@ Fixes by context:
 Frank-audit doesn't auto-fix this — the right replacement depends on
 whether you want the framework event-delegation path or an
 imperative listener.
+
+# FA515 — conditional `s.root.X` read in a reactive factory
+
+A prop factory runs inside a `createEffect`. Its dependency set is what
+it ACTUALLY READS on a given run — not what it might read. So a
+short-circuit silently drops a dependency:
+
+    hide: (el, s) => !el.call('ready', s.root) || s.root.rows.length > 0
+
+On the first run `ready` is false, `||` short-circuits, `rows` is never
+read — and therefore never subscribed to. When `rows` lands, this
+factory does not re-fire. Ever.
+
+Why it escapes review: on a fast network the fetch usually resolves
+before first render, the factory takes the ready branch, and tracking is
+armed by luck. It breaks on slow connections — real users, not your
+machine. This is the 2026-07-29 warehouse-widget incident: a `children:`
+factory showed 3 fetched rows while its `text:`/`hide:` siblings, reading
+the SAME signal, stayed frozen — `children:` read the collection
+unconditionally, the siblings did not.
+
+Fixes, best first:
+
+  1. Declare the dependency (smbls 044742dbc):
+
+         hideDeps: ['rows'],
+         hide: (el, s) => !el.call('ready', s.root) || s.root.rows.length > 0
+
+  2. Add the key to `subscribeTo: [...]` on the same element — note a
+     parent's subscribeTo does NOT cascade to descendants; each element
+     needs its own.
+
+  3. Hoist the read so it is unconditional (the older `void s.root.X`
+     prelude, ~1,054 of which exist in the monorepo). Works, but needs
+     one statement per key and is easy to forget when the condition
+     changes later.
+
+Not auto-fixed: choosing between declaring, hoisting, and restructuring
+the condition is a judgement call about what the factory should depend on.
+
+# FA516 — lookup-predicate-arity
+
+`lookup`/`lookdown` (and `lookupAll`/`lookdownAll`) call the predicate
+with exactly ONE argument: the candidate element. The DOMQL prop-factory
+signature `(el, s)` does NOT apply here.
+
+Bad:    el.lookup((el, s) => s.key === key)
+        el.lookdown((el, s) => el.Rename && s.key === key)
+Good:   el.lookup((n) => n.state?.key === key)
+        el.lookdown((n) => n.Rename && n.state?.key === key)
+
+A `&&` in front of the state read only hides the bug: it throws as soon
+as a candidate satisfies the left-hand side, which can be months later.
+
+Note `lookup` starts at `this.parent` — it is NOT self-inclusive. If the
+element itself can satisfy the predicate, write
+`pred(el) ? el : el.lookup(pred)`. If the thing you want is always on an
+ancestor (the usual case), do NOT add that guard — it changes behaviour.
 
 
 ---
@@ -895,9 +956,25 @@ Bad:    Logo: { tag: 'svg', html: '<path .../>' }
 Good:   Logo: { extends: 'Icon', name: 'logo' }
         // matching `logo: { svg: '<path .../>' }` in designSystem/icons.js
 
+## Data-viz / sparklines
+
+FA601 auto-suppresses when the SVG has a non-icon-grid `viewBox`
+(anything outside the 16/20/24/32/48/64 square set) OR contains a
+child with a computed `d` / `points` / path attribute. Charts and
+sparklines look like that; they aren't icons.
+
+For other edge cases (procedural illustrations with icon-grid
+viewBox), use the inline pragma:
+
+    // frank-allow FA601 — generated decoration, not an icon
+    Burst: { tag: 'svg', viewBox: '0 0 24 24', ... }
+
 # FA602 — path-tag
 
 Same problem as FA601 — see that rule for the migration pattern.
+FA602 auto-suppresses for `<path>` entries whose `d` value is a
+function (sparklines, data-driven viz). Inline `// frank-allow FA602`
+works the same way as on FA601.
 
 # FA603 — inline-svg-html
 
@@ -924,16 +1001,87 @@ Good:   Logo: { extends: 'Icon', name: 'logo' }
 
 # FA701 — hardcoded-english-text
 
-Strings displayed to the user typically need to flow through the
-polyglot pipeline so other locales render correctly.
+Strings displayed to the user must flow through the polyglot pipeline so
+other locales render correctly (RULES.md Rule 48).
 
-Bad:    placeholder: 'Search across everything'
-        text: 'Welcome back to your dashboard'
-Good:   placeholder: '{{ search.placeholder | polyglot }}'
-        text: el.call('polyglot', 'dashboard.welcome')
+## The rewrite form depends on the PROP, not on the string
 
-Heuristic only — single-word labels and intentionally untranslated
-product names should be left as-is (allow with `// @symbols allow polyglot`).
+There are two forms, and only one of them is correct for any given prop.
+Choosing wrong is SILENT: the label renders as an empty string, in every
+language including English, with no error anywhere.
+
+  TEMPLATE   text: '{{ nav.openInEditor | polyglot }}'
+  FUNCTION   placeholder: (el) => el.call('polyglot', 'nav.searchHint')
+
+| prop | template | function | use |
+|---|---|---|---|
+| `text` | works | works | TEMPLATE |
+| `placeholder`, `alt`, `aria-*`, other HTML attributes | works | works | FUNCTION |
+| `href`, `src` (also `action`, `poster`, `data`) | resolves once, never switches | works | FUNCTION |
+| `label`, `caption`, `helperText` (custom props) | works | works | FUNCTION |
+| `title` | works | renders "" as content | TEMPLATE |
+
+Why: since FW-STATIC-VALUE-PROP-NEVER-RESOLVES-TEMPLATE-BRACES-1
+(2026-09-24) an attribute prop holding a `{{ }}` template gets its own
+reactive effect, resolved against the element STATE with the polyglot
+filter, and the prop KEEPS its template. Before that fix the static
+attribute pass resolved the template once, without the element binding
+(so a filtered template rendered ""), and wrote the empty answer back
+OVER the prop, which destroyed it. The function form always worked: a
+function-valued flat attribute registers its own effect, `polyglot`
+reads `root.lang`, and the effect re-fires on a switch. Both forms are
+correct now — except on the ATTR_TRANSFORMS props (`src`, `href`,
+`action`, `poster`, `data`): those resolve a template ONCE, at mount,
+through their transform, so it renders the mount language and never
+switches. FUNCTION stays the default because it is also correct when
+the consumer reads the prop as content, and a custom prop can become an
+HTML attribute the day someone renames it.
+
+## `title` takes the TEMPLATE form
+
+`title` is a global HTML attribute on EVERY tag, and it is also a common
+custom prop meaning "the heading string", read by a child as
+`text: (el) => el.parent.title`.
+
+  - as a TOOLTIP: both forms work.
+  - as CONTENT:   only the TEMPLATE form works. The prop keeps its
+    template, so the child text effect resolves it. A FUNCTION is never
+    auto-invoked (`title` is a valid attribute on every tag), so the
+    prop stays a function and the child's text effect drops it on its
+    `typeof val !== 'function'` guard — an empty label.
+
+A `title` a child reads as content is still better RENAMED to a prop
+that is not an HTML attribute (`heading`, `label`): the attribute also
+paints a native tooltip nobody asked for.
+
+Measured in
+smbls/packages/element/__tests__/polyglotPropFormReactivity.test.js —
+that file and this rule must change together.
+
+## The key comes from the LOCATION, never from the copy
+
+  <namespace>.<area>.<element>      e.g. preview.navbar.editorLink
+
+namespace = the surface; area = the enclosing export; element = the
+innermost PascalCase child key the string sits under (in DOMQL that key
+IS the element's role), or the prop name when the string sits directly
+on the export.
+
+A key derived from the English copy changes when the copy changes, so
+every translation silently reverts to the base language on a wording
+tweak; and two surfaces that happen to use the same words collide across
+the whole project. `preview.navbar.editorLink` survives "Open in editor"
+becoming "Edit this project". A key spelled `openInEditor` does not
+survive a second surface wanting those words for a different action.
+
+Override the namespace with the `polyglotNamespace` option; it defaults
+to the audit root's directory name.
+
+## Escape hatch
+
+Heuristic only — intentionally untranslated product names and internal
+tool copy are allowed with `// frank-allow FA701` on or above the
+offending property.
 
 
 ---
@@ -1045,6 +1193,18 @@ Good:   // components/ListItem.js
         // List.js
         List: { childExtends: 'ListItem', children: items }
 
+# FA809 — key-detected-styled-tag
+
+Bad:    Badge: { Sup: { text: 'Soon' } }        // renders <sup>: shifted, smaller
+Good:   Badge: { Sup: { tag: 'span', text: 'Soon' } }
+        Note: { Mark: { tag: 'mark', text: 'hit' } }   // a highlight you MEAN
+
+A child key that names an HTML tag becomes that tag when no `tag:` is set
+(smbls detectTag). These tags carry visible browser styles: mark, sub, sup,
+small, s, u, ins, del, b, i, q, cite, dfn, var, abbr, kbd, samp, dialog,
+menu, details, summary, legend, fieldset. Set the tag you mean. A meant one
+can also stay with `// frank-allow FA809` on or above the key.
+
 
 ---
 
@@ -1136,4 +1296,48 @@ across the project — debugging gets harder, refactors get fragile.
 
 No auto-fix — the right consolidation depends on which side carries
 the dominant logic.
+
+# FA905 — hardcoded-deploy-value
+
+Project source contains deployment identity:
+
+  - absolute platform hosts — `api.symbols.app` (any `dev.`/`staging.`
+    prefix), `preview.symbols.app`, `*.symbo.ls` tenant hostnames,
+    `localhost:<port>`
+  - 24-hex Mongo ObjectId literals
+
+Deployment identity belongs to the deployer: `__SYMBOLS_ENV__` → the
+injected identity tag → `/resolve`. Tenant code that hardcodes a host
+is pinned to one environment; a hardcoded ObjectId is invisible
+env-coupling — the record it names exists in exactly one database, so
+the same source silently breaks (or worse, reads the wrong tenant)
+anywhere else.
+
+## Severity
+
+Advisory (`info`) — a debt register, not a build blocker. Real
+projects carry hundreds of asset/content URLs that work today; the
+point is to make the coupling visible, not to fail the build.
+Findings aggregate per file per family (count + per-value breakdown +
+sample lines) so the register stays readable.
+
+## Not this rule’s business
+
+`w3.org` xmlns, `images.unsplash.com`, CDNs, and every other
+non-platform host. npm-scope strings (`@symbo.ls/pkg`) are package
+names, not hostnames. The `assets/` and `files/` slots are skipped
+entirely — those manifests are the platform’s own serialization of
+uploaded media, deployer-owned by construction. Comment-only matches
+still surface, at low confidence.
+
+## What to do
+
+  - hosts → resolve through the environment (`__SYMBOLS_ENV__` /
+    `/resolve`, `workspaceApiBase()`), never a literal
+  - ObjectIds → look the record up by a stable key (slug, name) or
+    receive the id from state/config seeded by the deployer
+  - a genuinely intentional literal → `// frank-allow FA905`
+
+Never auto-fixed — replacing an id or host needs the deployer-side
+counterpart to exist first.
 
