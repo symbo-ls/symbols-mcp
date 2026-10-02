@@ -883,9 +883,11 @@ smbls publish                   # default: push current project, mark new versio
 smbls publish --version <id>    # mark a specific version as published (skip push)
 smbls publish --no-push         # use latest version on the server (skip push)
 smbls publish --env staging     # publish only staging
-smbls publish --env dev,staging # CSV form (also: --env dev --env staging)
-smbls publish --mode latest     # override mode (default: prod-like envs = 'published', others = 'latest')
+smbls publish --env development,staging # CSV form (also: --env development --env staging)
+smbls publish --mode latest     # set one mode on every target, pinned envs included
 ```
+
+Without `--mode`, each environment keeps the mode it is configured with (no stored mode: prod-like envs = `published`, others = `latest`). An environment pinned to a version, or a branch-mode environment on another branch, is skipped and the output says so (`staging pinned to 1.5.1 — skipped; pass --env staging to move it`). Name it with `--env`, or pass `--mode`, to move it. See CLI.md "Publish flow".
 
 ### Granular commands
 

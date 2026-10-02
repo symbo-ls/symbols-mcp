@@ -143,7 +143,7 @@ smbls push                      Push local changes to platform
 smbls pull / fetch              Fetch project snapshot from platform
 smbls sync                      Two-way sync (merge / remote-wins / local-wins)
 smbls collab                    Live websocket collab; mirrors local edits to remote and vice-versa
-smbls publish                   Push + version + republish all enabled environments (one shot)
+smbls publish                   Push + version + republish enabled environments (one shot; a pinned env is skipped)
 ```
 
 `push` writes the new content into the project's main branch. `publish` is push → mark new version as published → republish each environment so it picks up the version. See "Publish flow" below.
@@ -351,14 +351,22 @@ The one-shot:
 ```bash
 smbls publish                              # push current project + publish to all enabled envs
 smbls publish --env staging                # push + publish only staging
-smbls publish --env dev,staging            # CSV (or --env dev --env staging)
+smbls publish --env development,staging    # CSV (or --env development --env staging); only development|staging|production are accepted
 smbls publish --no-push                    # skip push; publish an existing version
 smbls publish --version <id>               # publish a specific version (implies --no-push)
-smbls publish --mode <mode>                # override env mode (latest|published|version|branch)
+smbls publish --mode <mode>                # set this mode on every target, pinned envs included (latest|published|version|branch)
 smbls publish --dry-run                    # print planned operations without executing
 ```
 
-Per-env mode default: prod-like envs (`prod`, `production`) → `published`; everything else → `latest`. Override with `--mode`.
+Per-env mode: each environment is republished in the mode it is configured with on the platform. An environment with no stored mode falls back to `published` for prod-like keys (`prod`, `production`) and `latest` for everything else.
+
+A **held** environment is skipped when you do not name it: one pinned to a version (`mode: version`), or a `mode: branch` environment that tracks a branch other than the one you publish. Republishing it would move it off its configuration (the server drops the pinned `version` on any publish in another mode). The output names the skip, and `--dry-run` prints the same line:
+
+```
+  - staging pinned to 1.5.1 — skipped; pass --env staging to move it
+```
+
+To move a held environment, name it on the call (`--env staging`, or tick it in the interactive picker, where a held env is labelled and not pre-selected). It then publishes in its default mode (`latest` for staging). `--mode <mode>` moves every target, held ones included; `--mode version` re-pins to the version being published. A `symbols.json` `smbls.publish` default (`env`, `mode`) never moves a held environment. A CLI older than this behavior republishes every enabled environment in the default mode and drops the pin, so on an older CLI pass `--env` with only the environments you mean to move.
 
 Granular equivalent (if you need to inspect/intervene between steps):
 
