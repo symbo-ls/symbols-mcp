@@ -182,6 +182,8 @@ export const prepareSharedLibs = (context) => {
 
 **The app ALWAYS wins.** Shared libraries only fill in missing keys (`!(k in context[key])`). designSystem uses `deepDefaults` which fills nested gaps while preserving all local values.
 
+The loop above is the core, simplified. The real merge is `mergeSharedLibraries` in `@symbo.ls/utils` (`smbls/packages/utils/sharedLibraries.js`): it also merges `system/default` — the base library — LAST, whatever its position in the array, and ranks the default font family claim the same way (see [Order of Precedence](#order-of-precedence)).
+
 ### deepMerge Behavior
 
 `deepMerge` is the ELEMENT-DEFINITION merge (extends chains). The shared-library merge above never calls it, so its `METHODS_EXL` filter does not apply to library bags — the library merge has its own guard for method names, see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods).
@@ -215,17 +217,27 @@ Key rules:
 
 ## Order of Precedence
 
-Libraries are processed sequentially. First library fills undefined slots, second fills remaining, etc.
+Libraries are processed sequentially. First library fills undefined slots, second fills remaining, etc. — except `system/default`, which always goes last.
 
 ```
-App's own context  (highest priority — never overwritten)
+App's own context   (highest priority — never overwritten)
   ↑
 sharedLibraries[0]  (fills undefined slots)
   ↑
 sharedLibraries[1]  (fills remaining undefined slots)
   ↑
-UIKit atoms         (lowest priority, applied in prepareComponents)
+system/default      (the BASE library — merges last, wherever it sits in the array)
+  ↑
+Framework defaults  (@symbo.ls/default-config design system; UIKit atoms in prepareComponents)
 ```
+
+**`system/default` is the base, not a library you chose.** Every platform project starts linked to it. It fills only what no linked library defines: a brand library's `color.title`, `theme.document`, icons, components — every name both define — outrank system/default's, whatever the order of the links. Recognised by its key in any spelling (`default`, `system/default`, `default.symbo.ls`; the published payload carries the bare `default`). Another owner's library keyed `default` is an ordinary library.
+
+**The default font family claim follows the same ranking.** `fontFamily.<key>.isDefault` is a claim that competes across keys, so it is ranked on its own: the app's own claim wins; else a linked library's claim wins over system/default's `Default`; between two linked libraries, the order scratch reads them decides. The losing family stays usable by name — only its `isDefault` flag is dropped.
+
+**Do not rely on the order between two linked libraries that define the same name.** Locally it is the `sharedLibraries.js` array order. On a published site it is the order the platform serves the project's libraries — today the libraries' creation order, each followed by the libraries it links itself — not the order you linked them. Define a shared name in one library only, or in the app.
+
+A live edit (livesync re-init) re-merges the libraries with the same ranking.
 
 After all merges, `prepareComponents` applies:
 
@@ -407,7 +419,7 @@ prepareContext() {
 2. **`link:` ≠ `destDir:`** — `link` means "use this folder as source, never scaffold over it." `destDir` means "scaffold cloud payload INTO this folder" (and will clobber it on every fetch). Always use `link` for local sibling sources.
 3. **App always wins** — local project definitions take precedence over shared libraries.
 4. **Override by defining locally** — to change a shared library component, define it in your local `components/` with the same name.
-5. **Order matters** — first library in the array has priority over later ones for filling undefined slots.
+5. **Order matters** — first library in the array has priority over later ones for filling undefined slots. `system/default` — the base library — always ranks last, below every library the project linked; its default font family claim yields to a linked library's.
 6. **Key format is `owner/key`** — bare keys default to `system/` owner.
 7. **`smbls create` defaults to `system/default`** — use `--blank-shared-libraries` for no libraries.
 8. **Built-in element methods are protected; the logging hooks are override points** — a library `methods` entry named like a protected built-in (`getRoot`, `getRootState`, `update`, …) is refused and the built-in wins (dev warning names it); a library's `log` / `warn` / `error` / `verbose` merge and win as before. The app's OWN `methods` win over both (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
@@ -425,6 +437,8 @@ prepareContext() {
 | deepMerge | `smbls/packages/utils/object.js` | 61-76 |
 | overwriteShallow | `smbls/packages/utils/object.js` | 431-439 |
 | METHODS_EXL | `smbls/packages/utils/keys.js` | 147-152 |
+| Library merge + precedence (base library last, default-font ranking) | `smbls/packages/utils/sharedLibraries.js` | `mergeSharedLibraries` |
+| Livesync re-init merge (same ranking) | `smbls/plugins/sync/applier.js` | `buildReinitDesignSystem` |
 | Key normalization | `smbls/packages/cli/helpers/libraryKeyUtils.js` | — |
 | Config normalization (with `link`/`mode`) | `smbls/packages/cli/helpers/symbolsConfig.js` | `normalizeSharedLibrariesConfig` |
 | FS scaffolding (skips `mode:linked`) | `smbls/packages/cli/bin/fs.js` | `scaffoldSharedLibraries` |
