@@ -52,5 +52,9 @@
     "build": "rimraf dist && npm run build:esm && npm run build:cjs",
     "prepublishOnly": "npm run build"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "rimraf": "^6.1.3"
+  }
 }
