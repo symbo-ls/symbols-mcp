@@ -1,0 +1,52 @@
+# Publish server.json to the MCP registry (io.github.symbo-ls/symbols-mcp) with GitHub Actions OIDC.
+# A personal `mcp-publisher login github` token only covers io.github.<user>/*; OIDC from a workflow in the
+# symbo-ls org is what may publish under io.github.symbo-ls/*.
+# Runs on a published GitHub release, or by hand (workflow_dispatch) from main.
+name: MCP registry publish
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: mcp-registry-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: namespace-profile-smbls
+    env:
+      MCP_PUBLISHER_VERSION: '1.8.1'
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher (pinned release, checksum verified)
+        run: |
+          set -euo pipefail
+          url="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          curl -fsSL -o mcp-publisher.tar.gz "$url"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: server.json and package versions agree
+        run: |
+          set -euo pipefail
+          sv=$(jq -r .version server.json); pv=$(jq -r .version package.json)
+          echo "server.json $sv, package.json $pv"
+          [ "$sv" = "$pv" ] || { echo "server.json version differs from package.json"; exit 1; }
+
+      - name: Validate
+        run: ./mcp-publisher validate
+
+      - name: Login (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
