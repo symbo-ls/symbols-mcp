@@ -353,7 +353,8 @@ smbls publish                              # push current project + publish to a
 smbls publish --env staging                # push + publish only staging
 smbls publish --env development,staging    # CSV (or --env development --env staging); only development|staging|production are accepted
 smbls publish --no-push                    # skip push; publish an existing version
-smbls publish --version <id>               # publish a specific version (implies --no-push)
+smbls publish --version <id|value>         # the LATEST version only (implies --no-push); an older one is refused before any write
+smbls publish --version <old> --mode version --env <env>  # pin <env> to an older version; the published version stays
 smbls publish --mode <mode>                # set this mode on every target, pinned envs included (latest|published|version|branch)
 smbls publish --dry-run                    # print planned operations without executing
 ```
@@ -367,6 +368,8 @@ A **held** environment is skipped when you do not name it: one pinned to a versi
 ```
 
 To move a held environment, name it on the call (`--env staging`, or tick it in the interactive picker, where a held env is labelled and not pre-selected). It then publishes in its default mode (`latest` for staging). `--mode <mode>` moves every target, held ones included; `--mode version` re-pins to the version being published. A `symbols.json` `smbls.publish` default (`env`, `mode`) never moves a held environment. A CLI older than this behavior republishes every enabled environment in the default mode and drops the pin, so on an older CLI pass `--env` with only the environments you mean to move.
+
+**`--version` publishes the latest version only.** A `--version` (id or value) that is not the branch's latest is refused before any write, and the error prints the pin command. `--dry-run` gives the same refusal. To serve an older version, pin environments: `smbls publish --version <old> --mode version --env <env>` pins each target env to that version's value (an id is resolved to its value) and leaves the project's published version unchanged. The platform publishes the branch head as the next minor (`1.6.0` → `1.7.0`), and the CLI prints the version the server answered, never the one passed. If the version mark fails, each `mode: published` env is reported failed (it keeps serving the previous published version) and the command exits 1; `latest` / `version` / `branch` envs still publish. To bring old content back, use `smbls project restore`, not a publish. An older CLI publishes the latest version under any `--version` and prints the requested one.
 
 Granular equivalent (if you need to inspect/intervene between steps):
 

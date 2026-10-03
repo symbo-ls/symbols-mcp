@@ -880,7 +880,8 @@ The full pipeline. Equivalent to `push` → `versions publish <id>` → `environ
 
 ```bash
 smbls publish                   # default: push current project, mark new version as published, publish all envs
-smbls publish --version <id>    # mark a specific version as published (skip push)
+smbls publish --version <id>    # the LATEST version only (skip push); an older one is refused before any write
+smbls publish --version <old> --mode version --env <env> # pin <env> to an older version; the published version stays
 smbls publish --no-push         # use latest version on the server (skip push)
 smbls publish --env staging     # publish only staging
 smbls publish --env development,staging # CSV form (also: --env development --env staging)
@@ -888,6 +889,8 @@ smbls publish --mode latest     # set one mode on every target, pinned envs incl
 ```
 
 Without `--mode`, each environment keeps the mode it is configured with (no stored mode: prod-like envs = `published`, others = `latest`). An environment pinned to a version, or a branch-mode environment on another branch, is skipped and the output says so (`staging pinned to 1.5.1 — skipped; pass --env staging to move it`). Name it with `--env`, or pass `--mode`, to move it. See CLI.md "Publish flow".
+
+**`--version` publishes the latest version only.** A `--version` (id or value) that is not the branch's latest is refused before any write, and the error prints the pin command. `--dry-run` gives the same refusal. To serve an older version, pin environments: `smbls publish --version <old> --mode version --env <env>` pins each target env to that version's value (an id is resolved to its value) and leaves the project's published version unchanged. The platform publishes the branch head as the next minor (`1.6.0` → `1.7.0`), and the CLI prints the version the server answered, never the one passed. If the version mark fails, each `mode: published` env is reported failed (it keeps serving the previous published version) and the command exits 1; `latest` / `version` / `branch` envs still publish. To bring old content back, use `smbls project restore`, not a publish. An older CLI publishes the latest version under any `--version` and prints the requested one.
 
 ### Granular commands
 
