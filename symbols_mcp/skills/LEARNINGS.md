@@ -789,8 +789,8 @@ bigger" token for a `minWidth` floor can blow a control out to the full row.
 Read the computed value before committing to a token.
 
 **A new `export` is invisible until the section index re-exports it.** The
-serializer will refuse the publish (`dropped-export`) — which is the system
-working. Add `export * from './NewFile.js'` to the folder's `index.js`.
+serializer names it (`dropped-export`, printed as tolerated serialization
+debt) — which is the system working; every consumer of it would get undefined. Add `export * from './NewFile.js'` to the folder's `index.js`.
 
 ## Interaction states + layout stability (2026-08-06, from live review)
 

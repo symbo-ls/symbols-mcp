@@ -199,7 +199,7 @@ export const GameCanvas = {
 }
 ```
 
-Frank wraps mutable globalScope entries in a `Smut` object so writes survive serialization. That only triggers for values that already live in `globalScope.js`.
+Frank wraps mutable globalScope entries in a `Smut` object so writes survive serialization. That only triggers for values that already live in `globalScope.js`. Each initial value ships as code that recreates it (plain data, `Map`/`Set`/`Date`/`RegExp`, or an initializer that reads only runtime globals such as `Promise.resolve()`); a class instance or an initializer that reads project names refuses the publish (`unrecreatable-mutable-seed`). See FRAMEWORK.md, section "Mutable seeds and `globalThis.__SMBLS_BOOT_ERRORS__`".
 
 #### FA202 — Helper functions used in 2+ files go in `globalScope.js`
 
@@ -470,6 +470,11 @@ audit warnings and bundle output:
   `functions/*` exports as `function` declarations anyway (Rule 8) — a
   module-level arrow's own `this` is `undefined`, and esbuild compiles a
   source `this` there to `void 0`.
+- A literal `import('@symbo-ls/<lib>/<bag>/<file>.js')` in a function body becomes a
+  facade that hands back exactly that module's exports, read from the
+  library's registered bag — only when frank can prove the bag carries them;
+  otherwise the publish is refused (`unprovable-library-subpath-import`, see
+  FRAMEWORK.md "Publish refusals and emission findings").
 - `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
   swallow async user-code rejections (won't crash frank).
 - The free-variable scanner no longer false-positives on object-literal

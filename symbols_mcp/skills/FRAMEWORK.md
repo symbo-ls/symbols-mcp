@@ -850,6 +850,49 @@ When editing any project whose published artifact is a frank-bundled JSON (`app.
 - WeakMap-backed circular handling means circular refs become `'[Circular]'` strings in the output; if your function captures the parent element via closure, the closure isn't preserved — the function body is, evaluated against the runtime context.
 - `(el) => el.call('myFn', el.state.x)` round-trips fine. `() => MY_CONSTANT` does NOT — the constant must live in `globalScope.js` or `dependencies.js` so the runtime can re-bind it.
 
+### Publish refusals and emission findings
+
+`toJSON` ends with an emission gate. A **refusal** throws `FRANK_VERIFY_FAILED` ("PUBLISH BLOCKED — N serialization defects") and nothing is published; a **tolerated finding** is printed as a named `[frank verify] tolerated serialization debt` warning and the publish goes on. Every refusal can be bypassed only with the emergency switch the error names (`SMBLS_NO_VERIFY_SERIALIZATION=1` / `toJSON(dir, { verifySerialization: false })`) — never ship with it.
+
+| Check | Kind | What triggers it | Fix |
+|---|---|---|---|
+| `unprovable-library-subpath-import` | refusal | A function body contains `import('@symbo-ls/<lib>/<bag>/<file>.js')` (`<bag>` = `functions`, `components`, `pages`, `methods`) and frank cannot PROVE the library's published bag carries that module's own exports. Frank reads the installed library (`node_modules/@symbo-ls/<lib>`): its `context.js` must build `<bag>` from namespace imports (`import * as pages from './pages/index.js'`, or a `const functions = { ...a, ...b }` of them), and every export of `<file>.js` must reach the bag as the SAME binding (same declaring file + local name, followed through re-exports and `export *`). Refused also when the library is not installed, publishes no such bag (its `context.js` has no `pages` key), builds the bag from a default import (a route map), the file has a `default` export, or a name is ambiguous (two `export *` sources). | Publish the module through the library's `context.js` (`import * as pages from './pages/index.js'`, with `pages/index.js` re-exporting the file), or import the library root / `context.js` instead of a subpath. Never a local shim. |
+| `unrecreatable-mutable-seed` | refusal | A module-scope `let`/`var` that functions write (frank moves it into the `Smut` wrapper) starts as a value frank cannot rebuild in the published bundle: a class instance, a host object, or an initializer that reads project names (`let _box = new Box()`). | Start it as plain data, a `Map`/`Set`/`Date`/`RegExp`, or an expression of runtime globals only (`Promise.resolve()`, `new Map()`), and build the rest on first use. |
+| `testonly-live-export` | tolerated finding | An export is marked `@testOnly` (see below) but live project code imports it, or the emitted bundle calls it by name (`el.call('name')`). | Remove the marker. A test-only exemption must never cover a live name. |
+
+How a `pages` subpath import resolves when it IS provable: the facade hands back an object with exactly that module's export names, each read from the library's bag (`m.home` is the library's `home` page), and falls back to the real `import()` where the library is bundled locally. It is never the whole bag.
+
+### The `@testOnly` export marker
+
+CHECK 4 (`dropped-export`, a tolerated finding) names every `export` in `functions/`, `components/`, `snippets/` or `methods/` that is missing from the emitted bundle — usually a new file the section's `index.js` does not re-export yet. Two kinds of export are exempt:
+
+- **module-internal**: the section index never reaches it, and live code imports it (a sibling file, a reached export).
+- **`@testOnly`**: the section index never reaches it, live code does not import it, and its export carries the marker directly above it:
+
+```js
+/** @testOnly */
+export const _resetCacheForTests = () => { _cache.clear() }
+```
+
+Limits:
+- The comment must sit DIRECTLY above the `export` (only whitespace between). It applies to that one export statement.
+- A test file's import never counts as live use, so a test-only helper without the marker is still reported.
+- The marker never exempts a name the section index reaches, a name live code imports, or a name the bundle calls (`el.call('x')` resolves through `context.functions` at runtime, so it must ship). Any of those with the marker is `testonly-live-export`.
+- `pages/` is not checked (its emitted keys are routes, not export names).
+
+### Mutable seeds and `globalThis.__SMBLS_BOOT_ERRORS__`
+
+The `Smut` wrapper (one shared object for every mutable module-scope `let`/`var`) carries each initial value as CODE that recreates it: plain data as literals, `Map`/`Set`/`Date`/`RegExp` as constructors, and a value frank cannot evaluate at build time (a `Promise`) as the declaration's own initializer, when that reads only runtime globals. Anything else is `unrecreatable-mutable-seed`.
+
+An initializer seed runs where the app boots, isolated from the others. When it throws there (`let _title = document.title` revived without a `document`), that one mutable is `undefined` and every other seed is unaffected. The boot never fails because of a seed. How the failure is reported:
+
+| Where | Report |
+|---|---|
+| `window` exists (browser) | `console.error` with the text "[smbls] Smut seed \`<name>\` could not be created" and the error message, and one entry `{ kind: 'smut-seed', name, message }` pushed on `globalThis.__SMBLS_BOOT_ERRORS__` (an array, created on first use) |
+| no `window` (Node SSR revive) | `console.warn` with ` (no window: SSR)` — no boot-error entry |
+
+An SSR renderer that defines `window` (brender's linkedom/jsdom environment does) takes the browser path. A console-0 or boot-health check should read `globalThis.__SMBLS_BOOT_ERRORS__` (absent or empty = healthy). Prefer initializers that are valid wherever the code can run; read browser-only values on first use instead.
+
 ### Module discovery
 
 Frank finds these files under `symbols/`:

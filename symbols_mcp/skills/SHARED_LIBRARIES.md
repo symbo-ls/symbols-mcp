@@ -213,6 +213,23 @@ Key rules:
 - Recursively merges nested objects
 - Skips METHODS_EXL keys: `node`, `context`, `extends`, `__element`, `__ref`, and all element/state/props methods — when merging element definitions only
 
+### Per-context library registry
+
+A declared library reached from a function body (`import('@symbo-ls/<lib>/context.js')`, a subpath import, or an import binding frank turns into a facade) resolves through a registry, in this order:
+
+1. **The context's own map** — `context.globalScope[Symbol.for('smbls.libraryPackages')]`, a non-enumerable `spec -> view` map (`@symbo.ls/utils` `LIBRARY_PACKAGES`). Each view is a shallow, per-context copy of one `sharedLibraries` entry whose code bags (`functions`, `methods`, `snippets`) are copies bound to the library's own globalScope in THIS context (else the context's). The library object itself is never mutated. Frank's facades read this map first: `this` is the globalScope, an element scope chained to it, or an element whose `context.globalScope` carries it.
+2. **The process-global `globalThis.__SMBLS_PKGS__`** — RAW library objects only, first registration wins. No context is ever reachable from it, so one SSR process can render many requests.
+
+Both registries key a library under both scope spellings (`@symbo-ls/<key>` and `@symbo.ls/<key>`) of:
+- its PRIMARY name: `key`, else `name`, else `__libraryKey`;
+- every npm-scoped identifier it carries, as an alias: `__libraryName`, and `__libraryKey` / `name` when they are `@symbo-ls/…` / `@symbo.ls/…`.
+
+`__libraryName` is the library's REAL npm package name. Frank stamps it from the library's `package.json` at the library's own push, and the runner stamps it when it resolves a served library. So a consumer that imports `@symbo-ls/workspace-shared/...` reaches a library whose record key is different.
+
+Every primary registers before any alias, so an alias can never take a slot another library owns by record key. When two libraries claim the same alias, the first keeps it and smbls warns: `shared library "<b>" also claims <spec>, which "<a>" already owns`.
+
+Do not write either registry from project code. Do not read `__SMBLS_PKGS__` to reach a library's functions: the raw object's bags are not bound to any context. Call the function through `el.call('name')` or the library facade frank emits.
+
 ---
 
 ## Order of Precedence
