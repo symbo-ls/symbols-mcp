@@ -44,6 +44,25 @@ All shared library identifiers use the `owner/key` format. Default owner is `sys
 
 The `.symbo.ls` suffix is deprecated and stripped automatically.
 
+### Two owners, one key
+
+Different owners can use the same key — `system/brand` and `acme/brand` are two libraries. The CLI never drops the owner. Every local name carries it:
+
+| Where | Name | `system/brand` | `acme/brand` |
+|---|---|---|---|
+| Fetched folder | `.symbols_local/libs/<owner>--<key>/` | `system--brand/` | `acme--brand/` |
+| npm package (fetch links it into `node_modules`; `smbls libs add` imports it) | `@symbo.ls/<key>` for `system`, `@symbo.ls/<owner>-<key>` for any other owner | `@symbo.ls/brand` | `@symbo.ls/acme-brand` |
+| Import binding in `sharedLibraries.js` | camel case of the folder name | `systemBrand` | `acmeBrand` |
+| `.symbols_local/lock.json` keys | `<owner>/<key>` | `system/brand` | `acme/brand` |
+
+The owner comes from the platform, which names it with every library. A library entry without an owner (an older server) is filed under its record id, never under a guessed `system`.
+
+Resolving a key to a platform library:
+
+- `owner/key` resolves to that owner's library or to nothing — never to another owner's library of the same key.
+- A bare key in `symbols.json` or in a `smbls libs ...` command means `system/<key>`.
+- A bare key typed to `smbls project libs add|remove` resolves only when exactly one library uses it. When several owners use it, the command lists them (`owner/key` + id) and exits without a change — name the owner or pass the id.
+
 ---
 
 ## Configuration
@@ -89,8 +108,9 @@ All formats normalize keys to `owner/key` via `normalizeLibraryKey()`.
 
 | Field | Set by | Purpose |
 |---|---|---|
-| `sharedLibraryVersions: { "<key>": "<version>" }` | `smbls fetch` | Skip re-scaffold when version unchanged |
-| `sharedLibraryModes: { "<key>": "linked" \| "cloud" }` | `smbls libs link/add/remove` | Tell `fetch` which entries are user-owned and must be left alone |
+| `sharedLibraryVersions: { "<owner>/<key>": "<version>" }` | `smbls fetch` | Skip re-scaffold when version unchanged |
+| `sharedLibraryIds: { "<owner>/<key>": "<record id>" }` | `smbls fetch` | A folder is reused only when it was fetched from the same record; otherwise it is cleared and fetched again |
+| `sharedLibraryModes: { "<owner>/<key>": "linked" \| "cloud" }` | `smbls libs link/add/remove` | Tell `fetch` which entries are user-owned and must be left alone |
 | `pulledAt`, `etag`, `projectId`, `version`, `branch` | `smbls fetch` | Snapshot metadata |
 
 ### sharedLibraries.js (auto-generated on fetch/sync)
@@ -98,6 +118,15 @@ All formats normalize keys to `owner/key` via `normalizeLibraryKey()`.
 The CLI generates this file automatically after `smbls fetch`/`smbls sync`:
 
 ```js
+// sharedLibrariesMode: 'npm' (the default) — fetch links node_modules/<package> to the fetched folder
+import acmeBrand from '@symbo.ls/acme-brand/context.js'
+import systemBrand from '@symbo.ls/brand/context.js'
+
+export default [acmeBrand, systemBrand]
+```
+
+```js
+// sharedLibrariesMode: 'local' — relative paths into the fetched folders
 import systemDefault from '../.symbols_local/libs/system--default/context.js'
 
 export default [systemDefault]
@@ -324,21 +353,25 @@ smbls libs list                         # Mode-aware (linked/cloud)
 ```bash
 smbls project libs available          # List all available libraries (shows owner/key)
 smbls project libs list               # List libraries linked to current project
-smbls project libs add system/default # Add by owner/key (cloud project record)
-smbls project libs add default        # Bare key → system/default
-smbls project libs remove default     # Remove library (cloud project record)
+smbls project libs add system/default # Add by owner/key (cloud project record) — that owner's library only
+smbls project libs add default        # Bare key → the one library with that key; several owners → lists them, exits
+smbls project libs add <libraryId>    # By record id — always exact
+smbls project libs remove system/default # Remove library (cloud project record)
 ```
 
 The new top-level commands are a strict superset.
 
 ### Drift detection
 
-`smbls libs status` compares `symbols.json.sharedLibraries` against `sharedLibraries.js` by **library slug** (the last segment of `owner/key`, or the leaf directory of an import path before `/context.js`). This survives the historical inconsistency where `destDir` paths and JS import paths don't always resolve identically (especially when `dir: "."` rather than a `symbols/` subfolder).
+`smbls libs status` matches each import in `sharedLibraries.js` to a declared library by **owner and key**: the folder the import resolves to on disk and the `owner`/`key` in that folder's own `symbols.json`, the declared `link`, a fetched `<owner>--<key>` folder, the npm name (`@symbo.ls/<owner>-<key>`), the binding (`acmeBrand`). A bare key in a path or binding counts only when no other declared library shares that key. So `acme/brand` and `system/brand` stay two libraries.
 
 Reports:
 - Declared libs that aren't imported (`missingFromJs`)
-- Imports that aren't declared, when they look like local relative paths (`missingFromJson`) — cloud paths under `.symbols_local/libs/` are excluded
+- Relative-path imports that load no declared library (`missingFromJson`)
+- A library imported more than once (`duplicates`) — it would merge twice
 - Whether the JS file is in canonical shape
+
+`smbls libs remove|unlink` use the same matching: they remove the import of the named owner's library only, and leave the file untouched (with a warning) when no import matches. `smbls libs link <path>` keeps an import that already loads the linked folder, re-points an import that loads another copy of the same library, and adds an import only when none exists.
 
 ### sharedLibraries.js — canonical shape
 
@@ -420,10 +453,10 @@ prepareContext() {
 3. **App always wins** — local project definitions take precedence over shared libraries.
 4. **Override by defining locally** — to change a shared library component, define it in your local `components/` with the same name.
 5. **Order matters** — first library in the array has priority over later ones for filling undefined slots. `system/default` — the base library — always ranks last, below every library the project linked; its default font family claim yields to a linked library's.
-6. **Key format is `owner/key`** — bare keys default to `system/` owner.
+6. **Key format is `owner/key`** — bare keys default to `system/` owner in `symbols.json` and `smbls libs`. Two owners can share a key (`system/brand`, `acme/brand`); folders, npm packages, bindings and lock keys always carry the owner.
 7. **`smbls create` defaults to `system/default`** — use `--blank-shared-libraries` for no libraries.
 8. **Built-in element methods are protected; the logging hooks are override points** — a library `methods` entry named like a protected built-in (`getRoot`, `getRootState`, `update`, …) is refused and the built-in wins (dev warning names it); a library's `log` / `warn` / `error` / `verbose` merge and win as before. The app's OWN `methods` win over both (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
-9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). Reports drift by library *slug*, not exact path, so it survives the `dir: "."` path-resolution edge case.
+9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). It matches imports to libraries by owner and key, not exact path, so it survives the `dir: "."` path-resolution edge case and keeps same-key libraries of two owners apart.
 10. **`sharedLibraries.js` has a canonical shape** — the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
 
 ---

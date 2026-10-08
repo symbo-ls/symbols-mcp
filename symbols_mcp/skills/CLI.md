@@ -182,8 +182,9 @@ smbls project pipeline promote <from> <to>    Promote content between environmen
 
 smbls project libs list                       List linked shared libs (cloud project record)
 smbls project libs available                  List available shared libs on platform
-smbls project libs add <lib...>               Add lib(s) — cloud project record only
-smbls project libs remove <lib...>            Remove lib(s) — cloud project record only
+smbls project libs add <lib...>               Add lib(s) by owner/key or id — cloud project record only
+smbls project libs remove <lib...>            Remove lib(s) by owner/key or id — cloud project record only
+                                              (a bare key resolves only when one owner uses it; else lists owners, exits)
 ```
 
 ### Shared libraries (local + cloud, two-file sync)
