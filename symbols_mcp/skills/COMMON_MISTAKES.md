@@ -1216,7 +1216,7 @@ This is a framework contract, not a bug to patch per page: a pseudo rule cannot 
 
 ## A longhand default in a base component hides the consumer's shorthand
 
-Since smbls 3.14.774 a static longhand class always beats a static shorthand class of its family (see SYNTAX.md "Static CSS Props Follow the Same Rule"). So a component that DEFAULTS a longhand silently overrides every consumer that sets the shorthand:
+From the release that carries this change, a static longhand class always beats a static shorthand class of its family (see SYNTAX.md "Static CSS Props Follow the Same Rule"). So a component that DEFAULTS a longhand silently overrides every consumer that sets the shorthand:
 
 ```js
 // WRONG

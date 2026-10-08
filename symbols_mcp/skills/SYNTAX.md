@@ -619,7 +619,7 @@ Where a preset and a prop disagree the ladder is unchanged: `theme` < design-sys
 
 ### Static CSS Props Follow the Same Rule — a Longhand Beats Its Shorthand
 
-Two STATIC props of one family compile to two atomic classes of equal specificity. The engine places every longhand class AFTER every shorthand class of its family (one base sheet per shorthand depth: `border` < `borderTop` < `borderTopColor`), so the longhand always wins — whatever order you wrote the keys in, and whichever element on the page used either class first. Before smbls 3.14.774 the winner depended on which class the page created first.
+Two STATIC props of one family compile to two atomic classes of equal specificity. The engine places every longhand class AFTER every shorthand class of its family (one base sheet per shorthand depth: `border` < `borderTop` < `borderTopColor`), so the longhand always wins — whatever order you wrote the keys in, and whichever element on the page used either class first. Before the release that carries this change, the winner depended on which class the page created first.
 
 ```js
 export const KitField = {
@@ -628,7 +628,7 @@ export const KitField = {
 }
 ```
 
-The families cover every standard CSS shorthand, nested ones included: `font` > `fontVariant` > `fontVariantNumeric`, `background` > `backgroundPosition` > `backgroundPositionX`, `border` > `borderBlock` > `borderBlockStart` > `borderBlockStartColor`, `animation` > `animationRange` > `animationRangeStart`, `scrollMargin` > `scrollMarginBlock` > `scrollMarginBlockStart`, `whiteSpace`/`textWrap` > `textWrapMode`, and the rest of the list above. Only one-property atomic classes move; a global rule (`injectGlobal`) keeps its place. Conditional rules (`:hover`, `@media`, `@dark`, `.isX`) still beat every flat rule, shorthand or longhand.
+The families cover every standard CSS shorthand, nested ones included: `font` > `fontVariant` > `fontVariantNumeric`, `background` > `backgroundPosition` > `backgroundPositionX`, `border` > `borderBlock` > `borderBlockStart` > `borderBlockStartColor`, `animation` > `animationRange` > `animationRangeStart`, `cornerShape` > `cornerTopShape` > `cornerTopLeftShape`, `scrollMargin` > `scrollMarginBlock` > `scrollMarginBlockStart`, `whiteSpace`/`textWrap` > `textWrapMode`, and the rest of the list above. Only one-property atomic classes move; a global rule (`injectGlobal`) keeps its place. Conditional rules (`:hover`, `@media`, `@dark`, `.isX`) still beat every flat rule, shorthand or longhand.
 
 **The trap: a longhand DEFAULT in a component you extend beats the consumer's shorthand.**
 
@@ -646,7 +646,7 @@ export const Hoverable = { transition: 'opacity C defaultBezier, transform C def
 { extends: 'Hoverable', transition: 'all B' }       // -> animates all
 ```
 
-Default to the SHORTHAND in any component meant to be extended. The built-ins do: `Button` (`border: 'none'`), `NumberInput` (`border: '1px solid gray3'`), `Hoverable`, `Dropdown`, `DropdownList`. A consumer that wants to change only one part writes the longhand (`borderColor: 'red'`) — that wins over the base shorthand.
+Default to the SHORTHAND in any component meant to be extended. The built-ins do: `Button` (`border: 'none'`), `NumberInput` (`border: '1px solid line'`), `Hoverable`, `Dropdown`, `DropdownList`. A consumer that wants to change only one part writes the longhand (`borderColor: 'red'`) — that wins over the base shorthand.
 
 ### Textarea `autoGrow` — rows Floor, max-height Cap
 
