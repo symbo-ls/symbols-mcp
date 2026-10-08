@@ -869,8 +869,12 @@ PressableCard: { '[data-pressed]': { opacity: '0.85' } }
 // Standard transition
 Component: {
   transition: 'B defaultBezier',            // B = 280ms
-  transitionProperty: 'opacity, transform'
+  transitionProperty: 'opacity, transform'  // the longhand always wins over the shorthand
 }
+
+// In a component meant to be EXTENDED, put the list inside the shorthand,
+// so a consumer `transition: '…'` replaces it (a longhand default would win)
+Hoverable: { transition: 'opacity C defaultBezier, transform C defaultBezier' }
 
 // Hover feedback
 Button: {

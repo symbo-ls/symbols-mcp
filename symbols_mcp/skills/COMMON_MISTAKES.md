@@ -1211,3 +1211,22 @@ Row: {
 With the static base, the hover rule (`.C.C:hover`) outranks the base class by specificity alone, and the `.isSelected` inline fill keeps the selected row selected under the pointer. Keep every property that has a pseudo-state, `@media` or theme variant STATIC at the base; put the state logic in `.isX` / `!isX` blocks.
 
 This is a framework contract, not a bug to patch per page: a pseudo rule cannot outrank an inline style by selector specificity, and moving reactive values off inline styles would change the cascade position of every reactive CSS prop (against `@media`, theme and `.isX` blocks). Do not add your own `!important` to "fix" a dead hover — make the base static.
+
+---
+
+## A longhand default in a base component hides the consumer's shorthand
+
+Since smbls 3.14.774 a static longhand class always beats a static shorthand class of its family (see SYNTAX.md "Static CSS Props Follow the Same Rule"). So a component that DEFAULTS a longhand silently overrides every consumer that sets the shorthand:
+
+```js
+// WRONG
+export const Card = { borderWidth: '1px', borderStyle: 'solid', transitionProperty: 'opacity' }
+{ extends: 'Card', border: 'none' }            // border stays 1px solid
+{ extends: 'Card', transition: 'all B' }       // still animates only opacity
+
+// RIGHT
+export const Card = { border: '1px solid line', transition: 'opacity B defaultBezier' }
+```
+
+Default the shorthand in anything meant to be extended; put a property list inside `transition` (`'opacity B defaultBezier, transform B defaultBezier'`). The consumer's shorthand then replaces the default by key, and a consumer longhand (`borderColor`) still adjusts one part.
+

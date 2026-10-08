@@ -617,6 +617,51 @@ Three things the rule deliberately does NOT do:
 
 Where a preset and a prop disagree the ladder is unchanged: `theme` < design-system `class` fragment < the element's own prop. A reactive prop is the element's own prop, so it beats both.
 
+### Static CSS Props Follow the Same Rule — a Longhand Beats Its Shorthand
+
+Two STATIC props of one family compile to two atomic classes of equal specificity. The engine places every longhand class AFTER every shorthand class of its family (one base sheet per shorthand depth: `border` < `borderTop` < `borderTopColor`), so the longhand always wins — whatever order you wrote the keys in, and whichever element on the page used either class first. Before smbls 3.14.774 the winner depended on which class the page created first.
+
+```js
+export const KitField = {
+  transition: 'A defaultBezier',
+  transitionProperty: 'background-color, border-color'   // always wins: only these animate
+}
+```
+
+The families cover every standard CSS shorthand, nested ones included: `font` > `fontVariant` > `fontVariantNumeric`, `background` > `backgroundPosition` > `backgroundPositionX`, `border` > `borderBlock` > `borderBlockStart` > `borderBlockStartColor`, `animation` > `animationRange` > `animationRangeStart`, `scrollMargin` > `scrollMarginBlock` > `scrollMarginBlockStart`, `whiteSpace`/`textWrap` > `textWrapMode`, and the rest of the list above. Only one-property atomic classes move; a global rule (`injectGlobal`) keeps its place. Conditional rules (`:hover`, `@media`, `@dark`, `.isX`) still beat every flat rule, shorthand or longhand.
+
+**The trap: a longhand DEFAULT in a component you extend beats the consumer's shorthand.**
+
+```js
+// WRONG — the base sets a longhand
+export const MyButton = { extends: 'Button', borderStyle: 'none' }
+{ extends: 'MyButton', border: '1px solid red' }   // -> NO border: borderStyle 'none' wins
+
+// RIGHT — the base sets the shorthand; the consumer's shorthand replaces it by key
+export const MyButton = { extends: 'Button', border: 'none' }
+{ extends: 'MyButton', border: '1px solid red' }   // -> 1px solid red
+
+// RIGHT — a transition default carries its property list INSIDE the shorthand
+export const Hoverable = { transition: 'opacity C defaultBezier, transform C defaultBezier' }
+{ extends: 'Hoverable', transition: 'all B' }       // -> animates all
+```
+
+Default to the SHORTHAND in any component meant to be extended. The built-ins do: `Button` (`border: 'none'`), `NumberInput` (`border: '1px solid gray3'`), `Hoverable`, `Dropdown`, `DropdownList`. A consumer that wants to change only one part writes the longhand (`borderColor: 'red'`) — that wins over the base shorthand.
+
+### Textarea `autoGrow` — rows Floor, max-height Cap
+
+```js
+Composer: { tag: 'textarea', rows: 3, autoGrow: true }                 // never below 3 lines
+Note:     { tag: 'textarea', rows: 2, autoGrow: { max: '40dvh' } }     // 2 lines .. 40dvh, then scroll
+Draft:    { tag: 'textarea', rows: 1, autoGrow: (el, s) => !s.full && { max: '35dvh' } }
+```
+
+- **Floor:** an explicit `rows` is the minimum height (rows x line height + padding). With `lineHeight: 'normal'` (the default) the framework measures one line of the textarea's font. Without `rows` the floor is the content (one line); a `minHeight` prop still floors it through the cascade.
+- **Cap:** `autoGrow.max` or a `maxHeight` prop. The height stops at the cap, rounded DOWN to whole lines, and the box scrolls (`overflow-y: auto`, removed again when the content fits).
+- **Exact height:** the written `height` shows exactly the content for either `boxSizing` (border-box adds the borders, content-box drops the padding) — no 2px inner scroll.
+- **autoGrow owns `height`:** a transition that covers `height` (`transition: 'all …'` or `'height …'`) is cancelled on every measure, so the box never animates its height and always shrinks after text is deleted. Other transitions on the node (a border-color focus fade) keep running; the inline `transition` is never touched.
+- It re-measures on input, on a programmatic `value` change, on a width change, and when web fonts load. Never write `el.node.style.height` yourself.
+
 ---
 
 ## `attr` (HTML Attributes)
