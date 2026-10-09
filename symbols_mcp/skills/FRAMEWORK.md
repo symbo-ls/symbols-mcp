@@ -812,7 +812,7 @@ This means SSR HTML and client bundle must run **identical** DOMQL source. Any d
 - Async work in `onCreate`/`onRender` that mutates the DOM — SSR captures the synchronous output. Async mutations show up only after hydration. Use `prefetchPageData` to hydrate state from the DB at render time instead.
 - Imports of browser-only packages (e.g. `mapbox-gl`, `leaflet`) at the module top level. Lazy-load via `el.call('requireOnDemand', 'mapbox-gl')` inside an event handler.
 - Random / time-of-day output without a deterministic seed. Two renders must produce the same HTML.
-- Reading from outside the project context (e.g. global `import.meta`, `process.env` at module top level — these resolve at bundle time).
+- Reading from outside the project context (e.g. global `import.meta`, `process.env` at module top level — these resolve at bundle time). The exception is `new URL('<relative path>', import.meta.url)` naming a project file: frank publishes the file and rewrites the call to its URL (§9 → Asset URLs).
 
 ### `prefetchPageData` for SSR with real data
 
@@ -858,6 +858,12 @@ Options:
 - `stringify: false` — keep functions as functions (only useful when bundling locally)
 - `tmpDir` — custom temp dir for bundled output (default `.frank_tmp/`)
 - `external` — additional packages to externalize
+- `resolveAssetUrl` — `(asset) => url` or `'dataurl'`: the URL for a project file referenced as `new URL('<path>', import.meta.url)` (`smbls push` uploads the file; `smbls frank to-json` inlines a `data:` URL)
+- `importMetaUrls` — `'load'` (default) or `'all'`; also `"frank": { "importMetaUrls": "all" }` in `symbols.json`
+
+**Asset URLs — `new URL('<relative path>', import.meta.url)`.** frank bundles to CommonJS, where `import.meta` is empty, so such a call used to throw `Invalid URL` and fail the push. Now a call whose first argument is a relative path literal naming an existing file becomes `new URL("<url>")` with the URL `resolveAssetUrl` gives (push: the uploaded or reused platform asset). Scope `'load'` resolves only calls that run while the project loads (outside every function and `try`; the ones that used to crash); `'all'` also resolves calls inside function bodies, helpers frank lifts into globalScope, lazily imported modules and `app.js` — and with a resolver, a call it cannot resolve (a non-literal path, a missing file, a query string) fails the build. A load-time failure that is still this case throws `FRANK_IMPORT_META_URL`, naming the project file, line and reason. Parcel never runs this (local dev keeps its hashed assets); asset `import` statements keep esbuild's dataurl loader.
+
+**Declared runtime packages need not be installed.** A bare import of a package `dependencies.js` declares that esbuild cannot resolve is stubbed like the fixed external list: `await import('<pkg>')` publishes as `import('<pkg>')`, a static import used inside functions loads at runtime. An installed package still bundles inline; an undeclared one still fails (`package.json` dependencies do not count); a value computed from the stub while the project loads fails with `FRANK_UNINSTALLED_DEPENDENCY_VALUE`.
 
 ### `toFS(data, distDir, options?)` — JSON → FS
 

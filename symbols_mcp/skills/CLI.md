@@ -26,7 +26,7 @@ The CLI looks at three files in priority order, walking up from CWD until it hit
 
 | File | Purpose | Tracked |
 |---|---|---|
-| `symbols.json` | Project identity (key, owner, version, branch, dir, sharedLibraries) | ✅ git-tracked — the canonical project pointer |
+| `symbols.json` | Project identity (key, owner, version, branch, dir, sharedLibraries); also frank options, e.g. `"frank": { "importMetaUrls": "all" }` | ✅ git-tracked — the canonical project pointer |
 | `.symbols_local/config.json` | Tooling + API config (apiBaseUrl OR `channel`, projectKey, projectId, bundler, packageManager, runtime, deploy) | ✅ git-tracked — local overrides + auto-link state |
 | `.symbols_local/lock.json` | Snapshot metadata (etag, version, projectId, pulledAt) | ⛔ gitignored — refreshed by every `push`/`pull` |
 | `.symbols_local/project.json` | Full project snapshot from server | ⛔ gitignored |
@@ -152,6 +152,10 @@ smbls publish                   Push + version + republish enabled environments 
 
 Every command that SENDS the local project — `push`, `sync`, `collab` and `github sync` — ships frank's stringified emission, never a raw `fn.toString()` of the live build. A handler's `await import('<pkg>')` arrives as that literal `import('<pkg>')` (the raw build carried esbuild's `init_X(), X_exports` wiring, which throws at runtime). frank's emission gate stands in front of every send: a globalScope defect blocks (`push`, `sync` and `github sync` exit 1; `collab` prints `[collab] Local change NOT sent` and keeps watching), and per-function debt is printed as a named warning. `SMBLS_NO_VERIFY_SERIALIZATION=1` bypasses the gate for all four; `push` also takes `--no-verify-serialization`.
 
+**Self-hosted assets — `new URL('<relative path>', import.meta.url)`.** A value that names a project file this way (a font `url` in `designSystem`, an image in a component's `scope`) is published as a platform URL: `push` uploads the file to the project (public, keyed by its path from the project root, e.g. `assets/fonts/x.woff2`) or reuses the asset the platform already holds with the same sha256, so an unchanged file keeps its URL and uploads nothing; the assets join the project's `assets` map. By default only calls that run while the project loads are resolved; `"frank": { "importMetaUrls": "all" }` in `symbols.json` also resolves calls inside function bodies and in `app.js`. `smbls frank to-json` inlines such files as `data:` URLs and never uploads; `sync`, `collab` and `github sync` do not upload them and fail with an error naming the file and line. `smbls start` / `smbls build` (parcel) keep their own hashed assets; a later `smbls fetch` writes the published URL as a plain string.
+
+**A package `dependencies.js` declares need not be installed for push.** frank stubs a declared runtime package that `node_modules` lacks and publishes its `import('<pkg>')` for the browser to load through the importmap (e.g. `await import('quill')` in a handler). A package nothing declares still fails to resolve (`package.json` dependencies never reach the platform's importmap), and a value computed from such a stub while the project loads fails the build (`FRANK_UNINSTALLED_DEPENDENCY_VALUE`).
+
 ### Project management (server-side)
 
 ```
@@ -275,7 +279,7 @@ smbls frank to-json [dir]                     Bundle FS project → single JSON 
 smbls frank to-fs <jsonPath> [outDir]         Materialize JSON → symbols/ directory
 ```
 
-Flags: `to-json` accepts `-o, --output <path>`, `--no-stringify`, `-v, --verbose`. `to-fs` accepts `--overwrite`.
+Flags: `to-json` accepts `-o, --output <path>`, `--no-stringify`, `-v, --verbose`. `to-fs` accepts `--overwrite`. `to-json` inlines `new URL('<path>', import.meta.url)` project files as `data:` URLs (no upload).
 
 ### Dev / build / deploy
 

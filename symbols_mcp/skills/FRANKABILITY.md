@@ -375,6 +375,8 @@ export default {
 }
 ```
 
+A package declared here does not have to be installed for `smbls push`: frank stubs it while it builds and publishes the handler's `import('<pkg>')` for the browser to load through this importmap.
+
 #### FA210 — Bypass-mode / mock-auth handlers must guard `el.node` and `s.parent` / `s.root`
 
 If the project has any local-dev auth bypass (`?bypass=true`, mock auth,
@@ -476,6 +478,15 @@ audit warnings and bundle output:
   `functions/*` exports as `function` declarations anyway (Rule 8) — a
   module-level arrow's own `this` is `undefined`, and esbuild compiles a
   source `this` there to `void 0`.
+- `new URL('<relative path>', import.meta.url)` naming a project file, in
+  code that runs while the project loads (a font `url`, a `scope` image):
+  `smbls push` uploads the file (or reuses the same file already on the
+  platform) and publishes its URL; `smbls frank to-json` inlines a `data:`
+  URL. `"frank": { "importMetaUrls": "all" }` in `symbols.json` also
+  resolves calls inside functions and `app.js`.
+- A package `dependencies.js` declares but `node_modules` lacks is stubbed
+  while frank builds; its `import('<pkg>')` is published for the browser
+  to load. It need not be installed for push.
 - `setTimeout` / `queueMicrotask` stubs in the serialization scanner now
   swallow async user-code rejections (won't crash frank).
 - The free-variable scanner no longer false-positives on object-literal

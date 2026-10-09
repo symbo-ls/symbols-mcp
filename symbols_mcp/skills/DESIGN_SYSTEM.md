@@ -1205,7 +1205,14 @@ font: {
 font: {
   Inter: { url: '/fonts/Inter-Variable.woff2', isVariable: true, fontWeight: '100 900' }
 }
+
+// a font file kept in the project tree (designSystem/font.js):
+font: {
+  Inter: { url: new URL('../assets/fonts/Inter-Variable.woff2', import.meta.url).href, isVariable: true, fontWeight: '100 900' }
+}
 ```
+
+`new URL('<relative path>', import.meta.url)` works in every path: parcel (`smbls start` / `smbls build`) emits a hashed file, and `smbls push` uploads the file to the project (or reuses the same file already there) and publishes its platform URL (CLI.md → Sync data with platform).
 
 ### Traditional per-weight files
 
