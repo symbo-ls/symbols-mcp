@@ -1,6 +1,6 @@
 {
   "smbls": "3.14.826",
-  "commit": "ae9e77bcf",
+  "commit": "31c4e680c",
   "checked": "2026-10-09",
   "examples": [
     "isxRootState",
@@ -14,6 +14,9 @@
     "onWindowLoadAfterLoad",
     "styleBlockTokens",
     "sizesNegationAndVars",
-    "reactiveBaseBlocksWin"
+    "reactiveBaseBlocksWin",
+    "tooltipLayer",
+    "shorthandLonghand",
+    "focusVisibleRecolorsRing"
   ]
 }
