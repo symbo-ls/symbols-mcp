@@ -523,10 +523,47 @@ const V2_PATTERNS = [
   [/\bprops\s*:\s*\{(?!\s*\})/g, "v2 syntax: flatten props directly on the component instead of props: {} wrapper"],
 ]
 
+// Where the audited file lives decides three checks (mirrors
+// symbols_mcp/server.py `_inline_audit_path`): a functions/ file returns
+// objects from functions by design, app.js / state.js / config.js and
+// designSystem files export a default, and index.js / context.js / app.js are
+// where imports belong. Without a `file_path` the code is a component, as before.
+const FRANK_SLOT_DIRS = new Set(['components', 'snippets', 'pages', 'functions', 'methods', 'designSystem', 'files', 'assets'])
+const IMPORT_FILES = new Set(['index.js', 'context.js', 'app.js', 'dependencies.js', 'sharedLibraries.js'])
+const FIRST_EXPORT_NAME = /^[ \t]*export\s+(?:const|let|var|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][\w$]*)/m
+
+function auditTarget (code, filePath) {
+  const m = FIRST_EXPORT_NAME.exec(code || '')
+  const name = m ? m[1] : 'Inline'
+  let rel = String(filePath || '').trim().replace(/\\/g, '/')
+  const folder = rel.endsWith('/')
+  if (rel.startsWith('/') || /^[A-Za-z]:\//.test(rel)) {
+    const segments = rel.split('/').filter(Boolean)
+    const at = segments.lastIndexOf('symbols', segments.length - 2)
+    if (at !== -1) {
+      rel = segments.slice(at + 1).join('/')
+    } else {
+      const slotAt = segments.slice(0, -1).map((s, i) => (FRANK_SLOT_DIRS.has(s) ? i : -1)).filter((i) => i !== -1).pop()
+      rel = slotAt === undefined ? segments[segments.length - 1] : segments.slice(slotAt).join('/')
+    }
+  } else {
+    rel = rel.replace(/^(\.\/)+/, '').replace(/^symbols\//, '')
+  }
+  rel = path.posix.normalize(rel || '.').replace(/\/+$/, '') || '.'
+  if (!filePath || rel === '.' || rel === '..' || rel.startsWith('../') || rel.startsWith('/')) rel = `components/${name}.js`
+  let parts = rel.split('/')
+  if (folder || (parts.length === 1 && FRANK_SLOT_DIRS.has(parts[0]))) parts = [...parts, `${name}.js`]
+  const last = parts[parts.length - 1]
+  if (!/\.m?js$/.test(last)) parts[parts.length - 1] = last.replace(/\.[^.]*$/, '') + '.js'
+  rel = parts.join('/')
+  const slot = parts.length === 1 ? 'root' : (FRANK_SLOT_DIRS.has(parts[0]) ? parts[0] : 'orphan')
+  return { rel, slot, base: parts[parts.length - 1] }
+}
+
 const RULE_CHECKS = [
-  [/\bimport\s+.*\bfrom\s+['"]\.\//, "FORBIDDEN: No imports between project files — reference components by PascalCase key name"],
-  [/\bexport\s+default\s+\{/, "Components should use named exports (export const Name = {}), not default exports"],
-  [/\bfunction\s+\w+\s*\(.*\)\s*\{[\s\S]*?return\s*\{/, "Components must be plain objects, not functions that return objects"],
+  [/\bimport\s+.*\bfrom\s+['"]\.\//, "FORBIDDEN: No imports between project files — reference components by PascalCase key name", (t) => !IMPORT_FILES.has(t.base)],
+  [/\bexport\s+default\s+\{/, "Components should use named exports (export const Name = {}), not default exports", (t) => t.slot === 'components' || t.slot === 'snippets'],
+  [/\bfunction\s+\w+\s*\(.*\)\s*\{[\s\S]*?return\s*\{/, "Components must be plain objects, not functions that return objects", (t) => t.slot === 'components' || t.slot === 'snippets' || t.slot === 'pages'],
   [/\bextends\s*:\s*(?!['"])\w+/, "FORBIDDEN: extends must be a quoted string name (extends: 'Name'), not a variable reference — register in components/ and use string lookup (Rule 10)"],
   [/extends\s*:\s*['"]Flex['"]/, "Replace extends: 'Flex' with flow: 'x' or flow: 'y' — do NOT just remove it, the element needs flow to stay flex (Rule 26)"],
   [/extends\s*:\s*['"]Box['"]/, "Remove extends: 'Box' — every element is already a Box (Rule 26)"],
@@ -573,9 +610,10 @@ const RULE_CHECKS = [
   [/^var\s+\w+\s*=/m, "FORBIDDEN: No module-level variables — use el.scope for local state, functions/ for helpers (Rule 33)"],
 ]
 
-function auditCode(code) {
+function auditCode(code, filePath) {
   const violations = []
   const warnings = []
+  const file = auditTarget(code, filePath)
 
   for (const [pattern, message] of V2_PATTERNS) {
     const re = new RegExp(pattern.source, pattern.flags)
@@ -586,7 +624,8 @@ function auditCode(code) {
     }
   }
 
-  for (const [pattern, message] of RULE_CHECKS) {
+  for (const [pattern, message, applies] of RULE_CHECKS) {
+    if (applies && !applies(file)) continue
     const re = new RegExp(pattern.source, pattern.flags || 'g')
     let m
     while ((m = re.exec(code)) !== null) {
@@ -605,6 +644,7 @@ function auditCode(code) {
     score,
     violations,
     warnings,
+    file: file.rel,
     summary: `${violations.length} errors, ${warnings.length} warnings — compliance score: ${score}/10`
   }
 }
@@ -713,11 +753,12 @@ const TOOLS = [
   },
   {
     name: 'audit_component',
-    description: 'Audit a Symbols/DOMQL component for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Returns violations, warnings, and a score.',
+    description: 'Audit a Symbols/DOMQL file (component, page, function, …) for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Pass file_path so the checks that depend on the file\'s folder apply where it really lives; without it the code is audited as a component. Returns violations, warnings, and a score.',
     inputSchema: {
       type: 'object',
       properties: {
-        component_code: { type: 'string', description: 'The JavaScript component code to audit' }
+        component_code: { type: 'string', description: 'The JavaScript code to audit' },
+        file_path: { type: 'string', description: "Where the file lives, relative to the project's symbols folder: 'functions/listQuerySet.js', 'components/SiteCover.js', 'pages/main.js', 'app.js'. A folder ('functions/') names the kind. Empty → a component.", default: '' }
       },
       required: ['component_code']
     }
@@ -898,9 +939,9 @@ async function handleTool(name, args) {
 
   // audit_component (sync)
   if (name === 'audit_component') {
-    const result = auditCode(args.component_code)
+    const result = auditCode(args.component_code, args.file_path)
     const rulesContext = readSkill('AUDIT.md')
-    let output = `# Audit Report\n\n## Summary\n${result.summary}\nPassed: ${result.passed ? 'Yes' : 'No'}\n\n## Violations (Errors)\n`
+    let output = `# Audit Report\n\nAudited as: \`${result.file}\`\n\n## Summary\n${result.summary}\nPassed: ${result.passed ? 'Yes' : 'No'}\n\n## Violations (Errors)\n`
     if (result.violations.length) {
       for (const v of result.violations) output += `- **Line ${v.line}**: ${v.message}\n`
     } else {
