@@ -54,14 +54,17 @@ create(app, {
 ### Setup (`config.js`)
 
 ```js
-db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-// or REST:
-db: { adapter: 'rest', url: 'https://api.example.com',
-      headers: { Authorization: 'Bearer token' },
-      auth: { baseUrl: '…', signInUrl: '/login', sessionUrl: '/me' } }
+fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
+         headers: { apikey: 'sb_publishable_…' } }
+// or another REST API:
+fetch: { adapter: 'rest', url: 'https://api.example.com',
+         headers: { Authorization: 'Bearer token' },
+         auth: { baseUrl: '…', signInUrl: '/login', sessionUrl: '/me' } }
 // or local:
-db: { adapter: 'local', data: { articles: [] }, persist: true }
+fetch: { adapter: 'local', data: { articles: [] }, persist: true }
 ```
+
+`db` is not a config key — it is the usual name of the adapter `await el.getDB()` returns.
 
 ### Use
 
@@ -125,6 +128,8 @@ cache: { staleTime: '30s', gcTime: '1h', key: 'custom-key' }
 - Garbage collection: unused entries cleaned after `gcTime`.
 - Deduplication: identical concurrent queries share one network request.
 - Refetch on window focus: enabled by default. Disable with `refetchOnWindowFocus: false`.
+- After a successful write, `invalidates` (a key substring, a RegExp or a predicate; `true` = the write's own `from`) makes the queries MOUNTED on matching keys refetch at once. From project code: `el.call('invalidateQueries', 'articles')` (also `removeQueries`, `getQueryData`, `setQueryData`) — never import the query client. An `rpc` fired by a click / submit, or declaring `invalidates`, is an action: never cached, runs its `invalidates`.
+- Reads retry 3 times; writes are sent once unless `retry` says otherwise.
 
 ### ❌ Forbidden alternatives
 

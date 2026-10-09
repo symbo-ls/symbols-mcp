@@ -399,23 +399,19 @@ reason for custom routing.**
 
 ## 5. `@symbo.ls/fetch` — declarative data
 
-Full reference: `plugins/fetch/README.md`. Auto-registered when `context.fetch` (root or page) or `context.db` is set.
+Full reference: `plugins/fetch/README.md`. Auto-registered when `config.js` sets `fetch` (the adapter config, resolved onto `context.fetch`). `db` is not a config key — it is the usual name of the adapter `getDB()` returns.
 
 ### Configure once in `config.js`
 
 ```js
-db: {
-  adapter: 'supabase',          // 'supabase' | 'rest' | 'local'
-  createClient,                  // for supabase — pass createClient from @supabase/supabase-js
-  url: 'https://xxx.supabase.co',
-  key: 'sb_publishable_...',
-  auth: { persistSession: false /* ... */ },
-  db:   { schema: 'my_tenant' },
-  global: { headers: { 'x-tenant-slug': 'my_tenant' } }
+fetch: {
+  adapter: 'rest',                        // 'rest' | 'local' | a registered adapter name
+  url: 'https://xxx.supabase.co/rest/v1', // e.g. Supabase's PostgREST endpoint
+  headers: { apikey: 'sb_publishable_...' },
+  fetchOptions: { credentials: 'include' },
+  auth: { baseUrl: '…', sessionUrl: '/me', signInUrl: '/login', signOutUrl: '/logout' }
 }
 ```
-
-Use `db: { adapter: 'supabase', state: 'supabase' }` to merge config from `state.root.supabase` instead of inlining keys.
 
 ### Declarative fetch on an element / app
 
@@ -445,7 +441,7 @@ fetch: [
 
 ### Cache, retry, dedupe, focus refetch — all default-on
 
-Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff), `refetchOnWindowFocus: true`, `refetchOnReconnect: true`. Override per-fetch:
+Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads and none for writes (`insert` / `update` / `upsert` / `delete` / rpc actions — a timed-out write may have been applied), `refetchOnWindowFocus: true`, `refetchOnReconnect: true`. A forced refetch (`el.__ref.refetch()`, each `refetchInterval` tick, reconnect) reaches the network even while the entry is fresh. A shared in-flight request that fails gives every element on it the error. Override per-fetch:
 
 ```js
 { fetch: { from: 'X', cache: false, retry: false, refetchOnWindowFocus: false } }
@@ -460,7 +456,7 @@ Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff), `refetch
 
 ### Triggers
 
-`on: 'create'` (default) | `'click'` | `'submit'` | `'stateChange'`. For `'stateChange'`, `params: (el, s) => ({ q: s.query })` re-fetches when reads change.
+`on: 'create'` (default) | `'click'` | `'submit'` | `'stateChange'`. For `'stateChange'`, `params: (el, s) => ({ q: s.query })` re-fetches when what `params` / `enabled` / `skip` / `page` resolve to changes — not on create (add `on: 'create'` for a first load), not when its own rows land. Removing the element releases its timers, listeners, watcher and subscription.
 
 ### Optimistic updates + cache invalidation
 
@@ -471,10 +467,12 @@ Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff), `refetch
     params: (el) => ({ id: el.state.postId }),
     on: 'click',
     optimistic: (data, current) => ({ ...current, likes: current.likes + 1 }),
-    invalidates: ['posts']     // or true (all "posts:*"), or ['*'] (everything)
+    invalidates: ['posts']     // every key CONTAINING "posts"; true or '*' = the write's own `from`
   }
 }
 ```
+
+After a successful write the matching entries go stale and the queries MOUNTED on them refetch at once (others on their next mount). A match is a substring, a RegExp or `(key) => boolean`. An `rpc` is an ACTION — sent on every trigger, never cached or shared, runs its `invalidates` — when a click / submit fires it, when it declares `invalidates`, or with `mutation: true` (`mutation: false` keeps a clicked read cached).
 
 ### Infinite queries
 
@@ -502,13 +500,17 @@ const { data: stream } = await db.insert({ from: '/ask', data: { question }, res
 await db.insert({ from: '/voice', data: formData })                                                     // FormData / Blob / ArrayBuffer bodies are sent as they are
 await db.select({ from: '/me', headers: { Authorization: `Bearer ${userToken}` } })                     // per-call headers win over the configured ones
 
-import { queryClient } from '@symbo.ls/fetch'
-queryClient.invalidateQueries('articles')
-queryClient.setQueryData('articles:select:', (old) => [...old, newOne])
-queryClient.prefetchQuery({ from: 'profile' }, context)
+// the query cache from project code — registered as functions whenever `fetch` is configured.
+// Project code cannot import `queryClient` from '@symbo.ls/fetch' (frank serializes that import to a stub).
+await this.call('invalidateQueries', 'articles')                // mounted queries refetch; resolves when they settle
+this.call('removeQueries', /^articles:select:/)                  // next mount loads without stale rows
+this.call('getQueryData', { from: 'articles' })                  // a key, or a config keyed like this element would key it
+this.call('setQueryData', 'articles:select:', (old) => [...old, newOne])
 ```
 
 `responseType` and per-call `headers` also work in a declarative `fetch:`. Worked examples (SSE read, Blob download, FormData upload): SYNTAX → Data Fetching.
+
+**Early requests** (`fetch.early`, REST adapter, opt-in): `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends the first view's GETs while the HTML parses; the adapter adopts each answer for the first identical call. Config and adoption rules: SYNTAX → Data Fetching → Early requests.
 
 ### Auth guard
 

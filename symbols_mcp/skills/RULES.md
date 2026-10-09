@@ -1255,7 +1255,7 @@ All data fetching MUST go through the smbls fetch plugin (`@symbo.ls/fetch`). Co
 **Setup (`config.js`):**
 
 ```js
-db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
+fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1', headers: { apikey: 'sb_publishable_…' } }
 // or: { adapter: 'rest', url: 'https://api.example.com', headers: { Authorization: '…' } }
 // or: { adapter: 'local', data: { articles: [] }, persist: true }
 ```

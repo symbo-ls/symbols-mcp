@@ -1235,14 +1235,17 @@ Declarative fetch on any element. Caching, dedup, retry, refetch-on-focus, pagin
 ### Setup (`config.js`)
 
 ```js
-db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-// or REST:
-db: { adapter: 'rest', url: 'https://api.example.com',
-      headers: { Authorization: 'Bearer token' },
-      auth: { baseUrl: '…', signInUrl: '/login', sessionUrl: '/me' } }
+fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
+         headers: { apikey: 'sb_publishable_…' } }
+// or another REST API:
+fetch: { adapter: 'rest', url: 'https://api.example.com',
+         headers: { Authorization: 'Bearer token' },
+         auth: { baseUrl: '…', signInUrl: '/login', sessionUrl: '/me' } }
 // or local:
-db: { adapter: 'local', data: { articles: [] }, persist: true }
+fetch: { adapter: 'local', data: { articles: [] }, persist: true }
 ```
+
+The connection config is the `fetch` key of `config.js` (the runtime resolves it onto `context.fetch`; it is distinct from an element's `fetch:` query). `db` is not a config key — it is the usual name of the adapter `await el.getDB()` returns.
 
 ### Declarative Fetch
 
@@ -1311,7 +1314,10 @@ cache: { staleTime: '30s', gcTime: '1h', key: 'custom-key' }
 
 Stale-while-revalidate: stale data served immediately, background refetch swaps it.
 Garbage collection: unused entries cleaned after `gcTime`.
-Deduplication: identical concurrent queries share one network request.
+Deduplication: identical concurrent queries share one network request — and, if it fails, every element on it gets the error (`onFetchError`), not empty rows.
+A forced refetch reaches the network even while the entry is fresh: `el.__ref.refetch()`, each `refetchInterval` tick, the browser coming back online. Each page of a paginated / infinite query has its own key (the cursor is part of it).
+`on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create (add `on: 'create'` for a first load), and not when its own rows land in state.
+Removing an element releases what fetch bound for it: interval timers, focus / online / submit / click listeners, the `stateChange` watcher, a realtime subscription.
 
 ### Retry / Optimistic / Initial / Placeholder
 
@@ -1321,6 +1327,58 @@ Deduplication: identical concurrent queries share one network request.
 { fetch: { from: 'articles', placeholderData: [] } }
 { fetch: { from: 'settings', initialData: { theme: 'dark' } } }
 ```
+
+Reads retry 3 times by default. A write — `insert`, `update`, `upsert`, `delete` or an rpc action (below) — is sent once unless `retry` asks for more: a write that timed out may have been applied.
+
+### Invalidation, actions, and the cache from project code
+
+```js
+// after a successful write, matching keys go stale and the queries MOUNTED on them refetch now
+{ tag: 'form', fetch: { method: 'insert', from: 'articles', on: 'submit', fields: true, invalidates: true } }   // true / '*': the write's own `from`
+{ fetch: { method: 'delete', from: 'items', on: 'click', invalidates: ['items:select:', 'item_counts'] } }    // a string matches every key that CONTAINS it
+
+// an rpc is an ACTION (never cached, never shared, runs `invalidates`) when a click / submit fires it,
+// when it declares `invalidates`, or with `mutation: true`; `mutation: false` keeps a clicked read cached
+{ extends: 'Button', fetch: { method: 'rpc', from: 'save_article', params: (el, s) => ({ p_id: s.id }), on: 'click', invalidates: ['get_content_rows'] } }
+
+// a functions/ file — project code cannot import the query client; it calls the same controls:
+export const saveArticle = async function saveArticle (form) {
+  const db = await this.getDB()
+  const res = await db.rpc({ from: 'save_article', params: form })
+  if (res.error) throw new Error(res.error)
+  await this.call('invalidateQueries', 'get_content_rows')   // resolves when the mounted lists have refetched
+  this.router('/blog/' + res.data.slug, this.getRoot())
+}
+```
+
+- `el.call('invalidateQueries', match)`, `el.call('removeQueries', match)`, `el.call('getQueryData', keyOrConfig)`, `el.call('setQueryData', keyOrConfig, valueOrUpdater)` — registered whenever fetch is configured (a project function of the same name wins). `match`: a string contained in the key, a RegExp, a `(key) => boolean`, or an array (`['articles', 'select']` → keys containing `articles:select`); nothing matches every key. `keyOrConfig`: a key, or `{ from, method, params }` built the way the calling element would build it.
+- Invalidation marks entries stale: mounted queries refetch at once (one request per key), others on their next mount showing the stale rows meanwhile — use `removeQueries` when they must load without them. A reply already on its way never replaces the refetched rows.
+- A key is `from:method:` + the params as JSON, then `:p<page>` / `:c<cursor>` when set, then `:<lang>`; `cache: { key }` replaces it. A write through `getDB()` knows no keys: invalidate after it, as above.
+
+### Early requests — `fetch.early` (REST adapter, opt-in)
+
+The first view's GETs can start while the HTML is still parsing; the REST adapter then ADOPTS each answer for the first call that asks for exactly that request instead of sending it again:
+
+```js
+// config.js
+fetch: {
+  adapter: 'rest', url: 'https://<project>.supabase.co/rest/v1', headers: { apikey: '<publishable key>' },
+  early: {
+    query: { apikey: 'apikey' },          // configured headers sent as query parameters (no CORS preflight)
+    rpc: 'get',                           // read-only RPCs go early as GETs (PostgREST); else only `select`
+    always: (params, ctx) => [{ from: 'site_settings', select: 'key,value', lang: false }],
+    routes: {                             // route pattern (as in pages) → that page's first-view requests
+      '/': [{ method: 'rpc', from: 'get_content_rows', params: { p_table: 'articles', p_limit: 20 } }],
+      '/blog/:id': ({ id }, ctx) => [{ method: 'rpc', from: 'get_content_rows', params: { p_slug: id, p_limit: 1 } }]
+    },
+    maxAge: 30000                         // ms; an older answer is not adopted
+  }
+}
+```
+
+- A request is the adapter call it stands for (`method` `'select'` / `'rpc'`, `from`, `params`, `select`, `limit`, `offset`, `order`, `single`). A function form runs before the app: no imports, no project functions — only its arguments (`ctx = { path, query, lang, storage(key) }`) and browser globals.
+- Adopted only when it is the same request: same address, same `Accept-Language` (set `lang: false` for a call that sends none), no other headers — a signed-in call never takes the anonymous answer. Each answer is taken once; a failed one, an expired one, or one still waiting after an invalidation is not.
+- `smbls build` (and `smbls deploy`) writes the script as `early.<hash>.js`, referenced first in `<head>` (a file, so a CSP without `'unsafe-inline'` allows it). `smbls start` does not emit it. Without `fetch.early` nothing changes.
 
 ### Response types and request bodies (REST adapter)
 
