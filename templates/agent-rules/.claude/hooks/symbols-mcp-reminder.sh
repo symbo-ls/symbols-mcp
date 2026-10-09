@@ -105,7 +105,7 @@ Frankability hard rules (FA0xx–FA5xx — full list in FRANKABILITY.md):
   • FA105  flat HTML attrs                FA106  (el, s) signature, no destructure
   • FA201  mutable state in globalScope.js  FA204  one-shot const → scope: { X }
   • FA206  dynamic await import('pkg') in handlers (NEVER top-level static)
-  • FA207  nested helpers: const x = () => {}  (NEVER function x () {})
+  • FA207  nested helpers: const x = () => {}  (NEVER function x () {}; not audited)
   • FA208  globalScope.js never cross-imports from peers
   • FA209  dependencies.js = runtime importmap only
   • FA210  bypass-mode handlers guard el.node and s.parent?/s.root?
