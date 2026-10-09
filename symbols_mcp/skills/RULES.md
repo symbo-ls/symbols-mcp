@@ -386,7 +386,7 @@ The `attrs-in-props` module auto-detects 600+ standard HTML attributes per tag. 
 
 The per-tag tables follow the WHATWG HTML attribute index, and every multi-word attribute works in both spellings (`fetchpriority` / `fetchPriority`, `inputmode` / `inputMode`). An element-specific camelCase spelling applies only on a tag that has the attribute; microdata (`itemid`, `itemtype`, …) is lowercase only. Details: SYNTAX.md → `attr` → "Which names are attributes".
 
-Use `attr: {}` ONLY for truly custom attributes not in the attrs-in-props database (and for `translate`, whose flat key is the CSS property).
+Use `attr: {}` ONLY for truly custom attributes not in the attrs-in-props database, and for an attribute whose flat key means something else on that tag (`translate` and `width` / `height` on an `<img>` are CSS; `content` and `scope` are framework keys). frank-audit FA105 enforces this rule: it flags an `attr: {}` entry that would work flat on the element's tag, decided per tag by the runtime's own attribute tables.
 
 ```js
 // ✅ — standard attrs at root (auto-detected)
@@ -949,7 +949,7 @@ frank does not drop a module-level constant or helper that a function reads: it 
 - **Shadowing at runtime.** The read resolves through the calling element's scope chain (`el.scope` → … → `context.globalScope`), so an element whose own `scope` has a key of that name silently replaces the value.
 - **Computed where frank runs.** A value that reads `window`, `document` or an import is evaluated at publish, not in the browser.
 
-frank-audit flags mutable `let` / `var` (FA201), a helper or constant several files share (FA202 / FA203), a constant one component's functions read (FA204) and factory closures (FA205). It does not flag a helper only one file uses, a constant inside a `functions/` file, or a module-level object spread into a component — review those by hand.
+frank-audit flags mutable `let` / `var` (FA201), a helper or constant several files share (FA202 / FA203), a constant one component's functions read (FA204) and factory closures (FA205). FA207 reports the rest — a helper only one file uses, a constant inside a `functions/` file, a module-level object or helper spread into a component — with the destination from the table below. FA207 is opt-in: the default run, its prescriptions and eslint-plugin-frank's recommended configs leave it out; run it with `frank-audit audit <dir> --rule FA207` (or `smbls frank-audit --rule FA207`), `ruleIds: ['FA207']` through the API or HTTP, or `'frank/FA207'` in an ESLint config.
 
 ```js
 // ❌ — variables outside scope (hoisted into the shared globalScope as TAX_RATE / formatPrice)
@@ -1205,7 +1205,7 @@ onClick: (e, el, s) => el.router(`/profile/${s.userId}`, el.getRoot())
 onClick: () => { window.location.href = '/' }
 ```
 
-`el.router()` integrates with the router plugin — guards, dynamic params (`/:id`), query parsing, scroll management, and `customRouterElement` all work automatically: `el.router(path, el.getRoot())` renders inside the configured `customRouterElement`, exactly like `Link`, `app.navigate` and Back / Forward. Never write `history.pushState` / `replaceState` next to it — `{ replace: true }` rewrites the entry, app-wide `router.guards` put a refused Back / Forward back, and `scrollRestoration: 'restore'` restores each entry's offset (SYNTAX.md → Router).
+`el.router()` integrates with the router plugin — guards, dynamic params (`/:id`), query parsing, scroll management, and `customRouterElement` all work automatically: `el.router(path, el.getRoot())` renders inside the configured `customRouterElement`, exactly like `Link`, `app.navigate` and Back / Forward. Never write `history.pushState` / `replaceState` next to it — `{ replace: true }` rewrites the entry, app-wide `router.guards` put a refused Back / Forward back, and `scrollRestoration: 'restore'` restores each entry's offset (SYNTAX.md → Router). frank-audit enforces this rule: FA401 flags `window.location` navigation and FA410 flags `pushState` / `replaceState` on any History object (`history`, `window.history`, `this.context.window.history`); outside an element use `app.navigate(path, { replace })`.
 
 ---
 
@@ -1337,7 +1337,7 @@ If you genuinely need imperative control (e.g. a multi-step flow), wrap it in a 
 
 All user-facing strings MUST go through the polyglot plugin (`@symbo.ls/polyglot`). Hardcoded English (or any single-language) strings in components are a violation, no matter how simple the app.
 
-**No exceptions for length.** `'Submit'`, `'OK'`, `'Cancel'`, `'Loading…'`, `'…'`, `'Yes'`, `'No'` — every visible string MUST go through polyglot. ARIA labels (`aria-label`, `aria-description`), `title=` attributes, `placeholder=`, `alt=` text, validation messages, error toasts, and any `console.log` strings shown to the user — all polyglot. Single-language MVPs use `defaultLang: 'en'` with one entry — but every string still routes through polyglot so adding a language is one config change instead of a project-wide refactor.
+**No exceptions for length.** `'Submit'`, `'OK'`, `'Cancel'`, `'Loading…'`, `'…'`, `'Yes'`, `'No'` — every visible string MUST go through polyglot. ARIA labels (`aria-label`, `aria-description`), `title=` attributes, `placeholder=`, `alt=` text, validation messages, error toasts, and any `console.log` strings shown to the user — all polyglot. Single-language MVPs use `defaultLang: 'en'` with one entry — but every string still routes through polyglot so adding a language is one config change instead of a project-wide refactor. frank-audit FA701 enforces this rule for copy of any length or script, ARIA labels in every spelling (`'aria-label'`, `ariaLabel`, `aria: { label }`) and `alt`; it skips test files and files that never ship, and `// frank-allow FA701` keeps a deliberate string.
 
 **⚠️ Forbidden function names — these DO NOT exist and will silently fail:**
 - `t` / `_t` / `__` — common i18n library aliases — DO NOT register or call them

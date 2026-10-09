@@ -714,7 +714,7 @@ Return `null` or `undefined` from a prop function to remove the attribute.
 - An element-specific camelCase spelling applies only on a tag that has the attribute: `fetchPriority` on a `<div>` stays a custom prop, exactly like `fetchpriority`. The camelCase spellings of global attributes (`tabIndex`, `inputMode`, `enterKeyHint`, `contentEditable`, `spellCheck`, `autoCapitalize`, `autoCorrect`, `accessKey`, …) apply on every tag.
 - Microdata is lowercase only (`itemid`, `itemtype`, `itemprop`, …): `itemId` / `itemType` stay custom props.
 - A boolean on an enumerated attribute is written as the keyword it expects: `draggable`, `contenteditable`, `spellcheck`, `writingsuggestions` and `aria-*` → `"true"` / `"false"`; `autocorrect` → `"on"` / `"off"`; `translate` → `"yes"` / `"no"` (through `attr: {}` only — a flat `translate` is the CSS property).
-- `attr: {}` is left for names no table lists (non-standard attributes) and for `translate`.
+- `attr: {}` is left for names no table lists (non-standard attributes) and for an attribute whose flat key means something else on that tag: `translate` and `width` / `height` on an `<img>` are CSS, `content` and `scope` are framework keys (frank-audit FA105 checks this per tag).
 
 ### Updating an attribute prop after mount
 

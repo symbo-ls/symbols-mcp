@@ -123,7 +123,7 @@ Button: {
 
 #### FA105 — Don't wrap flat HTML attributes in `attr: { ... }`
 
-Every attribute the element's tag has (the WHATWG HTML attribute index) is a flat top-level prop, in its HTML spelling or in camelCase (`fetchpriority` / `fetchPriority`; see SYNTAX → `attr` → "Which names are attributes"). frank-audit flags these names when they are wrapped in `attr`: `placeholder`, `type`, `name`, `value`, `disabled`, `checked`, `title`, `role`, `tabindex`, `href`, `src`, `alt`, `id`, `min`, `max`, `step`, `pattern`, `required`, `readonly`, `multiple`, `accept`, `autocomplete`, `autofocus`, `rows`, `cols`, `maxlength`, `minlength`, `spellcheck`, `lang`, `dir`, `draggable`, `contenteditable`, `hidden`, `target`, `rel`, `download`, `for`, `colspan`, `rowspan`, `scope`, `headers`, `span`. It does not flag the other attributes of the tables yet (`srcset`, `sizes`, `fetchpriority`, `inputmode`, `enterkeyhint`, …): write those flat too.
+Every attribute the element's tag has (the WHATWG HTML attribute index) is a flat top-level prop, in its HTML spelling or in camelCase (`fetchpriority` / `fetchPriority`; see SYNTAX → `attr` → "Which names are attributes"). frank-audit decides per tag, with the runtime's own attribute tables, whether an `attr: {}` entry would work flat, and flags it then: `srcset`, `sizes` and `fetchpriority` on an `<img>`, `inputmode`, every `aria-*` / `data-*` name, `placeholder` on an `<input>`. It leaves the entries that must stay: a CSS key (`width` / `height` on an `<img>`, `translate`), a framework key (`content` on a `<meta>`, `scope` on a `<th>`), a name the tag does not have (`href` on a `<div>`). Where source cannot tell the tag, only attributes that are flat on every tag (globals, `aria-*`, `data-*`) are flagged.
 
 ```js
 // ❌ Bad
@@ -139,7 +139,7 @@ Input: {
 }
 ```
 
-`attr: { ... }` is reserved for attributes no table lists (non-standard ones, rare) and for `translate` (a flat `translate` is the CSS property).
+`attr: { ... }` is reserved for attributes no table lists (non-standard ones, rare) and for the cases above, where the flat key means something else on that tag.
 
 #### FA106 — Handlers receive `(el, s)` (or `(e, el, s)`); never destructure an envelope
 
@@ -297,7 +297,19 @@ Never use `require('pkg')` synchronously inside a handler — sync require
 emits a bundle-internal `require_X()` call that frank's rewriter handles
 case-by-case but cannot recover universally. Always async `import()`.
 
-#### FA207 — Nested `function name () {}` declarations get hoisted out of handlers
+#### FA207 — Keep module scope empty: a binding only its own file reads (opt-in)
+
+frank-audit FA207 reports a non-exported top-level `const` / `let` / `var` / function in `components/`, `pages/`, `snippets/`, `functions/` or `methods/` that something in the same file reads (RULES.md Rule 33) — the cases FA201–FA205 leave out: a helper one file calls, a style object or helper spread into a component, a constant in a `functions/` file. Each finding names where the binding goes (the Rule 33 table). Detect-only.
+
+FA207 is OPT-IN: a default run, its prescriptions and eslint-plugin-frank's recommended configs leave it out. Run it by name:
+
+```
+frank-audit audit <dir> --rule FA207        # or: smbls frank-audit --rule FA207
+audit(dir, { ruleIds: new Set(['FA207']) })  # API; over HTTP: { ruleIds: ['FA207'] }
+rules: { 'frank/FA207': 'warn' }              # eslint-plugin-frank
+```
+
+#### Nested `function name () {}` declarations get hoisted out of handlers (not audited)
 
 esbuild hoists nested function declarations to module scope, then frank's
 classifyFreeVars promotes them to `globalScope.X`. The promotion strips the
@@ -517,7 +529,7 @@ keeps local-dev parity with prod.
 | Constant used by 1 component | `scope: { X }` on that component |
 | Factory closure variable | `scope: { X }` on the returned object |
 | Single-use helper inside one component | inline as a method on the component, or `scope: { fn }` |
-| Nested helper inside `onRender`/`onClick`/etc. | `const X = () => {}` — never `function X () {}` (FA207) |
+| Nested helper inside `onRender`/`onClick`/etc. | `const X = () => {}` — never `function X () {}` (esbuild hoists it) |
 | NPM package used inside a handler | dynamic `await import('pkg')` inside the handler (FA206) |
 | Helpers in `globalScope.js` that need shared config | inline private copies with `_` prefix (FA208) |
 | Runtime importmap entry | `dependencies.js` — runtime-only (FA209) |
@@ -539,9 +551,9 @@ hand-writing a Symbols project file, verify ALL of:
    but a same-name declaration in another file or an element `scope` key
    collides with it. Use `scope: { X }` (one component), `globalScope.js`
    (several files) or a local inside the `functions/` export. (Rule 33,
-   FA201–204)
+   FA201–205; `--rule FA207` checks the rest)
 4. ✅ **Nested helper functions inside lifecycle methods use `const X = () => {}`** —
-   never `function X () {}`. (FA207)
+   never `function X () {}` (esbuild hoists the declaration; not audited).
 5. ✅ **HTML attributes are flat props** (`placeholder`, `type`, etc.), NOT
    in `attr: {}`. (FA105)
 6. ✅ **Reactive prop functions take `(el, s)`** — never destructured
@@ -566,11 +578,11 @@ hand-writing a Symbols project file, verify ALL of:
 
 1. **No imports between sibling project files** outside the allow-list (`index.js`, `context.js`, `app.js`, `dependencies.js`, `sharedLibraries.js`).
 2. **No `let` / `var` at module scope** in component / page / snippet files. (Mutable state lives in `globalScope.js`.)
-3. **No module-scope `const` or helper referenced by handlers** — `scope: { X }`, `globalScope.js` or a local inside the function (Rule 33).
+3. **No module-scope `const` or helper referenced by handlers** — `scope: { X }`, `globalScope.js` or a local inside the function (Rule 33; `--rule FA207` lists them).
 4. **No `el.props.X`, `el.on.event`, `props: {}`, `on: {}`, `attr: { placeholder }`, or `({ props, state })` signatures.** All flattened.
 5. **Every sub-folder `index.js` re-exports every sibling file.**
 6. **`components/index.js` uses `export *`, never `export * as`.**
-7. **No nested `function name () {}` inside handlers** — use `const x = () => {}` (FA207).
+7. **No nested `function name () {}` inside handlers** — use `const x = () => {}` (not audited).
 8. **No `window.update(...)`, `document.update(...)`, or `window.__projectInit = ...` bridges** (FA513, FA514).
 9. **`dependencies.js` contains only runtime dynamic-import targets** (FA209).
 10. **`globalScope.js` does not cross-import from peer modules** (FA208).
