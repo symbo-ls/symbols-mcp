@@ -48,7 +48,8 @@ functions at runtime. Importing one project file from another:
 Files where sibling imports remain legal:
   index.js, context.js, app.js, dependencies.js, sharedLibraries.js,
   config.js, state.js, lang.js, cases.js, vars.js, globalScope.js,
-  envs.js, schema.js
+  envs.js, schema.js, and the entry module of each lazy group
+  (context.js `lazy: { admin: () => import('./admin/index.js') }`)
 
 # FA006 — orphan-file
 
@@ -61,9 +62,15 @@ Files in any other folder (utils/, lib/, helpers/, services/, ...) are
 silently dropped from the published JSON. The local dev server still
 sees them via normal JS imports — local works, prod is missing the code.
 
+A lazy group's folder (context.js `lazy: { admin: () => import('./admin/index.js') }`)
+is discovered: its entry module and its components/, pages/, functions/,
+methods/ and snippets/ ship — frank merges them into the canonical
+sections. Any other file in it is an orphan of that group.
+
 ## Fix
 
-Sub-folder orphans are auto-moved to `functions/`. If the exports are
+Sub-folder orphans are auto-moved to `functions/` (a lazy group's own
+`functions/` for an orphan inside the group). If the exports are
 method-style (require `this`-binding), pass `--rule FA006` and move the
 file manually into `methods/` instead.
 
@@ -506,6 +513,13 @@ travels with the element through serialization:
 Bare `path` references inside the handler stay bare; frank rewrites
 them to `el.scope.path` at toJSON time.
 
+Not flagged inside a bridge's own code (`onBridgeMount` /
+`onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers):
+the option objects a library takes (toolbar handlers, key bindings,
+paste matchers) are built there at runtime, inside one serialized
+function, so their closures survive. A factory that RETURNS a bridge
+host is still flagged.
+
 # FA206 — npm-import-in-handler
 
 frank externalizes runtime packages (React, Supabase, lodash, ...) at
@@ -748,7 +762,10 @@ Bad:    window.visualViewport.addEventListener('resize', apply)
 Good:   onVisualViewportResize: (e, el, s) => apply(el) // visualViewport target
 Bad:    window.matchMedia('(max-width: 768px)').addEventListener('change', fn)
 Good:   onMediaQueryChange: { query: '(max-width: 768px)', handler: fn }
+        onMediaQueryChange: { query: 'mobileL', handler: fn }  // or '@mobileL'
         // the query MINTS the target, so it travels in the options form;
+        // a designSystem.media key (stock or the project's own) reads the
+        // query `@mobileL` blocks use, so a moved breakpoint moves it too;
         // an array of { query, handler } watches several queries at once
 
 A custom event name that is not identifier-shaped is still a key — it
@@ -766,8 +783,22 @@ reach an element the project owns — third-party widgets portaled into
 document.body, outside-click / Escape for layers, window resize/scroll,
 the soft-keyboard viewport and a media-query flip: registered once when
 the element gets its node, inert while `if:`-hidden,
-torn down in dispose(). Raw addEventListener stays banned everywhere —
-every receiver now has a sanctioned flat prop.
+torn down in dispose(). Raw addEventListener stays banned outside a
+bridge host — every receiver now has a sanctioned flat prop.
+
+An element hears its own subtree through the node-level options form:
+
+Bad:    node.addEventListener('scroll', fn, { capture: true, passive: true })
+Good:   onScroll: { capture: true, passive: true, selector: '.inner', handler: fn }
+        // capture hears what never bubbles to the element (a scroll inside
+        // it) and runs before an inner node's own listener; selector
+        // narrows the target; once / passive as declared
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA504 — classlist-mutation
 
@@ -780,6 +811,12 @@ Good:   isActive: (el, s) => s.activeId === el.key
 For classes that do not follow the `isX` convention:
         class: { highlighted: (el, s) => s.flag }
 
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
+
 # FA505 — inner-html-write
 
 Bad:    el.node.innerHTML = '<b>Hi</b>'
@@ -788,6 +825,12 @@ Good:   text: 'Hi'                             // auto-escaped, preferred
 
 Both `text:` and `html:` re-render correctly when their value
 changes — direct innerHTML mutation does not.
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA506 — set-attribute
 
@@ -798,16 +841,34 @@ DOMQL's diffing and breaks reactive updates.
 Bad:    el.node.setAttribute('aria-expanded', 'true')
 Good:   'aria-expanded': (el, s) => String(s.open)
 
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
+
 # FA507 — remove-attribute
 
 Bad:    el.node.removeAttribute('disabled')
 Good:   disabled: (el, s) => s.locked || null    // null removes the attr
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA508 — append-child
 
 Bad:    parentEl.node.appendChild(childEl.node)
 Good:   declare the child as a key on the parent component, or use
         children: [...] + childExtends: when the list is dynamic
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA509 — remove-child
 
@@ -817,10 +878,22 @@ Good:   Child: { if: (el, s) => s.show }
 When the predicate flips false the framework unmounts the child. When
 it flips back true the child re-mounts cleanly.
 
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
+
 # FA510 — insert-before
 
 Bad:    parent.node.insertBefore(newEl.node, anchor.node)
 Good:   children: [...] on the parent — DOMQL renders in array order
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA511 — el-node-write
 
@@ -848,6 +921,12 @@ Good:   el.parent
         el.lookdown('Key')
         el.nextElement()
         el.previousElement()
+
+Not flagged inside a bridge host (default-config `Bridge`, or any
+element that declares `onBridgeMount`): the library owns the DOM in it,
+so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
+`onBridgeDestroy` and the host's other `onXxx` handlers — works on it
+directly. The same code anywhere else is still flagged.
 
 # FA513 — window/document update misuse
 
