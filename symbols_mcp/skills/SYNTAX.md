@@ -1166,6 +1166,42 @@ export default { router: { scrollRestoration: 'restore', scrollRestoreTimeout: 1
 
 With a `'/*'` page the not-found page renders; with `onNotFound` that callback decides. Without either, the router renders nothing for an unrouted URL: an in-app navigation to it writes no history, and Back / Forward to it (an entry other code wrote, a route a new deploy removed) rewrites that entry to the page on screen, so Back never gets stuck there.
 
+### Lazy routes — `context.lazy` (opt-in)
+
+Code visitors rarely need (an admin, an editor) can live in a LAZY GROUP: its own chunk (a bundler that splits dynamic imports — parcel under `smbls start` / `smbls build`), downloaded on the group's first route. Declare it in `context.js`:
+
+```js
+// symbols/context.js
+export default {
+  components, functions, pages,
+  lazy: { admin: () => import('./admin/index.js') }
+}
+
+// symbols/admin/index.js — the group is a folder laid out like the project, with its own index.js barrels
+import * as components from './components/index.js'
+import * as functions from './functions/index.js'
+import pages from './pages/index.js'
+export default { components, functions, pages }        // and/or methods, snippets
+
+// symbols/pages/index.js — a PLACEHOLDER renders while the group loads (it is the route's loading page)
+'/admin/*': adminLoading
+
+// symbols/pages/adminLoading.js
+export const adminLoading = {
+  lazy: 'admin',
+  extends: 'Page',
+  minHeight: '100dvh',
+  LoadError: { if: (el, s) => s.lazyStatus === 'error', role: 'alert', text: '{{ admin.loadError | polyglot }}' }
+}
+```
+
+- A navigation runs the guards first (a refused one never downloads the group), writes the history entry and renders the placeholder; its own state carries `lazyStatus`: `'loading'`, then `'error'` if the load fails (the next navigation or `loadLazy` call retries; the failure is logged, the message is yours).
+- Once loaded, the group's pages, components, functions, methods and snippets are registered, each placeholder of the group is replaced in place by the group's page of the same route, and the route renders again in the SAME history entry (no new entry, no scroll, no guards). A name the app already has keeps the app's value (a dev warning; `smbls push` refuses the collision — rename it).
+- `onRouteChanged` fires twice: `options.lazy` is `{ group: 'admin', status: 'loading' }`, then `{ …, status: 'loaded' }`.
+- `await el.call('loadLazy', 'admin')` preloads (e.g. on hover of the admin link) and resolves once the group is registered; it rejects when the load fails. `el.router()` / `app.navigate()` resolve once the placeholder is on screen — call `loadLazy` first to land on the page itself.
+- An element built before its group loaded never takes the group's component later: render group components after `loadLazy` resolves (the route's page always does).
+- Without `context.lazy`, a `lazy` key is an ordinary prop. `smbls push` publishes the COMPLETE project (frank merges every group into the canonical sections; no `lazy`, no placeholders), so the platform and served pages work as before; frank-audit treats the group folder as discovered. brender prerenders a lazy route as its placeholder.
+
 ---
 
 ### Route events — `onRouteChanged` and exit motion with `onRouteExit`

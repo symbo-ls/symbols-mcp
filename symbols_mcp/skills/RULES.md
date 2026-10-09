@@ -156,6 +156,8 @@ export const main = { extends: 'Flex', ... }
 ❌ components/nav/Navbar.js
 ```
 
+A lazy route group (SYNTAX.md → Router → Lazy routes) is a folder laid out like the project — `admin/components/AdminTable.js`, `admin/pages/…` — and its own folders are flat too.
+
 ---
 
 ## Rule 6 — PascalCase keys = child components (auto-extends). Lowercase keys NEVER render.
@@ -1778,7 +1780,7 @@ snippets/index.js
 files/index.js
 ```
 
-Files outside this list — `lib/`, `helpers/`, `utils/`, `services/`, `models/`, `hooks/`, etc. — are **INVISIBLE to frank** and therefore stripped from any published JSON. Move loadable code into one of the standard slots, OR re-export it through one of the index files (e.g. `functions/index.js` re-exporting from `functions/helpers/foo.js` works because the bundler picks up the import).
+Files outside this list — `lib/`, `helpers/`, `utils/`, `services/`, `models/`, `hooks/`, etc. — are **INVISIBLE to frank** and therefore stripped from any published JSON. The one addition is a lazy route group's folder that `context.js` names in `lazy: { … }` (its `components/`, `pages/`, `functions/`, `methods/`, `snippets/`; SYNTAX.md → Router → Lazy routes). Move loadable code into one of the standard slots, OR re-export it through one of the index files (e.g. `functions/index.js` re-exporting from `functions/helpers/foo.js` works because the bundler picks up the import).
 
 ```
 // ❌ Invisible to frank — stripped on publish

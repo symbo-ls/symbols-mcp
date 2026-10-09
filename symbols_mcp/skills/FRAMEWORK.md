@@ -33,6 +33,8 @@ my-project/
     methods/index.js     # methods bound onto every element (`this.X(...)`)
     snippets/index.js
     files/index.js       # static assets / inline file blobs
+    admin/index.js       # optional lazy route group (context.js `lazy: { admin: () => import('./admin/index.js') }`),
+                         # laid out like the project: admin/components/, admin/pages/, admin/functions/, …
 ```
 
 `index.js` is one line:
@@ -872,6 +874,8 @@ Frank finds these files under `symbols/`:
 | `config.js` | `default` |
 
 Anything outside this list is invisible to frank. Don't put loadable code in `lib/`, `helpers/`, or other ad-hoc folders — either move it into one of the standard slots or import it from one of them.
+
+**Lazy route groups** (SYNTAX.md → Router → Lazy routes) are the one more place: a folder that `context.js` (or `config.js`) names in `lazy: { admin: () => import('./admin/index.js') }`. Its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` are discovered; any other file in it is an orphan of the group. `toJSON` publishes the COMPLETE project: it merges every group into the canonical sections, replaces each route placeholder (`{ lazy: 'admin', … }`) by the group's page of the same route and drops `lazy` — the output equals the project declared eagerly. It refuses with a coded error a malformed `lazy` or a group exporting another section (`FRANK_LAZY_GROUP_INVALID`), a placeholder naming an undeclared group (`FRANK_LAZY_GROUP_UNDECLARED`), a loader that throws (`FRANK_LAZY_GROUP_LOAD_FAILED`), and a name or route the app already defines differently (`FRANK_LAZY_GROUP_COLLISION`). `toFS` (and so `smbls fetch`) writes the merged project eagerly — the split lives in your source tree.
 
 ---
 

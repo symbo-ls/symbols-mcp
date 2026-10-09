@@ -32,13 +32,15 @@ export const Card = { text: () => fmtMoney(amount) }
 export const Card = { text: (el) => el.call('fmtMoney', amount) }
 ```
 
-Files where sibling imports ARE allowed: `index.js`, `context.js`, `app.js`, `dependencies.js`, `sharedLibraries.js`. Everything else references siblings by string key (`extends: 'Name'`) or via `el.call('fnName', ...)`.
+Files where sibling imports ARE allowed: `index.js`, `context.js`, `app.js`, `dependencies.js`, `sharedLibraries.js`, and the entry module of each lazy route group (`context.js` `lazy: { admin: () => import('./admin/index.js') }`). Everything else references siblings by string key (`extends: 'Name'`) or via `el.call('fnName', ...)`.
 
 #### FA006 — Never put loadable code in non-discovered folders
 
 Frank only walks: `components/`, `snippets/`, `pages/`, `functions/`, `methods/`, `designSystem/`, `files/`, `assets/`. Anything in `utils/`, `lib/`, `helpers/`, `services/`, etc. is **silently dropped from the published JSON**. Local dev still sees it via JS imports — local works, prod is missing the code.
 
 If a file is generic-utility-shaped, put it in `functions/` (default) or `methods/` (if it needs `this`-binding).
+
+A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
 
 #### FA007 — `components/index.js` uses `export *`, never `export * as`
 
