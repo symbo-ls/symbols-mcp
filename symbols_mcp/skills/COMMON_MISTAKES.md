@@ -1115,7 +1115,7 @@ onClick: (e, el, s) => {
 
 ## 36. White / `currentColor` border after a `null` prop — recognizable failure shape (fixed in e1ada1387)
 
-If a border (or any CSS declaration) resets to `currentColor` or its browser default right after a project — or a platform merge — writes `null` to remove an inherited declaration, with no wrong-looking value anywhere in the component: that is the symptom of FW-NULL-PROP-EMITS-SPACING-NULL-VAR-1, fixed in smbls `e1ada1387`.
+If a border (or any CSS declaration) resets to `currentColor` or its browser default right after a project — or a platform merge — writes `null` to remove an inherited declaration, with no wrong-looking value anywhere in the component: that is the symptom of a `null`-prop defect fixed in smbls `e1ada1387`.
 
 Pre-fix, a `null` CSS prop reached its resolver as if it were authored input: `border: null` stringified to the literal `'null'`, and the spacing cascade minted `var(--spacing-NULL)` for it — an undeclared custom property, i.e. an invalid-but-present shorthand. Wherever it ordered after the `borderColor` longhand, it reset `border-color` to `currentColor`.
 

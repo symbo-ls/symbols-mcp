@@ -680,14 +680,14 @@ The **canonical radius token table**. `designSystem/shape.js` exports named CSS 
 
 1. **`shape` named token** — `CONFIG.shape` (this table). Radius-family props only; a shape token never resolves for `padding`/`gap`/`width`.
 2. **`sizes` named token** — back-compat: projects that registered radius names in `designSystem/sizes.js` keep resolving unchanged.
-3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). Em-relative means a letter radius follows the element's font size — this is the radius law (Nika, 2026-09-23: "always use token vars (A,B,C)"): the brand's own shape tokens are letter aliases (`radiusControl` = `Z1`, `radiusCard` = `A`, `radiusSheet` = `A2`, company 7ba29f9), and a shape value may itself be a bare letter (smbls 3ff22a587). Only capsules keep a fixed value (`radiusPill: '999px'`). Never write a raw px radius where a token exists.
+3. **Spacing sequence letters** — `A`, `B`, … resolve through the em-relative spacing scale (`var(--spacing-B)`). Em-relative means a letter radius follows the element's font size — this is the radius law (always use token letters A, B, C): the brand's own shape tokens are letter aliases (`radiusControl` = `Z1`, `radiusCard` = `A`, `radiusSheet` = `A2`), and a shape value may itself be a bare letter. Only capsules keep a fixed value (`radiusPill: '999px'`). Never write a raw px radius where a token exists.
 4. **Passthrough** — `'100%'` (circles/capsules), `'0'`, raw units, `var()`/`calc()` pass through untouched.
 
 ### A shape value may be a spacing letter
 
 A shape token may alias a bare spacing letter: `radiusControl: 'Z1'`. The letter resolves exactly as `round: 'Z1'` does — the same sequence var, the same em base (so the alias is em-relative too), and an isolated app's own var prefix (`var(--<prefix>-spacing-Z1)`). Every other token in a shape value (`'999px'`, `'50%'`, `var()`/`calc()`, an unknown name) passes through verbatim. A multi-token value resolves per token: `'A2 A2 0 0'` → `var(--spacing-A2) var(--spacing-A2) 0 0`. Do not alias with a hand-written `var(--spacing-Z1)`: an isolated app names its vars `--<prefix>-spacing-*`, so that var does not resolve there. (smbls `3ff22a587`)
 
-### Token catalog (brand defaults — `company/packages/brand/designSystem/shape.js`)
+### Token catalog (brand defaults)
 
 | Token | Value | Use |
 |-------|-------|-----|
@@ -741,7 +741,7 @@ A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-b
 | `spacing` | `base × ratio^n` (phi = 1.618) | Layout rhythm — padding, margin, gap, generic width/height |
 | `sizes` | Literal fixed px | Named UI primitives — avatars, thumbnails, icon containers, hairlines |
 
-### Token catalog (brand defaults — `company/packages/brand/designSystem/sizes.js`)
+### Token catalog (brand defaults)
 
 | Token | Value | Category |
 |-------|-------|----------|

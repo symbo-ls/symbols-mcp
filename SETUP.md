@@ -765,7 +765,7 @@ https://symbols-mcp.symbols.workers.dev/?project_key=acme/storefront
 
 When project context is found, every tool that takes an active-project argument (`generate_component`, `generate_page`, `convert_*`, `get_project_context`, `save_to_project`, `publish`, `push`) automatically scopes to that project — components, pages, design-system tokens, state, and functions are surfaced into the prompt so generations match the project's actual surface area, not generic defaults.
 
-Project identity is canonical `${owner}/${key}` per [§45](../server/CLAUDE.md) — bare keys can collide across owners, the worker resolves through the 2-segment route `/core/projects/key/:owner/:projectSlug`. The legacy compound `owner--slug` shape is normalized for older clients.
+Project identity is canonical `${owner}/${key}` — bare keys can collide across owners, the worker resolves through the 2-segment route `/core/projects/key/:owner/:projectSlug`. The legacy compound `owner--slug` shape is normalized for older clients.
 
 ---
 

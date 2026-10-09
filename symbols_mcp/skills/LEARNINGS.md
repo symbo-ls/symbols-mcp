@@ -697,13 +697,13 @@ The analyze plugin's browser-event capture builds key paths (e.g. `App > Sidebar
 
 ## sharedLibraries.js is the runtime authority; symbols.json is metadata
 
-The runtime imports and merges shared libraries from `<project>/sharedLibraries.js` (the ESM module). `symbols.json.sharedLibraries` is the metadata that describes what *should* be imported. They drift in real-world projects (see `workspace/packages/marketplace`, `workspace/packages/canvas` — both have hand-edited JS files that don't match the JSON declarations).
+The runtime imports and merges shared libraries from `<project>/sharedLibraries.js` (the ESM module). `symbols.json.sharedLibraries` is the metadata that describes what *should* be imported. They drift in real-world projects: a hand-edited `sharedLibraries.js` stops matching the JSON declarations.
 
 `smbls libs status` is the drift detector. `smbls libs link <path>` writes both files in lockstep.
 
 Linked entries (`mode: 'linked'` via the new `link:` field) are **never** scaffolded by `smbls fetch` — `scaffoldSharedLibraries` skips them so the user-managed source folder is never clobbered. This is the safe alternative to `destDir:` (which scaffolds with `overwrite: true`).
 
-## No extra wrappers — flattest possible DOM (Nika, 2026-08-06, hard rule)
+## No extra wrappers — flattest possible DOM (hard rule)
 
 Containers-in-containers are a **red flag, absolutely unaccepted**: a tinted
 div inside a tinted card inside a padded section is the #1 AI-generated-UI
@@ -718,7 +718,7 @@ and bloats the DOM.
   parent (padding/gap) or the child. DOMQL flow/gap on the parent replaces
   most grouping wrappers.
 
-## Shortest HTML/CSS — prefer CSS-only devices (Nika, 2026-08-06, hard rule)
+## Shortest HTML/CSS — prefer CSS-only devices (hard rule)
 
 Always reach for the shortest markup and CSS-only solutions before adding
 elements:

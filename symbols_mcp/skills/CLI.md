@@ -482,6 +482,6 @@ Each subcommand file is registered by importing it in the `bin/<family>.js` pare
 - Design system + theme contract: `DESIGN_SYSTEM.md`
 - Modern smbls stack: `MODERN_STACK.md`
 - SDK reference: `SDK.md` (`@symbo.ls/sdk`)
-- Channel resolution + plugin source: smbls monorepo (`server/packages/channels/`, `plugins/{router, fetch, polyglot, helmet, brender, frank, mermaid}/`)
+- Channel resolution + plugin source: the `@symbo.ls/channels` package and the smbls plugins (`@symbo.ls/{router, fetch, polyglot, helmet, brender, frank, mermaid}`)
 - Per-command help: `smbls <command> --help`
 - All help in one shot: `smbls --help-all` (commander's `outputHelp({ helpAll: true })` if registered)

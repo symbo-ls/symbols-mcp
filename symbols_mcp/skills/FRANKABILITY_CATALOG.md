@@ -911,7 +911,7 @@ Good:   'onWindowSymbols:auth-callback': (e, el) => onAuth(e, el)
 Flat `onEvent` handlers are tracked by DOMQL's lifecycle and are
 cleaned up automatically when the element unmounts. `onDocumentXxx` /
 `onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange`
-(PORTAL-EVENTS-PRIMITIVE-1) extend that to events that never
+extend that to events that never
 reach an element the project owns — third-party widgets portaled into
 document.body, outside-click / Escape for layers, window resize/scroll,
 the soft-keyboard viewport and a media-query flip: registered once when
@@ -1082,8 +1082,8 @@ Fixes by context:
        Bad:    window.update({ onScroll: onScroll })
        Good:   declare onScroll on the page/root component, OR
                onWindowScroll: (e, el, s) => onScroll(e, el, s) on the
-               owning component (window-level listener owned by DOMQL —
-               PORTAL-EVENTS-PRIMITIVE-1; raw addEventListener stays FA503)
+               owning component (window-level listener owned by DOMQL;
+               raw addEventListener stays FA503)
 
   2. DOM ref (querySelector result, el.node, sibling ref):
 
@@ -1233,8 +1233,7 @@ language including English, with no error anywhere.
 | `label`, `caption`, `helperText` (custom props) | works | works | FUNCTION |
 | `title` | works | renders "" as content | TEMPLATE |
 
-Why: since FW-STATIC-VALUE-PROP-NEVER-RESOLVES-TEMPLATE-BRACES-1
-(2026-09-24) an attribute prop holding a `{{ }}` template gets its own
+Why: since smbls 2026-09-24 an attribute prop holding a `{{ }}` template gets its own
 reactive effect, resolved against the element STATE with the polyglot
 filter, and the prop KEEPS its template. Before that fix the static
 attribute pass resolved the template once, without the element binding

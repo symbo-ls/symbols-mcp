@@ -437,7 +437,7 @@ export const main = {
   onScroll: (e, el, s) => { /* ... */ }
 }
 
-// ✅ Window-level listener owned by DOMQL (PORTAL-EVENTS-PRIMITIVE-1) — when the
+// ✅ Window-level listener owned by DOMQL — when the
 //    event never reaches the element itself; raw addEventListener stays FA503
 export const Toolbar = {
   onWindowScroll: { passive: true, handler: (e, el, s) => { /* ... */ } }
