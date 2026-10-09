@@ -801,9 +801,19 @@ Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the 
 
 ### When brender runs
 
-- **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`. Param routes (`/blog/:id`) are skipped (need runtime data).
-- **`smbls build`** — runs brender pre-rendering as part of the bundler build (for the static-export path).
+- **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`, route `/x` → `x/index.html`.
+- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed. Both exit 1 when no route renders (opt out with `--no-brender`). The built page boots over the server markup: it does not hydrate it yet.
 - **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set.
+
+Programmatic use:
+
+```js
+import { renderPage, composeIntoShell } from '@symbo.ls/brender'   // needs smbls installed (peer dependency)
+const { html, route, brKeyCount, shell } = await renderPage(data, '/about', { shell: builtIndexHtml, depth: 1 })
+// shell: a built app document to render INTO (the result then has shell: true); depth: the output file's
+// directory depth, used to rebase the shell's relative asset URLs
+import { createDomqlElement, prepareContext } from 'smbls/ssr'   // the same module instance as 'smbls'
+```
 
 Brender is opt-in via `symbols.json`:
 
@@ -837,16 +847,16 @@ This means SSR HTML and client bundle must run **identical** DOMQL source. Any d
 - Random / time-of-day output without a deterministic seed. Two renders must produce the same HTML.
 - Reading from outside the project context (e.g. global `import.meta`, `process.env` at module top level — these resolve at bundle time). The exception is `new URL('<relative path>', import.meta.url)` naming a project file: frank publishes the file and rewrites the call to its URL (§9 → Asset URLs).
 
-### `prefetchPageData` — SSR data (no adapter today)
+### `prefetchPageData` — SSR data
 
 ```js
 // In a brender-driven request
 const stateUpdates = await prefetchPageData(data, '/blog')
-// → walks the page's fetch declarations and would run them through an SSR adapter,
-//   returning { articles: [...], ... } to inject into page state before render.
+// → walks the page's fetch declarations, runs them on the server and
+//   returns { articles: [...], ... } to inject into page state before render.
 ```
 
-No built-in SSR adapter resolves today (the Supabase SSR path was removed with the Supabase adapter), so it returns an empty map: the served HTML has no fetched data, and the client-side fetch loads it after hydration.
+The server prefetch uses the project's own `config.fetch` / `config.db` through `@symbo.ls/fetch`'s `resolveDb` (e.g. `{ adapter: 'rest', url, headers }`). The platform's `'sdk'` adapter cannot run on the server and is skipped (`hasAdapter(name)` in `@symbo.ls/fetch` says whether an adapter is registered); its data loads in the browser.
 
 ### Diagnose a broken hydration
 

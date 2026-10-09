@@ -299,9 +299,9 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 - `--no-cache`, `--open`, `--bundler <parcel|vite|browser>`
 - `--collab` (start with realtime collab) / `--no-collab` (skip prompt, run local)
 
-`build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`.
+`build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`. With brender on, `build` pre-renders route `/x` to `x.html` and `/*` to `404.html`, and exits 1 when no route renders (`--no-brender` opts out).
 
-`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Param routes (`/blog/:id`) are auto-skipped because they need runtime data.
+`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed. Exits 1 when no route renders. The page boots over the server markup (no hydration yet).
 
 `deploy --provider <X>` accepts `symbols`, `cloudflare`, `vercel`, `netlify`, `github-pages`. Auto-creates the provider's config (`wrangler.jsonc`, `vercel.json`, `netlify.toml`, etc.) if missing. `--init` initializes config without deploying.
 
