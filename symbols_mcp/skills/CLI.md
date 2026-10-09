@@ -299,11 +299,13 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 - `--no-cache`, `--open`, `--bundler <parcel|vite|browser>`
 - `--collab` (start with realtime collab) / `--no-collab` (skip prompt, run local)
 
-`build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`. With brender on, `build` pre-renders route `/x` to `x.html` and `/*` to `404.html`, and exits 1 when no route renders (`--no-brender` opts out).
+`build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`. `build` copies `public/` (or `symbols.json` `publicDir`) into the output root and never replaces a file the bundler wrote. With brender on, `build` pre-renders route `/x` to `x.html` and `/*` to `404.html`, and exits 1 when no route renders (`--no-brender` opts out).
 
-`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed. Exits 1 when no route renders. The page boots over the server markup (no hydration yet).
+`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed. Exits 1 when no route renders. The page boots over the server markup; it adopts it only with opt-in hydration (FRAMEWORK.md §8).
 
 `deploy --provider <X>` accepts `symbols`, `cloudflare`, `vercel`, `netlify`, `github-pages`. Auto-creates the provider's config (`wrangler.jsonc`, `vercel.json`, `netlify.toml`, etc.) if missing. `--init` initializes config without deploying.
+
+`smbls deploy --provider cloudflare [--target pages|workers] [--dry-run] [--no-brender]` runs the full `smbls build` pipeline (bundle, `public/`, `fetch.early`, brender) and deploys the output. `--target pages` (default) uses Cloudflare Pages; `--target workers` writes Workers Static Assets config, with `not_found_handling: '404-page'` when the output has `404.html`, else `'single-page-application'`. `--dry-run` builds and validates, and deploys nothing.
 
 ### Code transformation & validation
 
@@ -364,7 +366,15 @@ smbls publish --version <id|value>         # the LATEST version only (implies --
 smbls publish --version <old> --mode version --env <env>  # pin <env> to an older version; the published version stays
 smbls publish --mode <mode>                # set this mode on every target, pinned envs included (latest|published|version|branch)
 smbls publish --dry-run                    # print planned operations without executing
+smbls publish --ssr                        # also pre-render every static route for the platform renderer
 ```
+
+**Publish-time pre-render (`--ssr`).** Off by default. `smbls publish --ssr`, or `"prerender": true` in `symbols.json`, pre-renders every static route after the push and stores the result as the project's `__ssr` map, which the platform renderer serves. `--no-ssr` wins over the config, and `brender: false` keeps it off.
+
+- Static routes only. Pages render WITHOUT fetched data: a page that fetches shows its loading state until the client loads the data.
+- Limits: 512 KB per route, 2 MB for the whole map, 120 s.
+- `--dry-run` writes the map to `.symbols_local/ssr-cache.json` and pushes nothing.
+- A later content push without a fresh pre-render drops the stored map; the site falls back to the client render until the next `smbls publish --ssr`.
 
 Per-env mode: each environment is republished in the mode it is configured with on the platform. An environment with no stored mode falls back to `published` for prod-like keys (`prod`, `production`) and `latest` for everything else.
 
