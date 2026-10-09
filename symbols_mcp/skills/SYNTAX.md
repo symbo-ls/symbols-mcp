@@ -731,6 +731,16 @@ A CSS block that sets the SAME property as a reactive prop — `:hover`, `:activ
 
 Where a preset and a prop disagree the ladder is unchanged: `theme` < design-system `class` fragment < the element's own prop. A reactive prop is the element's own prop, so it beats both.
 
+
+### Shorthand vs longhand — which one wins
+
+- Inside one component a longhand always beats its shorthand, whatever the key order: `{ paddingTop: 'B', padding: 'A' }` keeps `padding-top: B`.
+- Across the merge (base → the `extends` array in order → the component → `childProps` / the instance) a later layer's shorthand overrides an earlier layer's longhand when its value states that longhand.
+- One-value-type shorthands state every longhand: `borderWidth`, `borderStyle`, `borderColor`, `padding`, `margin`, `inset`, `gap`, `overflow`, `borderRadius`, `place*`, `scrollMargin` / `scrollPadding`. An instance's `padding: 'A'` replaces the base's `paddingTop`.
+- A line shorthand (`border`, `borderTop`…, `outline`, `columnRule`) states width, style and colour when it has three words. With fewer words it states only a style keyword: `border: 'none'` resets only the style.
+- Positional shorthands (`background`, `transition`, `animation`, `font`, `flex`, `grid`, …) never remove a base longhand. To override one, write the longhand.
+- A pseudo or selector block key gets `!important` when the element writes the same property, or any member of its shorthand family, inline. So `':focus-visible': { outlineColor: 'accent' }` recolours a `Link` / `Focusable` ring.
+
 ---
 
 ## `attr` (HTML Attributes)

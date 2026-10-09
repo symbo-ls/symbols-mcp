@@ -361,6 +361,55 @@ Object.assign(cases, {
   }
 })
 
+// SYNTAX "Shorthand vs longhand — which one wins". The cascade is read from
+// the element's own rules + inline style, in emission order: a later
+// declaration of the same property wins unless an earlier one is !important.
+const effective = (node, prop) => {
+  let val = null
+  let imp = false
+  const take = (text) => {
+    const re = new RegExp('(?:^|[;{\\s])' + prop + ':\\s*([^;}]+)', 'g')
+    let m
+    while ((m = re.exec(text))) {
+      const v = m[1].trim()
+      const isImp = /!important/.test(v)
+      if (imp && !isImp) continue
+      val = v.replace(/\s*!important/, ''); imp = isImp
+    }
+  }
+  for (const t of ownRules(node).split('\n')) if (!/:hover|:focus|:active|@media|data-theme/.test(t)) take(t)
+  take(node.style.cssText)
+  return val
+}
+Object.assign(cases, {
+  async shorthandLonghand () {
+    const app = await mount({
+      Same: { paddingTop: 'B', padding: 'A' },
+      Base: { extends: 'Flex', paddingTop: 'C', backgroundColor: 'primary', borderStyle: 'dashed', borderWidth: '2px' },
+      Over: { extends: 'Base', padding: 'A' },
+      Pos: { extends: 'Base', background: 'none' },
+      Line: { extends: 'Base', border: 'none' }
+    }, { components: { Base: { paddingTop: 'C', backgroundColor: 'primary', borderStyle: 'dashed', borderWidth: '2px' } } })
+    // paddingTop is emitted as its logical longhand, padding-block-start
+    const top = (n) => effective(n, 'padding-block-start') || effective(n, 'padding-top')
+    const rules = ownRules(app.Same.node).split('\n')
+    const iLong = rules.findIndex((t) => /padding-block-start|padding-top/.test(t))
+    const iShort = rules.findIndex((t) => /\{padding:/.test(t))
+    expect(/spacing-B/.test(top(app.Same.node) || '') && iLong > iShort, 'same component: the longhand comes after the shorthand and wins')
+    expect(!top(app.Over.node), "a later layer's padding replaces the base paddingTop: " + top(app.Over.node))
+    expect(/dashed/.test(effective(app.Pos.node, 'border-style') || ''), 'base borderStyle kept where no border shorthand')
+    expect(!effective(app.Line.node, 'border-style'), "border: 'none' resets the base borderStyle")
+    expect(/primary/.test(effective(app.Pos.node, 'background-color') || ''), 'background (positional) keeps the base backgroundColor: ' + effective(app.Pos.node, 'background-color'))
+    expect(/2px/.test(effective(app.Line.node, 'border-width') || ''), "border: 'none' keeps the base borderWidth: " + effective(app.Line.node, 'border-width'))
+  },
+
+  async focusVisibleRecolorsRing () {
+    const app = await mount({ Ring: { extends: 'Link', href: '/x', text: 'x', ':focus-visible': { outlineColor: 'primary' } } })
+    const rule = ownRules(app.Ring.node).split('\n').find((t) => /:focus-visible/.test(t) && /outline-color/.test(t))
+    expect(rule && /outline-color:[^;}]*!important/.test(rule), ':focus-visible outlineColor carries !important: ' + rule)
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {
