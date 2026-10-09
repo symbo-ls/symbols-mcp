@@ -333,7 +333,7 @@ onCreate:      (el, s, ctx)    => { /* full setup done */ },
 onComplete:    (el, s, ctx)    => { /* alias of onCreate */ },
 onRender:      (el, s, ctx)    => { /* effects + children + DOM ready */ },
 onRenderRouter:(el, s, ctx)    => { /* router-specific post-render */ },
-onUpdate:      (el, s, ctx)    => { /* after el.update() */ },
+onUpdate:      (el, s, ctx, opts) => { /* after el.update() on THIS element — see the table below */ },
 onBeforeUpdate:(el, s, ctx, options) => { /* return false to cancel this update */ },
 onStateUpdate: (el, s, ctx, { prev, next }) => { /* a stateDeps value changed — see below */ },
 onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ },
@@ -344,9 +344,17 @@ onRemove:      (el)            => { /* fires AFTER DOM detach + state.destroy();
 
 Every lifecycle handler takes the element FIRST — none of them receives a `changes` argument. `onStateInit`, `onStateCreated` and `onBeforeStateUpdate` are reserved names that the current runtime does not call: do not put logic in them.
 
-#### `onStateUpdate` + `stateDeps` — react to a state value from any element
+#### Which hook runs on which state change
 
-`onUpdate` fires on the element whose `.update()` ran. To run a side effect in ANY element when a state value changes (root state included), pair `onStateUpdate` with `stateDeps`, an array of selectors. A selector is a function `(el, s, ctx) => value` or a string key of the element's own state.
+| Hook | Runs when | Arguments |
+| -- | -- | -- |
+| `onUpdate` | `el.update(…)` on that element; and on the element that OWNS a state store when that store's `update()` is called | `(el, s, ctx, opts)`; from a store update `(el, s, ctx)`, no opts, before the DOM updates |
+| — | a direct write (`s.key = v`), `s.replace`, `s.toggle` | no `onUpdate` runs |
+| — | a parent's or the root's state changes | a descendant's `onUpdate` never runs |
+| `subscribeTo: ['key', 'a.b']` (or a function, resolved once) | those ROOT-state keys change | `onBeforeUpdate(el, s, ctx, { updateBySubscription: true })`, the reactive props re-run, then `onUpdate(el, s, ctx)` |
+| `stateDeps: [selector \| 'key']` + `onStateUpdate` | a selected value changes (`!==`); never on first render, never without `stateDeps` | `(el, s, ctx, { prev, next })` |
+
+To react to a state value from ANY element (root state included), use `stateDeps` + `onStateUpdate` or a reactive prop — not `onUpdate`. This includes state-driven attributes such as `aria-invalid`: `'aria-invalid': (el, s) => Boolean(s.error) || null`. A selector is a function `(el, s, ctx) => value` or a string key of the element's own state.
 
 ```js
 export const MessageList = {
@@ -461,6 +469,8 @@ element cannot declare a listener INSIDE an iframe it renders: an iframe that
 hosts its own DOMQL app is the supported shape, and every component in that
 inner app already gets the frame's document from plain `onDocumentXxx`.
 
+`onWindowLoad` runs once when the page loads. When the page loaded before the element existed (smbls renders asynchronously, so an app root often mounts after `load`), it runs once right after the element is created, with the same `(e, el, s, ctx)` arguments. It does not run during server-side rendering.
+
 ### Async Events
 
 ```js
@@ -550,7 +560,7 @@ s.root.update(
 
 | Method | Purpose |
 | -- | -- |
-| `s.update(value, opts?)` | Assigns each top-level key of `value`, keeps the keys it does not name, triggers reactivity. A nested plain object is REPLACED as a whole, not merged: `s.update({ auth: { modal: 'x' } })` drops `auth`'s other keys. For a partial nested write use the nested store's own `update` (`s.auth.update({ modal: 'x' })`) or `s.setByPath('auth.modal', 'x')`; to reset a nested object, write the whole object (`s.update({ form: { values: {}, dirty: false } })` sets all of `form`) |
+| `s.update(value, opts?)` | Returns the state at once (the DOM updates in a later microtask). Assigns each top-level key of `value`, keeps the keys it does not name, triggers reactivity. A nested plain object is REPLACED as a whole, not merged: `s.update({ auth: { modal: 'x' } })` drops `auth`'s other keys. For a partial nested write use the nested store's own `update` (`s.auth.update({ modal: 'x' })`) or `s.setByPath('auth.modal', 'x')`; to reset a nested object, write the whole object (`s.update({ form: { values: {}, dirty: false } })` sets all of `form`) |
 | `s.replace(value, opts?)` | Replace entire state (drops missing keys) |
 | `s.set(value, opts?)` | Alias for replace |
 | `s.clean(opts?)` | Remove all keys |
@@ -570,6 +580,7 @@ s.root.update(
 | `s.apply(fn, opts?)` | `fn(s)` returns new merged value |
 | `s.applyFunction(fn, opts?)` | `fn(s)` mutates in place, then update |
 | `s.applyReplace(fn, opts?)` | `fn(s)` returns full replacement |
+| `s.$settled()` | Promise that resolves with the state once the DOM of the pending writes is applied (see below) |
 | `s.quietUpdate(value)` | Update without triggering listeners |
 | `s.quietReplace(value)` | Replace without triggering listeners |
 | `s.rootUpdate(obj, opts?)` | Update root state from anywhere |
@@ -600,6 +611,21 @@ Prefer renaming the field (`cart.items` instead of `cart.add`) when practical �
 s.apply((cur) => ({ ...cur, count: cur.count + 1 }))   // returns new value
 s.applyFunction((cur) => { cur.count++ })              // mutates in place
 ```
+
+### Awaiting the DOM after a write — `$settled()`
+
+`s.update(value, opts?)` returns the state at once; the DOM updates in a later microtask (a large cascade can take longer). To continue once the DOM is applied, await `$settled()`:
+
+```js
+onClick: async (e, el, s) => {
+  await s.update({ open: true }).$settled()   // resolves with the state once the DOM is applied
+  el.Panel.node.focus()
+}
+// after any write (s.key = v, s.toggle, …): await s.$settled()
+// with no store at hand: import { settled } from 'smbls' (or '@symbo.ls/signal'); await settled()
+```
+
+It does not cover opt-in deferred children (`yieldChildren` / `mountYield`) or `onMounted`. Never write `await s.update(…)` alone to wait for the DOM.
 
 ### State Update Options
 

@@ -190,6 +190,82 @@ const cases = {
   }
 }
 
+// SYNTAX "Which hook runs on which state change", "$settled()", onWindowLoad.
+Object.assign(cases, {
+  async onUpdateContract () {
+    const calls = []
+    const log = (name) => (el, s, ctx, opts) => calls.push([name, el.key, opts === undefined ? 'no-opts' : 'opts'])
+    const app = await mount({
+      state: { tab: 1 },
+      Owner: {
+        state: { n: 0, flag: false },
+        onUpdate: log('owner'),
+        Child: { text: (el, s) => String(s.n), onUpdate: log('child') }
+      },
+      Watcher: {
+        subscribeTo: ['tab'],
+        onBeforeUpdate: (el, s, ctx, opts) => calls.push(['watcherBefore', el.key, opts && opts.updateBySubscription]),
+        onUpdate: log('watcher')
+      }
+    })
+    const owner = app.Owner
+    owner.state.update({ n: 1 })
+    await flush()
+    eq(JSON.stringify(calls), '[["owner","Owner","no-opts"]]', 'store update(): owner onUpdate (el, s, ctx), no child onUpdate')
+    calls.length = 0
+    owner.state.toggle('flag')
+    owner.state.n = 2
+    owner.state.replace({ n: 3, flag: true })
+    await flush()
+    eq(calls.length, 0, 'direct write / toggle / replace run no onUpdate')
+    owner.update({})
+    await flush()
+    eq(JSON.stringify(calls), '[["owner","Owner","opts"]]', 'el.update(): (el, s, ctx, opts)')
+    calls.length = 0
+    app.state.update({ tab: 2 })
+    await flush()
+    const names = calls.map((c) => c[0])
+    expect(!names.includes('child') && !names.includes('owner'), 'root change runs no descendant onUpdate: ' + JSON.stringify(calls))
+    eq(JSON.stringify(calls.filter((c) => c[1] === 'Watcher')), '[["watcherBefore","Watcher",true],["watcher","Watcher","no-opts"]]', 'subscribeTo: onBeforeUpdate(updateBySubscription) then onUpdate(el, s, ctx)')
+  },
+
+  async ariaFromState () {
+    const app = await mount({ Field: { tag: 'input', state: { error: null }, 'aria-invalid': (el, s) => Boolean(s.error) || null } })
+    const node = app.Field.node
+    eq(node.getAttribute('aria-invalid'), null, 'no error: no aria-invalid')
+    app.Field.state.update({ error: 'Required' })
+    await flush()
+    eq(node.getAttribute('aria-invalid'), 'true', 'error: aria-invalid="true"')
+    app.Field.state.update({ error: null })
+    await flush()
+    eq(node.getAttribute('aria-invalid'), null, 'cleared: aria-invalid removed')
+  },
+
+  async settled () {
+    const app = await mount({ state: { label: 'a' }, Label: { text: (el, s) => s.label } })
+    const back = await app.state.update({ label: 'b' }).$settled()
+    expect(back === app.state, '$settled() resolves with the state')
+    eq(app.Label.node.textContent, 'b', 'DOM applied when $settled() resolves')
+    app.state.label = 'c'
+    await app.state.$settled()
+    eq(app.Label.node.textContent, 'c', 'after a direct write')
+    const { settled } = await import(pathToFileURL(DIST).href)
+    app.state.update({ label: 'd' })
+    await settled()
+    eq(app.Label.node.textContent, 'd', 'settled() from smbls')
+  },
+
+  async onWindowLoadAfterLoad () {
+    if (document.readyState !== 'complete') {
+      await new Promise((r) => window.addEventListener('load', r, { once: true }))
+    }
+    let runs = 0
+    await mount({ Late: { onWindowLoad: (e, el) => { runs++; eq(el.key, 'Late', 'second argument is the element') } } })
+    await flush()
+    eq(runs, 1, 'onWindowLoad runs once for an element created after load')
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {
