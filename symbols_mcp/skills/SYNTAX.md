@@ -1357,28 +1357,7 @@ export const saveArticle = async function saveArticle (form) {
 
 ### Early requests — `fetch.early` (REST adapter, opt-in)
 
-The first view's GETs can start while the HTML is still parsing; the REST adapter then ADOPTS each answer for the first call that asks for exactly that request instead of sending it again:
-
-```js
-// config.js
-fetch: {
-  adapter: 'rest', url: 'https://<project>.supabase.co/rest/v1', headers: { apikey: '<publishable key>' },
-  early: {
-    query: { apikey: 'apikey' },          // configured headers sent as query parameters (no CORS preflight)
-    rpc: 'get',                           // read-only RPCs go early as GETs (PostgREST); else only `select`
-    always: (params, ctx) => [{ from: 'site_settings', select: 'key,value', lang: false }],
-    routes: {                             // route pattern (as in pages) → that page's first-view requests
-      '/': [{ method: 'rpc', from: 'get_content_rows', params: { p_table: 'articles', p_limit: 20 } }],
-      '/blog/:id': ({ id }, ctx) => [{ method: 'rpc', from: 'get_content_rows', params: { p_slug: id, p_limit: 1 } }]
-    },
-    maxAge: 30000                         // ms; an older answer is not adopted
-  }
-}
-```
-
-- A request is the adapter call it stands for (`method` `'select'` / `'rpc'`, `from`, `params`, `select`, `limit`, `offset`, `order`, `single`). A function form runs before the app: no imports, no project functions — only its arguments (`ctx = { path, query, lang, storage(key) }`) and browser globals.
-- Adopted only when it is the same request: same address, same `Accept-Language` (set `lang: false` for a call that sends none), no other headers — a signed-in call never takes the anonymous answer. Each answer is taken once; a failed one, an expired one, or one still waiting after an invalidation is not.
-- `smbls build` (and `smbls deploy`) writes the script as `early.<hash>.js`, referenced first in `<head>` (a file, so a CSP without `'unsafe-inline'` allows it). `smbls start` does not emit it. Without `fetch.early` nothing changes.
+`config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Config and rules: FRAMEWORK.md §5 → Early requests.
 
 ### Response types and request bodies (REST adapter)
 
