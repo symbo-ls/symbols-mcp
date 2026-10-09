@@ -299,6 +299,9 @@ case-by-case but cannot recover universally. Always async `import()`.
 
 #### FA207 — Nested `function name () {}` declarations get hoisted out of handlers (not audited)
 
+No frank-audit rule implements FA207 (`--rule FA207` runs nothing); review
+it by hand.
+
 esbuild hoists nested function declarations to module scope, then frank's
 classifyFreeVars promotes them to `globalScope.X`. The promotion strips the
 closure — captured locals become undefined at runtime.
@@ -411,6 +414,8 @@ frank-audit audit <dir> --rule FA211        # or: smbls frank-audit --rule FA211
 audit(dir, { ruleIds: new Set(['FA211']) })  # API; over HTTP: { ruleIds: ['FA211'] }
 rules: { 'frank/FA211': 'warn' }              # eslint-plugin-frank
 ```
+
+Not FA207: that id stays the nested-helper guidance above (not audited), as FA208–FA210 stay documented ids. frank-audit has no rule FA207 — `--rule FA207` runs nothing and frank-audit reports the id as ignored.
 
 ---
 

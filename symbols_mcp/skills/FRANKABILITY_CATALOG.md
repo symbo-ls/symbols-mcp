@@ -653,6 +653,10 @@ finding, count or prescription (on 24 measured projects it would add
   audit(dir, { ruleIds: new Set(['FA211']) })   // HTTP: { ruleIds: ['FA211'] }
   eslint: rules: { 'frank/FA211': 'warn' }
 
+Not FA207: that id names the nested-helper check in symbols-mcp docs and
+installed hooks (FA208–FA210 are documented ids too). frank-audit has no
+rule FA207; `--rule FA207` runs nothing and says the id was ignored.
+
 
 ---
 
