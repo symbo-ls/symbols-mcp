@@ -1047,6 +1047,23 @@ def _frankability_checklist() -> str:
     )
 
 
+def _runtime_checked_line() -> str:
+    """One line naming the smbls build the documented examples ran against.
+
+    Read from skills/runtime-checked.json, which scripts/check-runtime-examples.sh
+    writes only after the examples pass on a built smbls.
+    """
+    try:
+        stamp = json.loads((SKILLS_PATH / "runtime-checked.json").read_text(encoding="utf-8"))
+        version, checked = stamp["smbls"], stamp["checked"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return ""
+    return (
+        f"Runtime: these rules were checked against smbls {version} ({checked}) by running "
+        "their key examples on that build. On another smbls version, behaviour can differ.\n\n"
+    )
+
+
 def _rules_core_bundle() -> str:
     header = (
         "# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n"
@@ -1055,7 +1072,8 @@ def _rules_core_bundle() -> str:
         "NEXT STEP table. The full skills are fetched per section: "
         "`get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … "
         "Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n"
-        "---\n\n"
+        + _runtime_checked_line()
+        + "---\n\n"
     )
     return (
         header

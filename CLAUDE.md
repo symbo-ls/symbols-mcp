@@ -20,7 +20,14 @@ management tools need a Symbols.app account.
 - Tests: `scripts/test.sh` — resolves `uv` (venv fallback if missing),
   then `uv run pytest -q tests/`. Covers imports, tool registration, and
   the skills bundle. This is the CI gate.
-- CLI bins shipped to consumers: `symbols-mcp` (the server itself),
+- Runtime examples: `scripts/check-runtime-examples.sh <smbls-tree>`
+  runs key SYNTAX examples (`.isX`, `vars`, `stateDeps`, lifecycle
+  signatures) on a built smbls and, when green, rewrites
+  `symbols_mcp/skills/runtime-checked.json` — the "checked against smbls
+  X" line of the core bundle. Re-run on each smbls release;
+  `SYMBOLS_SMBLS_TREE=<tree> scripts/test.sh` also fails on a stale stamp.
+- CLI bins shipped to consumers: `mcp` and `symbols-mcp` (the server,
+  which also dispatches `symbols-audit` / `init-rules` subcommands),
   `symbols-audit <dir>` (static frankability audit, strict, exits 1 on
   findings — wraps `@symbo.ls/frank-audit`), `symbols-mcp-init-rules`.
 - Per-editor wiring (Claude Code, Cursor, Windsurf, Zed, ...) is

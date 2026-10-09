@@ -1,0 +1,12 @@
+{
+  "smbls": "3.14.826",
+  "commit": "d78afdffa",
+  "checked": "2026-10-09",
+  "examples": [
+    "isxRootState",
+    "isxInverse",
+    "vars",
+    "stateDeps",
+    "lifecycleSignatures"
+  ]
+}

@@ -171,11 +171,26 @@ function frankabilityChecklist() {
   return "# FRANKABILITY — HARD CHECKLIST (from FRANKABILITY.md; full rule text: `section='FRANKABILITY'`)\n\n" + tail.trimEnd()
 }
 
+// One line naming the smbls build the documented examples ran against
+// (skills/runtime-checked.json, written by scripts/check-runtime-examples.sh
+// only after the examples pass). Mirrors server.py _runtime_checked_line.
+function runtimeCheckedLine() {
+  try {
+    const stamp = JSON.parse(fs.readFileSync(path.join(SKILLS_DIR, 'runtime-checked.json'), 'utf8'))
+    if (!stamp.smbls || !stamp.checked) return ''
+    return `Runtime: these rules were checked against smbls ${stamp.smbls} (${stamp.checked}) by running ` +
+      'their key examples on that build. On another smbls version, behaviour can differ.\n\n'
+  } catch (e) {
+    return ''
+  }
+}
+
 function rulesCoreBundle() {
   const header = '# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n' +
     'This is the compact core of the mandatory ruleset: the reuse directive, the RULES preamble + every STRICT rule, the frankability checklist, a SECTION INDEX, and a NEXT STEP table. ' +
     "The full skills are fetched per section: `get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … " +
-    'Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n---\n\n'
+    'Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n' +
+    runtimeCheckedLine() + '---\n\n'
   return header + readSkill('REUSE.md') + '\n\n---\n\n' + rulesEssentials() + '\n\n---\n\n' + frankabilityChecklist() + '\n\n---\n\n' + rulesSectionIndex() + '\n\n---\n\n' + rulesNextStep()
 }
 
