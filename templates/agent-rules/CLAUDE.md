@@ -12,7 +12,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 3. **For new components/pages**, use `mcp__symbols-mcp__generate_component` / `mcp__symbols-mcp__generate_page` — these return a structured prompt + the right context.
 
-4. **After each component**, run `mcp__symbols-mcp__audit_component(code)` to validate inline. Compact response (~1K) with violations.
+4. **After each component**, run `mcp__symbols-mcp__audit_component(code, file_path)` to validate inline. Compact response (~1K) with violations.
 
 5. **For full project audits**, run `mcp__symbols-mcp__audit_project()` to get the multi-phase playbook, pair with `npx -y @symbo.ls/mcp symbols-audit ./symbols` (the CLI), iterate until convergence per the playbook's strict-mode contract.
 

@@ -79,7 +79,7 @@ You MUST call these BEFORE editing any DOMQL / smbls code:
 
 After loading, also use:
   • mcp__symbols-mcp__generate_component / generate_page  for new code
-  • mcp__symbols-mcp__audit_component(code)               after every component
+  • mcp__symbols-mcp__audit_component(code, file_path)    after every component
   • mcp__symbols-mcp__audit_and_fix_frankability(dir)     before committing
 
 Why: editing without rules produces code that breaks under frank.toJSON

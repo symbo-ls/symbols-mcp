@@ -7,7 +7,7 @@ A vendor-neutral version of the rules for any agent that reads `AGENTS.md` (Code
 1. Call `mcp__symbols-mcp__get_project_context` FIRST. Resolves owner / key / env / token from cwd's `symbols.json`. NEVER hardcode.
 2. Call `mcp__symbols-mcp__get_project_rules` before generating any component or page.
 3. Use `mcp__symbols-mcp__generate_component` / `generate_page` for new code.
-4. Validate with `mcp__symbols-mcp__audit_component(code)` after each component.
+4. Validate with `mcp__symbols-mcp__audit_component(code, file_path)` after each component.
 5. Full audit: `audit_project()` playbook + `npx -y @symbo.ls/mcp symbols-audit ./symbols` CLI.
 
 ## Hard rules

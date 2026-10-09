@@ -105,7 +105,7 @@ This playbook assumes **stdio MCP transport** (the agent runs on the user's mach
 
 - `get_project_context`, `bin/symbols-audit`, build/publish/render commands cannot run server-side.
 - The agent surfaces those steps as **shell commands for the user to run locally**, then asks the user to paste the output back via `🟢 ASK USER` blocks.
-- `audit_component(code)` (string in → violations out) and `audit_project()` (returns this playbook) DO work over SSE — they're stateless and need no filesystem.
+- `audit_component(code, file_path)` (string in → violations out; `file_path` only names where the file lives) and `audit_project()` (returns this playbook) DO work over SSE — they're stateless and need no filesystem.
 
 If you're an agent running over a non-stdio transport: read the system context to detect this, surface filesystem-dependent steps as instructions for the user to run themselves, then continue Phase 2 / Phase 3c with the pasted output. Don't silently skip — that violates strict mode.
 

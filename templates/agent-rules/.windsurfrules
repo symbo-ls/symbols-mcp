@@ -7,7 +7,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 1. Call `mcp__symbols-mcp__get_project_context` FIRST. Treat its `next_step` as authoritative. NEVER hardcode owner / key / creds.
 2. Before generating ANY component, call `mcp__symbols-mcp__get_project_rules`.
 3. Use `mcp__symbols-mcp__generate_component` / `generate_page` for new code.
-4. Validate every component with `mcp__symbols-mcp__audit_component(code)`.
+4. Validate every component with `mcp__symbols-mcp__audit_component(code, file_path)`.
 5. For full audits, use `audit_project()` + `npx -y @symbo.ls/mcp symbols-audit ./symbols`.
 
 ## Hard rules

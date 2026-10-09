@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import logging
+import posixpath
 import re
 import subprocess
 import shutil
@@ -144,7 +145,9 @@ mcp = FastMCP(
         "`section='RULES', part=2`, … Minimum for code: core + SYNTAX + COMPONENTS + FRANKABILITY. "
         "`full=True` is the legacy ~590k-char one-shot — only for clients with no tool-output cap.\n"
         "3. **`generate_component` / `generate_page`** for new code — these return a prompt + the right context bundle.\n"
-        "4. **`audit_component(code)`** after each component — inline validator, returns ~1K of violations. "
+        "4. **`audit_component(code, file_path)`** after each file you write — inline validator, returns ~1K of "
+        "violations. Pass `file_path` (e.g. `'functions/listQuerySet.js'`) so the folder-dependent rules apply where "
+        "the file lives; without it the code is audited as a component. "
         "Pass `include_playbook=True` only if you don't already have AUDIT.md.\n"
         "5. **`audit_project()`** when the user asks for a full project audit — returns the multi-phase playbook. "
         "Pair with `bin/symbols-audit <symbols-dir>` (CLI shipped in this package) for the static-audit phase.\n\n"
@@ -634,39 +637,190 @@ def _build_changes_and_schema(data: dict) -> tuple[list, list, list]:
     return changes, granular, orders
 
 
-def _audit_code(code: str) -> dict:
-    """Run frank-audit's content audit on a single source string.
+# ---------------------------------------------------------------------------
+# audit_component — the one file, where it lives in the project
+# ---------------------------------------------------------------------------
+# audit_component writes the code into a throwaway project and runs
+# frank-audit over it. Several rules depend on the file's folder (FA903 and
+# FA009 apply to components/ and snippets/, FA801 to pages/, FA006 to a file
+# outside every frank slot), so the code is written where the caller says it
+# lives. Rules about the PROJECT (FA008: the folder's index.js re-exports it,
+# FA010: context.js exists) cannot be answered by one file: their findings land
+# on the throwaway project's other files and are dropped.
+#
+# frank's discovery slots — mirror of @symbo.ls/frank-audit
+# src/core/constants.js FRANK_DIRS / FRANK_FILES. The HTTP /audit-content
+# endpoint is told the slot itself; the CLI derives it from the path.
+_FRANK_SLOT_DIRS = frozenset({
+    "components", "snippets", "pages", "functions", "methods",
+    "designSystem", "files", "assets",
+})
+_FRANK_ROOT_FILES = frozenset({
+    "state.js", "dependencies.js", "sharedLibraries.js", "globalScope.js",
+    "config.js", "envs.js", "lang.js", "cases.js", "index.js", "context.js",
+    "app.js", "schema.js",
+})
+# The sections a lazy route group's folder carries (@symbo.ls/frank
+# lazyGroups.js): `admin/components/X.js` ships as a component.
+_LAZY_GROUP_SLOTS = frozenset({"components", "pages", "functions", "methods", "snippets"})
+_FIRST_EXPORT_NAME = re.compile(
+    r"^[ \t]*export\s+(?:const|let|var|class|(?:async\s+)?function\*?)\s+([A-Za-z_$][\w$]*)",
+    re.M,
+)
+
+
+def _frank_slot(rel: str) -> str:
+    """The frank slot of a project-relative path (frank-audit classifySlot)."""
+    parts = rel.split("/")
+    if len(parts) == 1:
+        return parts[0][: -len(".js")] if parts[0] in _FRANK_ROOT_FILES else "orphan"
+    return parts[0] if parts[0] in _FRANK_SLOT_DIRS else "orphan"
+
+
+def _path_below_symbols_dir(path: str) -> str | None:
+    """A path relative to the project's symbols folder, read from the
+    project's own symbols.json (`dir`) when the path sits in a project on disk."""
+    try:
+        target = Path(path)
+        if not target.is_absolute():
+            target = Path.cwd() / target
+        found = _find_symbols_json(target.parent)
+        if not found:
+            return None
+        data = json.loads(found.read_text(encoding="utf-8"))
+        symbols_dir = (found.parent / str(data.get("dir") or "./symbols")).resolve()
+        return target.resolve().relative_to(symbols_dir).as_posix()
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _inline_audit_path(code: str, file_path: str = "") -> tuple[str, str | None]:
+    """Where audit_component writes the code inside its throwaway project.
+
+    Returns (path relative to the symbols folder, note). The note says how a
+    given `file_path` was read when it was not used as given; None otherwise.
+    Without `file_path` the code is a component named after its first export.
+    """
+    match = _FIRST_EXPORT_NAME.search(code or "")
+    name = match.group(1) if match else "Inline"
+    default = f"components/{name}.js"
+    raw = (file_path or "").strip().replace("\\", "/")
+    if not raw:
+        return default, None
+
+    is_folder = raw.endswith("/")
+    if raw.startswith("/") or re.match(r"^[A-Za-z]:/", raw):
+        rel = _path_below_symbols_dir(raw)
+        if rel is None:
+            segments = [s for s in raw.split("/") if s]
+            if "symbols" in segments[:-1]:
+                last = len(segments) - 1 - segments[::-1].index("symbols")
+                rel = "/".join(segments[last + 1:])
+            else:
+                slot_at = [i for i, s in enumerate(segments[:-1]) if s in _FRANK_SLOT_DIRS]
+                rel = "/".join(segments[slot_at[-1]:]) if slot_at else segments[-1]
+    else:
+        rel = raw
+        while rel.startswith("./"):
+            rel = rel[2:]
+        if rel.startswith("symbols/"):
+            rel = rel[len("symbols/"):]
+
+    rel = posixpath.normpath(rel) if rel else "."
+    if rel in (".", "..") or rel.startswith("../") or rel.startswith("/") or "\x00" in rel:
+        return default, (
+            f"`file_path` {file_path!r} points outside the project; audited as `{default}`. "
+            "Pass the path relative to the project's symbols folder, e.g. 'functions/listQuerySet.js'."
+        )
+
+    note = None
+    parts = rel.split("/")
+    if is_folder or (len(parts) == 1 and parts[0] in _FRANK_SLOT_DIRS):
+        rel = f"{rel}/{name}.js"
+        parts = rel.split("/")
+    stem, ext = posixpath.splitext(parts[-1])
+    if ext not in (".js", ".mjs"):
+        if ext:
+            note = f"frank discovers `.js` files only; `{parts[-1]}` was audited as `{stem}.js`."
+        parts[-1] = f"{stem}.js"
+        rel = "/".join(parts)
+    if len(parts) > 2 and parts[0] not in _FRANK_SLOT_DIRS and parts[1] in _LAZY_GROUP_SLOTS:
+        in_group = "/".join(parts[1:])
+        note = (
+            f"`{rel}` sits in the folder of a lazy route group; audited as `{in_group}` "
+            "(a group's sections ship like the project's own). Whether the folder is a "
+            "declared group is a project check: run `symbols-audit <symbols-dir>`."
+        )
+        rel = in_group
+    return rel, note
+
+
+def _findings_for_file(payload: dict, rel: str, root: str | None = None) -> dict:
+    """The payload with only the findings about the audited file.
+
+    Every other file of the throwaway project (its index.js, context.js,
+    state.js) is scaffolding: a finding there is about the harness. A finding
+    a rule could not attribute (`<rule>`: the rule threw) is kept.
+    """
+    if not isinstance(payload, dict) or payload.get("ok") is False:
+        return payload
+    kept = []
+    for f in payload.get("findings", []) or []:
+        file = str(f.get("file") or "").replace("\\", "/")
+        if root and os.path.isabs(file):
+            try:
+                file = Path(file).resolve().relative_to(Path(root).resolve()).as_posix()
+            except ValueError:
+                pass
+        if file in (rel, "", "<rule>"):
+            kept.append(f)
+    return {**payload, "findings": kept}
+
+
+def _audit_code(code: str, file_path: str = "") -> dict:
+    """Run frank-audit over one source string, placed where it lives.
 
     Delegates to @symbo.ls/frank-audit (Node CLI) — single source of truth
     for Symbols audit rules. Falls back to an empty-result structure if
     frank-audit is unreachable, with a clear `unavailable` flag so callers
     can warn the user rather than silently passing.
+
+    `file_path` (relative to the project's symbols folder; see
+    `_inline_audit_path`) decides the file's folder and name. The result
+    carries `file` (where it was audited) and `note` (how `file_path` was read).
     """
-    # Use audit-content via the CLI: stdin = code, args ask for the inline
-    # form. Older frank-audit versions don't expose a CLI subcommand for
-    # pure content (stdin in), so we work around by writing to a temp file.
-    # New (preferred): use the HTTP server's /audit-content endpoint when
-    # FRANK_AUDIT_URL is set. Otherwise temp-file via the fs CLI.
     import tempfile
+    rel, note = _inline_audit_path(code, file_path)
+
+    def _done(payload: dict, root: str | None = None) -> dict:
+        result = _convert_findings_to_legacy(_findings_for_file(payload, rel, root))
+        result["file"] = rel
+        result["note"] = note
+        return result
+
+    # Preferred when FRANK_AUDIT_URL is set: the HTTP server's pure
+    # /audit-content endpoint (no fs). Otherwise the fs CLI on a temp project.
     if FRANK_AUDIT_URL:
         try:
-            r = httpx.post(f"{FRANK_AUDIT_URL}/audit-content", json={"code": code, "file": "<inline>"}, timeout=15)
+            r = httpx.post(
+                f"{FRANK_AUDIT_URL}/audit-content",
+                json={"code": code, "file": rel, "slot": _frank_slot(rel)},
+                timeout=15,
+            )
             r.raise_for_status()
-            payload = r.json()
-            return _convert_findings_to_legacy(payload)
+            return _done(r.json())
         except Exception as e:  # pylint: disable=broad-except
             logger.warning("frank-audit HTTP audit-content failed: %s", e)
             # fall through to CLI
 
-    # Write code to a temp file in a dummy components/ dir so the CLI sees it
     with tempfile.TemporaryDirectory(prefix="frank-audit-") as tmp:
-        comp_dir = Path(tmp) / "components"
-        comp_dir.mkdir()
-        (comp_dir / "Inline.js").write_text(code, encoding="utf-8")
-        (Path(tmp) / "state.js").write_text("export default {}", encoding="utf-8")
+        target = Path(tmp) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(code, encoding="utf-8")
+        if rel != "state.js":
+            (Path(tmp) / "state.js").write_text("export default {}", encoding="utf-8")
         result = _run_frank_audit("audit", str(tmp))
-
-    return _convert_findings_to_legacy(result)
+        return _done(result, tmp)
 
 
 def _convert_findings_to_legacy(payload: dict) -> dict:
@@ -1285,15 +1439,24 @@ def convert_html(source_code: str) -> str:
 
 
 @mcp.tool()
-def audit_component(component_code: str, include_playbook: bool = False) -> str:
-    """Inline VALIDATOR for a single Symbols/DOMQL component string.
+def audit_component(component_code: str, include_playbook: bool = False, file_path: str = "") -> str:
+    """Inline VALIDATOR for a single Symbols/DOMQL file (component, page, function, …).
 
-    Runs the deterministic ruleset (flat element API, signal reactivity, design system
-    tokens, declarative fetch/polyglot/helmet/router, no DOM manipulation, Rule 62 icon ban)
-    against an in-memory string of code. Returns a tight report with violations + warnings.
+    Runs the @symbo.ls/frank-audit rules (flat element API, signal reactivity, design
+    system tokens, declarative fetch/polyglot/helmet/router, no DOM manipulation, Rule 62
+    icon ban, …) against an in-memory string of code. Returns a tight report with
+    violations + warnings.
+
+    Pass `file_path` so the rules that depend on the file's folder apply where the file
+    really lives: a `functions/` file is not a component (no FA903 "exported as a
+    function", no FA009 file-name check), `pages/` files get the page rules, a file
+    outside every frank folder gets FA006. Without it the code is audited as a component,
+    `components/<FirstExport>.js`. Project-level checks (the folder's `index.js`
+    re-exports the file, `context.js` exists) need the whole project and are not reported
+    here — run `bin/symbols-audit <symbols-dir>` for those.
 
     Use this:
-    - During generation, to verify a freshly-generated component before saving
+    - During generation, to verify a freshly-generated file before saving
     - In any client without shell access (claude.ai web, hosted MCP) where the CLI
       is unreachable
     - On a single file's contents, not a whole project
@@ -1301,8 +1464,8 @@ def audit_component(component_code: str, include_playbook: bool = False) -> str:
     Adjacent tools — call these for different scopes:
     - `audit_project()` — returns the MULTI-PHASE PROJECT AUDIT PLAYBOOK (instructions
       for the agent to follow). Use when the user asks for a full project audit.
-    - `bin/symbols-audit <symbols-dir>` (CLI, ships with this package) — filesystem
-      regex sweep across an entire project. Use during the playbook's static-audit phase.
+    - `bin/symbols-audit <symbols-dir>` (CLI, ships with this package) — the same rules
+      across an entire project. Use during the playbook's static-audit phase.
 
     By default returns ONLY the findings (≈1–2K chars). Pass `include_playbook=True`
     to also dump the AUDIT.md playbook in the same response when you don't already have it.
@@ -1312,11 +1475,30 @@ def audit_component(component_code: str, include_playbook: bool = False) -> str:
         include_playbook: Append the full audit playbook to the response. Default False
                           to keep responses small. Default agents should NOT set this —
                           call `audit_project()` separately if the playbook is needed.
+        file_path: Where the file lives, relative to the project's symbols folder:
+                   'functions/listQuerySet.js', 'components/SiteCover.js',
+                   'pages/main.js', 'designSystem/color.js', 'app.js', 'state.js'.
+                   A folder ('functions/') names the kind and the file takes the
+                   name of its first export. An absolute path works too (read
+                   against the project's symbols.json `dir`). A file in a lazy
+                   route group's folder ('admin/components/AdminTable.js') is
+                   audited by its path inside the group. Empty → a component.
     """
-    result = _audit_code(component_code)
+    result = _audit_code(component_code, file_path)
+    audited = result.get("file") or "components/Inline.js"
 
     output = f"""# Audit Report
 
+Audited as: `{audited}` (frank slot: {_frank_slot(audited)})
+"""
+    if result.get("note"):
+        output += f"{result['note']}\n"
+    if not (file_path or "").strip():
+        output += (
+            "No `file_path` given, so the code was audited as a component. Pass "
+            "`file_path` (e.g. 'functions/listQuerySet.js') when it lives elsewhere.\n"
+        )
+    output += f"""
 ## Summary
 {result['summary']}
 Passed: {'Yes' if result['passed'] else 'No'}
@@ -1345,6 +1527,7 @@ Passed: {'Yes' if result['passed'] else 'No'}
 """
 
     output += "\n## Next steps\n"
+    output += "- Project-level checks (each folder's `index.js` re-exports its files, `context.js` exists, lazy group folders) need the whole project: run `bin/symbols-audit <symbols-dir>`.\n"
     output += "- For a full project audit (filesystem-wide regex + chrome-mcp UI tests + iteration to convergence), call `audit_project()` to get the playbook.\n"
     output += "- For the framework rules in detail, call `get_project_rules()`.\n"
 
@@ -1811,7 +1994,7 @@ def audit_project(phase: str = "all") -> str:
       surface as `🟢 ASK USER` blocks (NEVER hardcoded).
     - `bin/symbols-audit <symbols-dir>` — deterministic regex sweep + dual-report
       template emission. Strict + deep modes default ON.
-    - `audit_component(code)` — inline single-component validator (no filesystem).
+    - `audit_component(code, file_path)` — inline single-file validator (no filesystem).
     - chrome-mcp tools — for the Phase 3c local-vs-remote UI testing protocol.
 
     Phase summary:

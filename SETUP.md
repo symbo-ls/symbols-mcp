@@ -681,7 +681,7 @@ This bypasses any editor-side MCP wiring — useful for diagnosing "tools not lo
 |---|---|---|
 | Resolve project owner/key/env | `get_project_context` | (read `symbols.json` manually) |
 | Get framework rules | `get_project_rules` (core), `get_project_rules(section="RULES", part=1)` (full file in parts) | `cat symbols_mcp/skills/RULES.md` |
-| Validate a single component | `audit_component(code)` | (n/a — shell can't read source strings) |
+| Validate a single file | `audit_component(code, file_path)` | (n/a — shell can't read source strings) |
 | Get the audit playbook | `audit_project()` | `cat symbols_mcp/skills/AUDIT.md` |
 | Sweep a project for violations | (n/a — call `audit_component` per file, or run shell) | `bin/symbols-audit.cjs ./symbols` |
 | Generate a component | `generate_component(description, name)` | (n/a) |
