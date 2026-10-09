@@ -432,7 +432,8 @@ isActive:    (el, s) => s.active === el.key
 
 // Update from events
 onClick: (e, el, s) => {
-  s.update({ open: !s.open })   // partial update (deep merge)
+  s.update({ open: !s.open })   // partial update: assigns each TOP-LEVEL key given, keeps the rest
+  s.auth.update({ step: 2 })    // partial update of a nested object: its own store keeps auth's other keys
   s.replace({ open: false })    // shallow replace (removes other keys)
   s.set({ open: false })        // alias for replace
   s.reset()                     // restore to initial parsed state
@@ -475,7 +476,7 @@ s.root.update(
 
 | Method | Purpose |
 | -- | -- |
-| `s.update(value, opts?)` | Deep merge, triggers reactivity |
+| `s.update(value, opts?)` | Assigns each top-level key of `value`, keeps the keys it does not name, triggers reactivity. A nested plain object is REPLACED as a whole, not merged: `s.update({ auth: { modal: 'x' } })` drops `auth`'s other keys. For a partial nested write use the nested store's own `update` (`s.auth.update({ modal: 'x' })`) or `s.setByPath('auth.modal', 'x')`; to reset a nested object, write the whole object (`s.update({ form: { values: {}, dirty: false } })` sets all of `form`) |
 | `s.replace(value, opts?)` | Replace entire state (drops missing keys) |
 | `s.set(value, opts?)` | Alias for replace |
 | `s.clean(opts?)` | Remove all keys |
