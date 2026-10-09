@@ -252,7 +252,7 @@ Define a declarative `metadata` object on any app, page, or component. Works at 
 **Behaviors:**
 - Array values expand into multiple tags
 - Function values receive `(el, s)` for dynamic metadata
-- Merges metadata from global, app-level, and page-level (page wins)
+- Merges metadata from global, app-level, and page-level (page wins); a key a page omits falls back to the app-level value, never the previous page's
 
 ### App-level defaults
 
@@ -411,7 +411,7 @@ Higher priority wins. Later levels override earlier ones.
 
 **Fallback chain for `title`:** `page.metadata.title` → `page.state.title` → `data.name`
 
-Helmet works identically at runtime AND in `smbls brender` SSR.
+That is the server head (brender). In the browser the head is the merge of every mounted element's metadata layer — an element above its ancestors, the later-mounted above an unrelated one. A key no layer sets any more falls back to the next layer (the app's), else to the value the served page had on its own path, else the tag goes; `scripts` are load-once. The runtime supports fewer keys than the server head (FRAMEWORK.md §7 → Supported keys).
 
 ### ❌ Forbidden alternatives
 

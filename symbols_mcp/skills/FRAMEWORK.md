@@ -693,30 +693,51 @@ metadata: {
 }
 ```
 
+To REPLACE an element's metadata at runtime, pass a factory or `null`: `el.update({ metadata: (el, s) => ({ title: 'Checkout', robots: 'noindex' }) })`, `el.update({ metadata: null })`. An object patch (`el.update({ metadata: { title: 'Checkout' } })`) changes nothing — `update()` does not assign an object to a lowercase prop.
+
+### Runtime — the head is the merge of mounted layers
+
+Every element with `metadata` adds a LAYER to the document head: opened when the element is created, kept current by a signal effect (a language switch re-resolves it), closed when the element is disposed (the router swaps the page, a list row leaves, `destroy(app)`).
+
+1. Each layer resolves its metadata: function values run, `{{ }}` templates resolve, files-map keys become file URLs.
+2. Order: an element sits above its ancestors (the app is the lowest layer); of two unrelated elements the later-mounted sits above.
+3. Each key takes the value of the highest layer that sets it (`null` / `undefined` sets nothing).
+4. A key no layer sets any more (its element left, or its metadata dropped the key) falls back to the next layer that sets it (e.g. the app's value); else to the value the served document had before helmet first wrote that tag — only while the document still shows the path it was served for, and only if no layer wrote that same value; else the tag is removed.
+5. `title` / `description` cascade into `og:title` / `og:description` (unless a non-empty one comes from the title's layer or a layer above it) and `twitter:title` / `twitter:description` (unless any layer sets one) — as the server head does.
+
+Helmet never touches a tag no layer set. Put route-independent defaults in the app's `metadata`; a page sets only what it changes — no need to restate every key to clear the previous page's tags.
+
+Array keys:
+
+| Key | Tags | When the layer that set it leaves |
+|---|---|---|
+| `jsonLd` | `<script type="application/ld+json" data-smbls-jsonld>` | removed, or the next layer's list |
+| `styles` | `<style data-smbls-style>` | removed, or the next layer's list |
+| `alternate` | `<link rel="alternate" data-smbls-alternate>` | removed, or the next layer's list |
+| `favicons` | `<link rel="icon" data-smbls-favicon>` | removed, or the next layer's list |
+| `icon` / `favicon` | `<link rel="icon" data-smbls-single-icon>` | removed, or the next layer's icon |
+| `scripts` | `<script src data-smbls-script>` | stays — load-once: added once, never removed |
+
+The highest layer's list replaces the lists below it. The served head (brender, and the static head of the mermaid server and the runner) writes `alternate`, `favicons` and `icon` with the same `data-smbls-*` keys, so a client that boots on a server-rendered page takes those tags over instead of adding a second copy.
+
 ### Supported keys
 
 Two surfaces with **different supported-key sets**.
 
-**Runtime (browser)** — `applyMetadata()` in
-`plugins/helmet/index.js:173`. Looks up keys in the
-`META_TAGS` table at `index.js:7-32`. Unknown keys are silently
-skipped. Supported set:
+**Runtime (browser)** — the `META_TAGS` table in `plugins/helmet/index.js`, plus the array keys above. Unknown keys are silently skipped:
 
 ```
 title, description, keywords, robots, author, canonical,
 image, url, siteName, type, locale, theme-color,
 og:title, og:description, og:image, og:url, og:type, og:site_name, og:locale,
-twitter:card, twitter:title, twitter:description, twitter:image, twitter:site
+twitter:card, twitter:title, twitter:description, twitter:image, twitter:site,
+jsonLd, styles, scripts, alternate, favicons, icon / favicon
 ```
 
-**SSR / brender HTML** — `generateHeadHtml()` in
-`plugins/helmet/index.js:209`. Broader prefix-rule set:
+**SSR / brender HTML** — `generateHeadHtml()`. Broader prefix-rule set:
 
 - All runtime keys above PLUS:
 - `viewport` (auto-emits a default if not set)
-- `icon` / `favicon` — `<link rel="icon">` with type auto-detected
-- `favicons` (array) — multiple `<link rel="icon">`
-- `alternate` (array) — multiple `<link rel="alternate">`
 - `og:*`, `article:*`, `product:*`, `fb:*`, `profile:*`, `book:*`,
   `business:*`, `music:*`, `video:*` → `<meta property="X">`
 - `twitter:*`, `DC:*`, `DCTERMS:*` → `<meta name="X">`
@@ -730,33 +751,23 @@ SSR HTML brender produces.
 
 ### SSR priority order (brender)
 
-Verified at `plugins/helmet/index.js:77-156` (`extractMetadata`):
+`extractMetadata(data, route)` in `plugins/helmet/index.js`:
 
-1. `data.integrations.seo` — lowest priority (defaults), line 83-85
-2. `data.app.metadata` — medium, line 87-90
-3. `page.metadata` (or `page.helmet`) — highest, line 95-99
-4. Falls back to `page.state.title` / `page.state.description`, line 101-108
-5. Final default: `data.name || 'Symbols'` for `title`, line 111-113
-6. Bare filenames resolved against `data.files[val].src`, line 144-153
-
-### Auto-cascade behavior (verified `helmet/index.js:117-141`)
-
-Helmet automatically derives `og:*` and `twitter:*` from `title` /
-`description` when the page sets one but not the other:
-
-- `title` → `og:title` (only if not explicitly set on page)
-- `title` → `twitter:title` (always, if no twitter:title)
-- `description` → `og:description` (only if not explicitly set)
-- `description` → `twitter:description` (always)
-
-Plus: `og:url` (or `url`) is **route-aware** — if you set a base URL and
-the current route is non-`/`, helmet appends the route to produce
-`og:url = baseUrl + route`. Stops at the first trailing slash.
+1. `data.integrations.seo` — lowest priority (defaults)
+2. `data.app.metadata` — medium
+3. `page.metadata` (or `page.helmet`) — highest
+4. Falls back to `page.state.title` / `page.state.description`
+5. Final default: `data.name || 'Symbols'` for `title`
+6. Cascades `title` / `description` into `og:title` / `og:description` (unless the page sets them) and `twitter:title` / `twitter:description` (unless set anywhere)
+7. `og:url` is route-aware only as a BASE: an `og:url` (or `url`) from `integrations.seo` or the app gets the route appended (`baseUrl + route`); a page's own `og:url` (or `url`) is that page's address and stays as written. The runtime never appends a route.
+8. Files-map keys become file URLs (own keys and bare names; `src` → `content.src` → `content.storageUrl`)
 
 ### Anti-patterns
 
 - Don't write to `document.title` or insert `<meta>` tags from project code. Helmet owns them; manual writes drift on route change.
-- Don't manually duplicate `title` into `og:title` / `twitter:title` — the auto-cascade does it. Setting them only when you need a *different* social-only string.
+- Don't manually duplicate `title` into `og:title` / `twitter:title` — the cascade does it, at runtime and on the server. Set them only when you need a *different* social-only string.
+- Don't fill every key on every page to clear what the previous page set — an omitted key falls back to the app's layer or the served value.
+- Don't `el.update({ metadata: { … } })` with an object — pass a factory or `null`.
 
 ---
 

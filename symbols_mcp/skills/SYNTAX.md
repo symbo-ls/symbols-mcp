@@ -1529,7 +1529,7 @@ export const product = {
 }
 ```
 
-Helmet works identically at runtime AND in `smbls brender` SSR.
+Helmet renders at runtime AND in `smbls brender` SSR. In the browser the head is the merge of the mounted elements' `metadata` layers (an element above its ancestors, the later-mounted above an unrelated one): a key a page omits falls back to the app's value — or the served value — never the previous page's; `title` / `description` cascade into `og:` / `twitter:`. To replace an element's metadata at runtime pass a factory or `null` to `el.update` (an object patch changes nothing). The runtime knows fewer keys than the server head — FRAMEWORK.md §7.
 
 ---
 

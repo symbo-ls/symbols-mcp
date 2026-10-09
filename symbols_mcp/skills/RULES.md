@@ -1391,7 +1391,7 @@ Polyglot integrates with the fetch plugin: when `state.root.lang` changes, every
 
 ## Rule 49 — STRICT: SEO/page metadata via helmet — NEVER raw `document.title` or `<head>` injection
 
-All SEO metadata MUST go through `@symbo.ls/helmet`. Define `metadata` on the app or any page/component. Helmet handles runtime AND brender SSR identically.
+All SEO metadata MUST go through `@symbo.ls/helmet`. Define `metadata` on the app or any page/component. Helmet renders it at runtime and in brender SSR; the live head merges the mounted layers, so a key a page omits falls back to the app's value, not the previous page's (FRAMEWORK.md §7).
 
 ```js
 // ✅ — app-level defaults
