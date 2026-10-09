@@ -1171,10 +1171,24 @@ async function handle(req) {
   }
 }
 
+// Requests still being handled when stdin closes. The process exits only
+// after they answered AND stdout drained: on macOS a stdout pipe is
+// asynchronous, and exiting at once cut a large reply (the full rules
+// bundle) at a pipe-buffer boundary.
+const pending = new Set()
+
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
 rl.on('line', line => {
   if (!line.trim()) return
-  try { handle(JSON.parse(line)).catch(e => process.stderr.write(`Handler error: ${e.message}\n`)) }
-  catch (e) { process.stderr.write(`Parse error: ${e.message}\n`) }
+  try {
+    const p = handle(JSON.parse(line))
+      .catch(e => process.stderr.write(`Handler error: ${e.message}\n`))
+      .finally(() => pending.delete(p))
+    pending.add(p)
+  } catch (e) { process.stderr.write(`Parse error: ${e.message}\n`) }
 })
-rl.on('close', () => process.exit(0))
+rl.on('close', async () => {
+  await Promise.allSettled([...pending])
+  if (process.stdout.writableLength) process.stdout.once('drain', () => process.exit(0))
+  else process.exit(0)
+})
