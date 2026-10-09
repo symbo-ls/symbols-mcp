@@ -557,7 +557,7 @@ ContentPage: {
 }
 ```
 
-Configure the adapter once in `config.js`: `db: { adapter: 'supabase'|'rest'|'local', ... }`.
+Configure the adapter once in `config.js`: `fetch: { adapter: 'rest' | 'local' | <a registered name>, ... }` (`db` is not a config key).
 
 ---
 
@@ -998,7 +998,7 @@ onRender: (el) => {
 | **`state`** | Single element + reactive children | Yes (signal-backed store) | Component-local mutable data (`state: { open: false, count: 0 }`) — primary mechanism for component state |
 | **`scope`** | Component subtree (parent to descendants) | No (instance storage) | Non-reactive per-instance data: debounce timers, chart instances, refs. `el.scope.timer = null` in `onInit`, clean up in `onRemove` |
 | **`globalScope`** / root state | Entire app (every component reads same value) | Yes (signal) | App-wide UI state that is NOT business data (active theme, sidebar open/closed, current modal id) — update via `s.rootUpdate({...})` or `el.getRootState().update({...})` |
-| **`context`** | Passed at `create(app, context)` boot | No (config-like) | Project-level config + registered functions (`context.functions`, `context.designSystem`, `context.db`) |
+| **`context`** | Passed at `create(app, context)` boot | No (config-like) | Project-level config + registered functions (`context.functions`, `context.designSystem`, `context.fetch`) |
 
 ### Correct patterns for each channel
 
@@ -1036,8 +1036,8 @@ text: (el, s) => s.root.activeProject?.name || 'No project'
 
 // ✅ context — boot-time config, accessed read-only at runtime
 onInit: (el, s, ctx) => {
-  const apiKey = ctx.db.key         // read-only; never write back to ctx
-  el.call('initSDK', apiKey)
+  const { currency } = ctx.checkout  // config.js → checkout: { currency }; read-only, never write back to ctx
+  el.call('initCheckout', currency)
 }
 ```
 
@@ -1049,20 +1049,17 @@ onInit: (el, s, ctx) => {
 
 ---
 
-## 32. `db.createClient` MUST NOT be in `config.js` / `context.db` — bundle strips it
+## 32. The `fetch` config is plain data — no client, no function, no `db:` key, no Supabase adapter
 
-The supabase adapter dynamic-imports `@supabase/supabase-js` at runtime. Mermaid's bundle script (`mermaid/src/bundle.js:65-66`) explicitly strips `createClient` from published JSON because functions don't survive frank serialization.
+`config.js` `fetch` is published with the project, so only plain options survive: the served runtime deletes a `createClient`, and a function loses its closure. `db` is not a config key — a config under `db:` is never read, so every declarative `fetch:` silently does nothing and `getDB()` returns `null`. `@symbo.ls/fetch` has no Supabase adapter (`adapter: 'supabase'` fails after about 5 s with `Unknown db adapter: "supabase"`). See RULES.md Rule 59.
 
 ```js
-// ❌ Wrong — works locally, fails in published env
+// ❌ Wrong — `db` is never read; a client factory is stripped on publish; there is no 'supabase' adapter
 import { createClient } from '@supabase/supabase-js'
 db: { adapter: 'supabase', createClient, url: '…', key: '…' }
 
-// ✅ Correct — let the runtime adapter resolve `@supabase/supabase-js` via importmap
-db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-
-// dependencies.js
-export default { '@supabase/supabase-js': 'latest' }
+// ✅ Correct — the REST adapter on Supabase's PostgREST endpoint, plain options only
+fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1', headers: { apikey: 'sb_publishable_…' } }
 ```
 
 ---

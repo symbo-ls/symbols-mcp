@@ -20,7 +20,7 @@ my-project/
   symbols/
     app.js               # root element definition (NOT the page content; pages live in pages/)
     context.js           # aggregated context: spreads config + app + state + components + pages + ...
-    config.js            # framework flags (useReset, globalTheme, themeStorageKey, db, fetch, polyglot, ...)
+    config.js            # framework flags + plugin config (useReset, globalTheme, themeStorageKey, fetch, polyglot, router, ...)
     state.js             # initial root state (object, not function)
     dependencies.js      # external script CDN deps
     sharedLibraries.js   # array of cross-project context contributors
@@ -492,7 +492,7 @@ fetch: {
 ```js
 const db = await this.getDB()
 const { data, error } = await db.select({ from: 'articles' })
-// also: db.insert / .update / .delete / .rpc / .upload / .signIn / .onAuthStateChange ...
+// also: db.insert / .update / .upsert / .delete / .rpc; auth where the adapter keeps sessions: .getSession / .signIn / .signOut / .setToken (REST)
 
 // REST adapter — every call takes responseType: 'auto' (default) | 'json' | 'text' | 'blob' | 'arrayBuffer' | 'stream' | 'response'
 const { data: blob } = await db.select({ from: '/reports/q3.xlsx', responseType: 'blob' })              // a Blob
@@ -548,7 +548,7 @@ Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error
 ### Anti-patterns
 
 - Don't bypass adapter — `await fetch(...)` from inside DOMQL skips cache, retry, dedupe, optimistic, and the `Accept-Language` header injection. Streaming (SSE), binary downloads and multipart uploads are no exception: the REST adapter reads them through `responseType` and sends `FormData` / `Blob` bodies as they are (see Imperative).
-- Don't ship `db.createClient` (a function) in published JSON. `mermaid/src/bundle.js:65-66` strips it (`delete context.db.createClient`). The Supabase adapter at `plugins/fetch/adapters/supabase.js:16-19` falls back to `await import('@supabase/supabase-js')` when no `createClient` is provided, so put the package in `dependencies.js` and let the runtime import it. Trying to keep the function reference across JSON is futile.
+- Don't ship a client or a function in the `config.js` `fetch` config (RULES.md Rule 59): only plain options survive publish — the served runtime deletes `fetch.createClient`. Don't configure under `db:` (never read) or `adapter: 'supabase'` (the Supabase adapter was removed; use the REST adapter on the PostgREST endpoint, or a registered adapter).
 - Don't write to state inside a fetch's own `transform` and a parent's `onFetchComplete` for the same key — race on cache resolution. Pick one.
 
 ---
@@ -832,22 +832,21 @@ This means SSR HTML and client bundle must run **identical** DOMQL source. Any d
 ### What to avoid in code that may run during SSR
 
 - `window` / `document` / `localStorage` access without `typeof window !== 'undefined'` guards. Brender stubs many browser APIs but not all.
-- Async work in `onCreate`/`onRender` that mutates the DOM — SSR captures the synchronous output. Async mutations show up only after hydration. Use `prefetchPageData` to hydrate state from the DB at render time instead.
+- Async work in `onCreate`/`onRender` that mutates the DOM — SSR captures the synchronous output. Async mutations show up only after hydration. Declarative `fetch:` data also loads only after hydration today (see `prefetchPageData` below).
 - Imports of browser-only packages (e.g. `mapbox-gl`, `leaflet`) at the module top level. Lazy-load via `el.call('requireOnDemand', 'mapbox-gl')` inside an event handler.
 - Random / time-of-day output without a deterministic seed. Two renders must produce the same HTML.
 - Reading from outside the project context (e.g. global `import.meta`, `process.env` at module top level — these resolve at bundle time). The exception is `new URL('<relative path>', import.meta.url)` naming a project file: frank publishes the file and rewrites the call to its URL (§9 → Asset URLs).
 
-### `prefetchPageData` for SSR with real data
+### `prefetchPageData` — SSR data (no adapter today)
 
 ```js
 // In a brender-driven request
 const stateUpdates = await prefetchPageData(data, '/blog')
-// → walks page.fetch declarations, runs them via the project's db adapter,
-//   returns { articles: [...], events: [...], ... } injected into page state
-//   before render — components see real content during SSR.
+// → walks the page's fetch declarations and would run them through an SSR adapter,
+//   returning { articles: [...], ... } to inject into page state before render.
 ```
 
-Works only with adapters that have a Node-side runtime (Supabase, REST). `local` adapter is bundled with the project so it works in any environment.
+No built-in SSR adapter resolves today (the Supabase SSR path was removed with the Supabase adapter), so it returns an empty map: the served HTML has no fetched data, and the client-side fetch loads it after hydration.
 
 ### Diagnose a broken hydration
 
@@ -982,7 +981,7 @@ Targets a static host:
 3. **Verify the design system tokens are present** — every color/spacing/typography token used in components must be defined in `designSystem/`. Missing tokens cause silent visual fallbacks in production.
 4. **Check `dependencies.js`** — any package referenced from project code must be in `dependencies.js` so mermaid can resolve it via importmap. Missing entries fail at runtime in deployed channels.
 5. **`config.js` flags** — `useReset`, `useVariable`, `useFontImport`, `useIconSprite`, `useSvgSprite`, `useDefaultConfig`, `useDocumentTheme` should all be `true` for normal projects. Mermaid's bundle script defaults them to `true` if missing, but explicit beats implicit.
-6. **No `db.createClient` in published JSON** — frank stringification preserves `createClient` as a function reference, but mermaid's bundle script strips it (`delete context.db.createClient`). Re-creation happens runtime-side via the adapter. Don't fight this.
+6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch` (the served runtime deletes `fetch.createClient`), no `db:` key, no `adapter: 'supabase'` (RULES.md Rule 59).
 7. **No browser-only top-level code in modules** — see §8 SSR rules above. If you import a leaflet/mapbox/etc. package at the top of a component file, brender will crash and fall back to client-render. Lazy-load instead.
 8. **Test with `channel=production`** — `smbls deploy --channel production` (or `mermaid` with `BRENDER=true`) catches SSR regressions early.
 
@@ -992,7 +991,8 @@ Targets a static host:
 |---|---|---|
 | Page renders blank in deployed env | Brender failed silently → client render path expected hydration markers | Run `smbls build` locally with `BRENDER=true`; check console for the brender warning |
 | Theme flashes wrong color on first paint | Project-side `setAttribute('data-theme', …)` racing `resolveAndApplyTheme`, OR `useDocumentTheme: false` skipping the design-system's document background/color application | Remove any project-side theme setAttribute (framework owns it via `resolveAndApplyTheme`). Keep `useDocumentTheme: true` so the design system's `document` block applies on `<body>` |
-| `db.createClient is not a function` at runtime in deployed env | Project shipped a `createClient` reference in JSON. Bundle strips it (`mermaid/src/bundle.js:65`); supabase adapter's dynamic-import fallback (`adapters/supabase.js:16-19`) needs `@supabase/supabase-js` to be importable | Add `@supabase/supabase-js` to `symbols/dependencies.js` so the runtime importmap can resolve it. Stop passing `createClient` from `config.js`; let the adapter fetch it |
+| Declarative `fetch:` loads nothing; `getDB()` returns `null` | The adapter config sits under `db:`, which the runtime never reads | Rename it to `fetch:` in `config.js` (RULES.md Rule 59) |
+| `Unknown db adapter: "supabase"` after about 5 s | `@symbo.ls/fetch` has no Supabase adapter | `fetch: { adapter: 'rest', url: 'https://<project>.supabase.co/rest/v1', headers: { apikey } }`, or a registered adapter; drop `createClient` and `@supabase/supabase-js` |
 | Routes 404 in deployed env | `pages/index.js` default export not in expected `{ '/': X, '/about': Y }` shape | Frank only picks up the default export of `pages/index.js`. Named exports must be re-exported there |
 | Font flicker / FOUT | `useFontImport: false` or design system `font` block missing `fontFace` | Set `useFontImport: true` and define `fontFace` for every font family |
 | CSS vars missing in iframe | Multi-app secondary not getting its own document on `config.document` | Use the framework's `prepareDesignSystem` flow — pass `context.document` (and `themeRoot`) to the iframe app's `create()` call. Don't manually inject CSS into the iframe |

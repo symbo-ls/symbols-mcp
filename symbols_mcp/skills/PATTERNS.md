@@ -247,7 +247,7 @@ Is the data an instance-level, non-reactive detail (timer, chart ref, debounce h
 Is the data app-wide and needs to trigger re-renders anywhere in the tree?
   → YES → put it in root state / globalScope; read via s.root.X or el.getRootState()
 
-Is the data boot-time config (design system, db credentials, registered functions)?
+Is the data boot-time config (design system, the fetch adapter config, registered functions)?
   → YES → pass as context at create(app, context); read via el.getContext() — never mutate at runtime
 ```
 
@@ -258,7 +258,7 @@ Is the data boot-time config (design system, db credentials, registered function
 | `state` | Element + its reactive children | Yes — signals drive re-renders | Counter, form field, open/closed, selected item |
 | `scope` | Element instance only | No — plain JS object | Debounce timer, chart library instance, RAF handle |
 | Root state (`s.root.*`) | Entire app | Yes | Active project, current user, active modal id, sidebar open/closed |
-| `context` | Entire app (boot-time only) | No | `context.functions`, `context.designSystem`, `context.db` credentials |
+| `context` | Entire app (boot-time only) | No | `context.functions`, `context.designSystem`, `context.fetch` (the adapter config) |
 
 ### Pattern A — component-local state
 
@@ -320,18 +320,16 @@ export const Sidebar = {
 ### Pattern D — context for boot-time config
 
 ```js
-// config.js (or wherever you call create())
-create(app, {
-  functions: { ...myFunctions },
-  designSystem: myDesignSystem,
-  db: { adapter: 'supabase', url: '...', key: '...' },
-  plugins: [fetchPlugin, routerPlugin]
-})
+// config.js — boot-time configuration; context.js spreads it into the context,
+// and smbls registers the plugins it names (fetch, polyglot, router) itself
+export default {
+  fetch: { adapter: 'rest', url: 'https://api.example.com' },
+  checkout: { currency: 'GEL' }
+}
 
 // Anywhere in a component — READ only, never write back
 onInit: (el, s, ctx) => {
-  const adapter = ctx.db.adapter
-  el.call('initAdapter', adapter)
+  el.call('initCheckout', ctx.checkout.currency)
 }
 ```
 

@@ -246,7 +246,7 @@ Reading `el.node.X` is fine (focus, blur, scrollTop, selectionStart, etc.). Writ
 ### G. Frank serialization risks
 - `extends: <ImportName>` from a top-of-file import → flag (breaks after frank serialization, Rule 10)
 - Module-level `const`/`let`/`var` outside the export → flag (Rule 33)
-- `db.createClient` passed in `config.js` / `context.db` → flag (Rule 59 — bundle strips it)
+- A client or function in the `config.js` `fetch` config (`createClient`, …), a `db:` config key, or `adapter: 'supabase'` → flag (Rule 59 — publish strips the client, `db` is never read, the Supabase adapter no longer exists)
 
 ### H. Theme + design system coverage
 - Walk `designSystem/index.js`, build the set of registered tokens (color, theme, spacing, typography, timing, ...).
@@ -605,7 +605,8 @@ When a published deploy goes wrong, match the symptom in this table before debug
 |---|---|---|
 | Page renders blank in deployed env | Brender failed silently → client render path expected hydration markers | Run `smbls build` locally with `BRENDER=true`; check console for the brender warning |
 | Theme flashes wrong color on first paint | Project-side `setAttribute('data-theme', …)` racing `resolveAndApplyTheme`, OR `useDocumentTheme: false` skipping the design-system's document background/color application | Remove any project-side theme `setAttribute` (framework owns it). Keep `useDocumentTheme: true` so the design system's `document` block applies on `<body>` |
-| `db.createClient is not a function` at runtime | Project shipped a `createClient` reference in JSON. Mermaid bundle strips it; supabase adapter's dynamic-import fallback needs `@supabase/supabase-js` to be importable | Add `@supabase/supabase-js` to `symbols/dependencies.js` so the runtime importmap can resolve it. Stop passing `createClient` from `config.js` |
+| Declarative `fetch:` loads nothing; `getDB()` returns `null` | The adapter config sits under `db:`, which the runtime never reads | Rename it to `fetch:` in `config.js` (Rule 59) |
+| `Unknown db adapter: "supabase"` after about 5 s | `@symbo.ls/fetch` has no Supabase adapter | `fetch: { adapter: 'rest', url: 'https://<project>.supabase.co/rest/v1', headers: { apikey } }`, or a registered adapter. Drop `createClient` and `@supabase/supabase-js` |
 | Routes 404 in deployed env | `pages/index.js` default export not in expected `{ '/': X, '/about': Y }` shape | Frank only picks up the default export of `pages/index.js`. Named exports must be re-exported there |
 | Font flicker / FOUT | `useFontImport: false` or design system `font` block missing `fontFace` | Set `useFontImport: true` and define `fontFace` for every font family |
 | CSS vars missing in iframe | Multi-app secondary not getting its own document on `config.document` | Use the framework's `prepareDesignSystem` flow — pass `context.document` (and `themeRoot`) to the iframe app's `create()` call |
@@ -629,7 +630,7 @@ Before running `smbls publish`:
 3. **Verify design system tokens are present** — every color/spacing/typography token used in components must be defined in `designSystem/`. Missing tokens cause silent visual fallbacks in production.
 4. **Check `dependencies.js`** — any package referenced from project code must be in `dependencies.js` so mermaid can resolve it via importmap.
 5. **`config.js` flags** — `useReset`, `useVariable`, `useFontImport`, `useIconSprite`, `useSvgSprite`, `useDefaultConfig`, `useDocumentTheme` should all be `true` for normal projects.
-6. **No `db.createClient` in published JSON** — let the supabase adapter's dynamic-import fallback handle it; `@supabase/supabase-js` in `dependencies.js`.
+6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch`, no `db:` key, no `adapter: 'supabase'` (Rule 59).
 7. **No browser-only top-level code in modules** — see SSR rules. Lazy-load packages like leaflet/mapbox via `el.call(...)` inside event handlers.
 8. **Test with `channel=production`** — `smbls deploy --channel production` (or mermaid with `BRENDER=true`) catches SSR regressions early.
 
@@ -681,8 +682,8 @@ These should be triaged into actual `smbls/` issues for the framework team.
 **Rule:** Rule 47 (declarative fetch)
 **Symptom:** When two ArticleList instances mount with different `params`, both share the same cache entry — second one overwrites first's data.
 **Recommended fix attempted:** Use `cache: { key: 'articles-' + params.id }` per-instance.
-**Why the fix breaks it:** `cache.key` option appears to be ignored by the supabase adapter — verified by adding `console.log` inside `plugins/fetch/index.js`.
-**Affected framework module:** `smbls/plugins/fetch/adapters/supabase.js`
+**Why the fix breaks it:** the `cache.key` option appears to be ignored for this query — verified by adding `console.log` inside `plugins/fetch/index.js`.
+**Affected framework module:** `smbls/plugins/fetch/index.js`
 **Workaround applied:** Use distinct `state:` keys per instance and let auto-derived cache key differ. Marked finding as `framework_bug` in `findings.json`.
 ```
 

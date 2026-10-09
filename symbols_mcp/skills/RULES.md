@@ -1544,24 +1544,22 @@ For any non-trivial project, the modern smbls stack is:
 | `@symbo.ls/helmet` | SEO metadata, brender SSR parity | Rule 49 |
 | `@symbo.ls/router` | SPA routing, guards, dynamic params, query parsing | Rule 42 |
 | `@symbo.ls/scratch` | Design system runtime, `changeGlobalTheme` | Rule 50 |
-| `@symbo.ls/brender` | SSR / SSG static rendering, prefetch | (Rule 49 / metadata) |
+| `@symbo.ls/brender` | SSR / SSG static rendering (fetched data loads client-side) | (Rule 49 / metadata) |
 | `@symbo.ls/helmet`, `@symbo.ls/freestyler`, `@symbo.ls/keyflows`, `@symbo.ls/sync`, `@symbo.ls/funcql` | composable plugins layered on top | per-plugin docs |
 
-Wire them in `context.plugins` and `context.functions`. NEVER replace any of these with custom in-app implementations — that's a violation of "no hacks, no workarounds" (CLAUDE.md).
+smbls `create()` wires the stack from the configuration: the router and helmet always, fetch (with its `el.call` cache functions) when `config.js` sets `fetch`, polyglot (with its functions) when it sets `polyglot`. NEVER import these plugins into project code — frank stubs the import, so the publish ships an empty plugin — and NEVER replace any of them with custom in-app implementations — that's a violation of "no hacks, no workarounds" (CLAUDE.md).
 
 ```js
-// ✅ — wire the modern stack at app entry
-import { polyglotPlugin } from '@symbo.ls/polyglot'
-import { polyglotFunctions } from '@symbo.ls/polyglot/functions'
-import { fetchPlugin } from '@symbo.ls/fetch'
-import { routerPlugin } from '@symbo.ls/router'
-import { helmetPlugin } from '@symbo.ls/helmet'
+// ✅ — config.js: configuration only; the runtime registers the plugins
+export default {
+  fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1', headers: { apikey: 'sb_publishable_…' } },
+  polyglot: { defaultLang: 'en', languages: ['en', 'ka'], translations: { … } },
+  router: { scrollRestoration: 'restore' }
+}
 
-context.plugins   = [routerPlugin, fetchPlugin, polyglotPlugin, helmetPlugin]
-context.functions = { ...context.functions, ...polyglotFunctions }
-context.polyglot  = { defaultLang: 'en', languages: ['en','ka'], translations: { … } }
-context.db        = { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-// add @supabase/supabase-js to dependencies.js — DO NOT pass `createClient` here (mermaid bundle strips it)
+// ❌ — importing and wiring the plugins by hand
+import { fetchPlugin } from '@symbo.ls/fetch'
+context.plugins = [routerPlugin, fetchPlugin, polyglotPlugin, helmetPlugin]
 ```
 
 ---
@@ -1814,25 +1812,24 @@ symbols/functions/index.js → export * from './format.js'
 
 ---
 
-## Rule 59 — Never ship `db.createClient` in `config.js` / `context.db`
+## Rule 59 — The `fetch` config is plain data — never ship a client or a function in it
 
-The supabase adapter (`plugins/fetch/adapters/supabase.js:16-19`) dynamic-imports `@supabase/supabase-js` at runtime when no `createClient` is provided. Mermaid's bundle script (`mermaid/src/bundle.js:65-66`) explicitly strips `createClient` from the published JSON because functions don't survive frank serialization.
-
-Result: passing `createClient` does nothing in production — the adapter rebuilds it via dynamic import.
+`config.js` `fetch` (the adapter config, resolved onto `context.fetch`) is published with the project. Only plain options survive: frank serializes a function without its closure or imports, and the served runtime deletes a `createClient` outright. Name an adapter — built in (`rest`, `local`) or registered with `registerAdapter('name', loader)` — and pass plain options. `@symbo.ls/fetch` has no Supabase adapter: reach a Supabase database through the REST adapter on its PostgREST endpoint, with no `@supabase/supabase-js` dependency.
 
 ```js
-// ❌ Wrong — `createClient` is stripped on publish; works only locally
+// ❌ Wrong — a client factory in the config (stripped on publish); `db` is not a config key; there is no 'supabase' adapter
 import { createClient } from '@supabase/supabase-js'
 db: { adapter: 'supabase', createClient, url: '…', key: '…' }
 
-// ✅ Correct — let the runtime adapter resolve `@supabase/supabase-js` via importmap
-db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-
-// dependencies.js
-export default {
-  '@supabase/supabase-js': 'latest'   // exact version pinning recommended for production
+// ✅ Correct — plain options for the REST adapter
+fetch: {
+  adapter: 'rest',
+  url: 'https://xxx.supabase.co/rest/v1',
+  headers: { apikey: 'sb_publishable_…' }
 }
 ```
+
+A config under `db:` is never read: declarative `fetch:` props do nothing and `getDB()` returns `null`. An adapter name nothing registers (`'supabase'`) fails after about 5 s with `Unknown db adapter: "supabase"`.
 
 ---
 

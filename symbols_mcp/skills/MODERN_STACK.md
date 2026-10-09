@@ -8,12 +8,12 @@ Every non-trivial Symbols app uses this coherent set of plugins. Each plugin rep
 
 | Plugin | Responsibility | Key surface | Strict rule |
 | -- | -- | -- | -- |
-| `@symbo.ls/fetch` | Declarative data fetching, caching, dedup, retry, refetch-on-focus, pagination | `db: { adapter, ... }` config + `fetch:` prop on elements | Rule 47 |
+| `@symbo.ls/fetch` | Declarative data fetching, caching, dedup, retry, refetch-on-focus, pagination | `fetch: { adapter, ... }` in `config.js` + `fetch:` prop on elements | Rule 47 |
 | `@symbo.ls/polyglot` | Translations, language switching, fetch integration | `'{{ key | polyglot }}'` template + `el.call('polyglot', 'key')` + `el.call('setLang', 'ka')` | Rule 48 |
 | `@symbo.ls/helmet` | SEO metadata at runtime AND in brender SSR | `metadata: {…}` on app/page/component | Rule 49 |
 | `@symbo.ls/router` | SPA routing, guards, dynamic params, query parsing, scroll mgmt | `el.router(path, el.getRoot())` + `routes:` map | Rule 42 |
 | `@symbo.ls/scratch` (theme runtime) | Design system runtime, `changeGlobalTheme()` | `changeGlobalTheme(name, targetConfig?)` (import from `smbls`) + `context.globalTheme` | Rule 50 |
-| `@symbo.ls/brender` | SSR / SSG static rendering with prefetch and hydration | `smbls brender` CLI + `renderPage(data, route, opts)` | (helmet + fetch are prefetched here) |
+| `@symbo.ls/brender` | SSR / SSG static rendering and hydration | `smbls brender` CLI + `renderPage(data, route, opts)` | (helmet metadata is rendered here; data loads client-side) |
 | `@symbo.ls/analyze` | Runtime audit logger — errors, warnings, browser events, network, session replay | `analyze: true|{...}` on `create()` + `context.analyze.query()` | (errors/warnings on by default; browser/network opt-in) |
 | `@symbo.ls/tap` | Declarative touch responsiveness (viewport, `touch-action`, tap-highlight, pressed feedback) | `plugins: [tapPlugin]` + `touchAction` / `overscrollBehavior` css-in-props | (auto-registered by mermaid SSR + the workspace shell) |
 
@@ -21,30 +21,22 @@ Every non-trivial Symbols app uses this coherent set of plugins. Each plugin rep
 
 ## Wiring the stack
 
+smbls `create()` wires the stack from the configuration — the router and helmet always, fetch (and its `el.call` cache functions) when `config.js` sets `fetch`, polyglot (and its functions) when it sets `polyglot`. Project code configures; it never imports these plugins (frank stubs such an import, and the publish ships an empty plugin):
+
 ```js
-// dependencies.js
-import { fetchPlugin } from '@symbo.ls/fetch'
-import { polyglotPlugin } from '@symbo.ls/polyglot'
-import { polyglotFunctions } from '@symbo.ls/polyglot/functions'
-import { routerPlugin } from '@symbo.ls/router'
-import { helmetPlugin } from '@symbo.ls/helmet'
-
-// app.js
-import deps from './dependencies.js'
-import context from './context.js'
-import create from 'smbls'
-
-create(app, {
-  ...context,
-  plugins:   [routerPlugin, fetchPlugin, polyglotPlugin, helmetPlugin],
-  functions: { ...context.functions, ...polyglotFunctions },
-  polyglot:  {
+// config.js
+export default {
+  fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1', headers: { apikey: 'sb_publishable_…' } },
+  polyglot: {
     defaultLang: 'en',
     languages:   ['en', 'ka'],
     translations: { en: { … }, ka: { … } }
   },
-  db: { adapter: 'supabase', url: 'https://xxx.supabase.co', key: 'sb_publishable_…' }
-})
+  router: { scrollRestoration: 'restore' }
+}
+
+// context.js spreads it: export default { ...config, state, components, pages, functions, designSystem }
+// index.js:              create(app, context)
 ```
 
 ---
@@ -611,7 +603,7 @@ document.documentElement.style.setProperty('--bg', '#000')
 
 Pre-render Symbols apps to static HTML. Brender uses linkedom (a virtual DOM) to run the same DOMQL component tree server-side, producing HTML with `data-br` hydration keys for client-side reconnection without re-rendering.
 
-> Brender pairs with the rest of the modern smbls stack. `@symbo.ls/helmet` metadata is rendered into `<head>`, `@symbo.ls/fetch` declarative `fetch:` is prefetched server-side, and `@symbo.ls/polyglot` translations are resolved per route at render time.
+> Brender pairs with the rest of the modern smbls stack. `@symbo.ls/helmet` metadata is rendered into `<head>` and `@symbo.ls/polyglot` translations are resolved per route at render time. Declarative `fetch:` data is not prefetched today: no built-in SSR adapter resolves, so the client-side fetch loads it after hydration.
 
 ### CLI
 
@@ -660,7 +652,7 @@ const result = await renderPage(data, '/about', { prefetch: true })
 | `renderElement(def, opts?)` | Render a single component to HTML |
 | `render(data, opts?)` | Render a full project (routing, state, designSystem) |
 | `renderPage(data, route, opts?)` | Complete HTML page with metadata, CSS, fonts |
-| `prefetchPageData(data, route)` | SSR data prefetching via DB adapter |
+| `prefetchPageData(data, route)` | SSR data prefetching through an SSR adapter — none resolves today, so it returns no data |
 | `hydrate(element, opts?)` | Client-side: reconnect DOMQL tree to DOM |
 | `loadProject(path)` | Import a `symbols/` directory structure |
 | `generateSitemap(data)` | Generate sitemap.xml from routes |
@@ -672,7 +664,7 @@ const result = await renderPage(data, '/about', { prefetch: true })
 | Metadata | Title, description, Open Graph, Twitter cards from declarative `metadata` objects |
 | Emotion CSS | Full CSS extraction including emotion-generated rules, CSS variables, reset, font imports |
 | Theme support | Generates `prefers-color-scheme` media queries and `[data-theme]` selectors (no JS needed) |
-| Data prefetching | Executes declarative `fetch` definitions during SSR via DB adapter (Supabase) |
+| Data prefetching | Walks the page's declarative `fetch` definitions; no built-in SSR adapter resolves today, so the client loads the data after hydration |
 | ISR | Optional client bundle for hydration + SPA navigation after initial static load |
 | Sitemap | Auto-generated `sitemap.xml` from route definitions |
 
@@ -689,7 +681,7 @@ In `symbols.json`:
 
 ### What brender prefetches
 
-When `--prefetch` is enabled (default), brender executes declarative `fetch:` definitions during SSR via the configured DB adapter. The HTML ships with data already in state — no client-side waterfall.
+`--prefetch` (the default) walks the page's declarative `fetch:` definitions, but no built-in SSR adapter resolves today (the Supabase SSR path was removed with the Supabase adapter), so the HTML ships without that data and the client-side fetch loads it after hydration.
 
 Helmet metadata is rendered into `<head>` server-side.
 

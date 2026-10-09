@@ -31,7 +31,7 @@ project-root/
     ├── cases.js                  # export default { isSafari: () => {}, ... } — conditional cases
     ├── lang.js                   # Translations — root level, NOT in designSystem
     ├── dependencies.js           # export default { 'pkg': 'exact-version' }
-    ├── config.js                 # export default { useReset: true, db: { adapter: 'supabase', url, key, auth, db, global }, polyglot: {...}, router: {...} }
+    ├── config.js                 # export default { useReset: true, fetch: { adapter: 'rest', url, headers, auth }, polyglot: {...}, router: {...} }
     ├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
     │
     ├── components/
@@ -151,14 +151,14 @@ export const parseNetworkRow = function parseNetworkRow(data) {
 }
 ```
 
-Frontend functions may call external APIs (including Supabase) via the client SDK:
+Frontend functions reach the backend (a REST API, a Supabase database through its PostgREST endpoint, …) through the configured fetch adapter:
 
 ```js
 // symbols/functions/fetchItems.js
 export const fetchItems = async function fetchItems(category) {
   const el = this
   const s = el.getRootState()
-  // Use the framework's getDB() to obtain the configured adapter (supabase/rest/local)
+  // getDB() returns the adapter `config.js` `fetch` configures (rest, local, or a registered one)
   const db = await this.getDB()
   const { data } = await db.select({ from: 'items' })
   s.update({ items: data || [] })
@@ -322,8 +322,6 @@ onClick: async (e, el) => {
 Control runtime behavior, rendering flags, and backend integration:
 
 ```js
-import { createClient } from '@supabase/supabase-js'
-
 export default {
   useReset: true,
   useVariable: true,
@@ -334,17 +332,12 @@ export default {
   useDocumentTheme: true,
   verbose: false,
 
-  // Supabase fetch adapter — declarative data fetching
+  // Fetch adapter — declarative data fetching (plain options only, Rule 59).
+  // A Supabase database is reached through the REST adapter on its PostgREST endpoint.
   fetch: {
-    adapter: 'supabase',
-    createClient,
-    url: 'https://your-project.supabase.co',
-    key: 'your-anon-key',
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
+    adapter: 'rest',
+    url: 'https://your-project.supabase.co/rest/v1',
+    headers: { apikey: 'your-publishable-key' }
   },
 
   // Polyglot i18n configuration
