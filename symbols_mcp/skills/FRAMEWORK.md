@@ -802,18 +802,27 @@ Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the 
 ### When brender runs
 
 - **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`, route `/x` → `x/index.html`.
-- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed. Both exit 1 when no route renders (opt out with `--no-brender`). The built page boots over the server markup: it does not hydrate it yet.
-- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set.
+- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed. Both exit 1 when no route renders (opt out with `--no-brender`). The built page boots over the server markup and re-renders it, unless hydration is on (below).
+- **`smbls publish --ssr`** (or `"prerender": true`) — pre-renders the static routes at publish time into the project's `__ssr` map, served by the platform renderer (CLI.md → Publish flow).
+- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render.
+
+### Opt-in hydration
+
+Default off: the client renders fresh over the server markup. Turn it on with `hydrate: true` in the project config or the create options, or from the server with `window.__BRENDER_HYDRATE__ = true`, together with the element registry `window.__BR_REGISTRY__`. `hydrate: false` keeps it off even when the server sets the flag. With both, the client adopts the server DOM: an element whose node does not match gets a fresh node, and a throw falls back to the fresh render. brender `renderPage(data, route, { adoptDom: true })` and mermaid `renderProjectHtml({ adoptDom: true })` ship the registry and the flag.
 
 Programmatic use:
 
 ```js
-import { renderPage, composeIntoShell } from '@symbo.ls/brender'   // needs smbls installed (peer dependency)
+import { renderPage, renderRoute, composeIntoShell, adoptionScripts } from '@symbo.ls/brender'   // needs smbls installed (peer)
 const { html, route, brKeyCount, shell } = await renderPage(data, '/about', { shell: builtIndexHtml, depth: 1 })
 // shell: a built app document to render INTO (the result then has shell: true); depth: the output file's
 // directory depth, used to rebase the shell's relative asset URLs
 import { createDomqlElement, prepareContext } from 'smbls/ssr'   // the same module instance as 'smbls'
 ```
+
+- `renderRoute(data, { route, prefetch })` returns `html`, `globalCSS` (`rootRule`, `resetRules`, `keyframeRules`), `css` / `classRules` (class rules only), `fetchSeed` (the server's fetch answers) and the registries. `prefetch: false` renders without the data prefetch.
+- `adoptionScripts({ brRegistry, fetchSeed })` returns the `<script>`s that hand the registry and the fetch answers to the client.
+- Server style tags carry `data-brender` (global CSS) or `data-emotion="smbls"` (class rules). The client boot removes only `style[data-emotion="smbls"]` and `style[data-brender]`: a host page's own styles stay.
 
 Brender is opt-in via `symbols.json`:
 
