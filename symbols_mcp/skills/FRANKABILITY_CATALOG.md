@@ -241,28 +241,51 @@ Strings like `on: 'click'` are the FA107 case (handler-name reference).
 
 # FA105 — attr-wrapping-flat
 
-DOMQL surfaces most HTML attributes as flat top-level props. Wrapping
-them in `attr: { ... }` adds noise without changing behavior.
+Every attribute an element's tag has is a flat prop (attrs-in-props:
+the per-tag tables, the global attributes, aria-* and data-*, both
+spellings of multi-word names). Wrapping one in `attr: { ... }` is the
+legacy nested syntax.
 
 Bad:
-  Input: {
-    attr: {
-      placeholder: 'Search...',
-      type: 'search',
-      value: ''
-    }
+  Img: {
+    attr: { srcset: (el, s) => s.srcset, sizes: '100vw', fetchpriority: 'high' }
+  },
+  Field: {
+    tag: 'input',
+    attr: { inputmode: 'numeric', 'aria-label': 'Amount' }
   }
 
 Good:
-  Input: {
-    placeholder: 'Search...',
-    type: 'search',
-    value: ''
-  }
+  Img: { srcset: (el, s) => s.srcset, sizes: '100vw', fetchpriority: 'high' },
+  Field: { tag: 'input', inputmode: 'numeric', ariaLabel: 'Amount' }
 
-The `attr: { ... }` wrapper is reserved for attributes that are NOT
-exposed as flat props — rare edge cases. The audit only flattens known
-flat attrs and leaves anything else inside `attr:` untouched.
+## Decided per tag, by the runtime's own rules
+
+An entry is flagged only when, written flat on the element's tag, it
+reaches the DOM as that attribute — attrs-in-props
+`checkAttributeByTagName`, after the element's own routing:
+
+  - a CSS key is CSS when flat: `width` / `height` on an <img>, `color`,
+    `translate` stay in `attr: {}` (except `rows` / `cols` / `wrap` on a
+    <textarea> and `fill` / `stroke` on an <svg>, which stay attributes);
+  - a framework key means something else flat: `content` (<meta>),
+    `scope` (<th>), `class`, `style` stay in `attr: {}` (`value` is the
+    exception: flat, it sets the node's value);
+  - a name the tag's table does not list stays: `href` on a <div>, `d`
+    or `cx` on an SVG child (no table).
+
+The tag comes from `tag:`, else the extends ladder (the key-derived
+base first, then `extends` with its last entry dominant), else the key
+(`Img: {}` is an <img>). Where source cannot tell — an exported component
+without `tag:`, a base from a linked shared library, childProps or
+childExtends on the parent — only the attributes that are flat on every
+tag (globals, aria-*, data-*) are flagged.
+
+`attr: { ... }` stays for names no table lists (custom attributes), for
+`translate`, and for the cases above. The fix hoists the flagged entries
+verbatim and keeps the rest in `attr:`. When the element already sets
+the same attribute flat, the finding is low-confidence (a human picks
+the value) and the fix refuses it.
 
 # FA106 — handler-destructure-signature
 
@@ -326,17 +349,32 @@ Two failure modes when CSS is wrapped in `style:`:
        Bad:    style: { color: 'caption', background: 'card' }
        Good:   color: 'caption', background: 'card'
 
+## CSS custom properties: `vars` or a top-level `--x` key
+
+Custom properties have their own channel, not `style:`:
+
+      vars: { cardAccent: 'red' }                     // --cardAccent
+      vars: { '--card-accent': (el, s) => s.accent }
+      '--card-accent': (el, s) => s.accent           // top-level, same path
+      vars: (el, s) => ({ '--x': s.x + 'px' })        // the whole bag
+
+A static entry compiles into the element's atomic class, so a `:hover`,
+`@media` or `.isX` block overrides it; a factory is written inline and
+re-runs when what it reads changes (`null` removes the property). Names
+and values are verbatim — no design-token lookup.
+
 ## When `style:` IS appropriate
 
   - Vendor-prefixed CSS that DOMQL doesn't expose:
       style: { WebkitTapHighlightColor: 'transparent' }
-  - Custom CSS variables (`--my-var`):
-      style: { '--card-accent': 'red' }
   - Per-instance literal CSS where you explicitly want to bypass
     DOMQL's transformer (rare).
 
 The audit only hoists keys it knows DOMQL handles flat — anything
-unknown stays inside `style:` untouched.
+unknown stays inside `style:` untouched. Custom properties stay too:
+the message lists them when the flagged block holds any; move them to
+`vars` by hand (a `style:` block of custom properties alone is not a
+finding).
 
 # FA109 — no-param-state-factory
 
@@ -443,7 +481,8 @@ infrastructure. Two costs of leaving it inline:
 Move the function to `globalScope.js`. Every consumer references it
 as a bare identifier; frank wires the resolution at toJSON time.
 
-For helpers used in only ONE file, see FA204 (inline as `el.scope`).
+For a helper only ONE file uses, see FA207 (keep module scope empty:
+`functions/X.js` + `el.call('X', …)`).
 
 # FA203 — multifile-constant
 
@@ -549,6 +588,70 @@ production execution paths identical:
 The audit reports these but does not auto-fix because rewriting an
 import that's destructured into multiple bindings or used in
 module-top-level code requires a call-graph trace.
+
+# FA207 — module-scope-binding
+
+Keep module scope EMPTY in `components/`, `pages/`, `snippets/` and
+`functions/` files (RULES.md Rule 33). frank does not drop a
+module-level binding a function reads: it evaluates the module at
+publish and hoists the value into the project's ONE shared
+`globalScope`, rewriting each read to `__scope.<name>`. It keeps a pure
+value working, at three costs — one flat namespace per project (two
+files' `DEFAULT` publish as `DEFAULT` and `DEFAULT2`, or the publish is
+refused), shadowing by any element whose own `scope` has that key, and
+evaluation where frank runs instead of in the browser.
+
+Bad:
+  const rise = (delay) => ({ animationName: 'coverRise', animationDelay: delay })
+  const formatPrice = (n) => '$' + n.toFixed(2)
+  export const PriceCard = {
+    ...rise('0s'),
+    Price: { text: (el, s) => formatPrice(s.price) }
+  }
+
+  // functions/listQuerySet.js
+  const DEFAULT = ['home', 'about']
+  export const listQuerySet = function listQuerySet (patch) { … return DEFAULT }
+
+Good:
+  // components/Rise.js — a shared style cluster is a component
+  export const Rise = { animationName: 'coverRise', animationDelay: '0s' }
+  // functions/formatPrice.js — a callable helper is a function
+  export const formatPrice = function formatPrice (n) { return '$' + n.toFixed(2) }
+  export const PriceCard = {
+    extends: 'Rise',
+    Price: { text: (el, s) => el.call('formatPrice', s.price) }
+  }
+  // functions/listQuerySet.js — the constant lives inside the function
+  export const listQuerySet = function listQuerySet (patch) {
+    const DEFAULT = ['home', 'about']
+    …
+  }
+
+| What | Where |
+| -- | -- |
+| A callable helper | `functions/X.js` + `el.call('X', …)` |
+| A style cluster spread into components | a component + `extends` / `childProps` (Rule 61) |
+| A constant a `functions/` export needs | inside the function |
+| A value one component uses | `scope: { X }` on that component (FA204 moves the simple case) |
+| A value several files use | `globalScope.js`, under a distinctive name (FA202 / FA203) |
+| Mutable state | `globalScope.js` (FA201), or `el.scope` per instance |
+
+Not flagged: exports, imports, unused bindings, a name another file
+uses too (FA202 / FA203), what FA201 / FA204 / FA205 report, test
+files, and files outside those folders. Detect-only — each finding
+becomes a prescription.
+
+## Opt-in
+
+FA207 is not in the default rule set: a default run reports no FA207
+finding, count or prescription (on 24 measured projects it would add
+3 582, 1 336 in one of them). Name it to run it:
+
+  frank-audit audit <dir> --rule FA207
+  smbls frank-audit --rule FA207
+  audit(dir, { ruleIds: new Set(['FA207']) })   // HTTP: { ruleIds: ['FA207'] }
+  eslint: rules: { 'frank/FA207': 'warn' }
 
 
 ---
@@ -723,6 +826,32 @@ For boot-time bridges that need to run before any element exists,
 declare a function in `functions/` and accept `el` as the first arg —
 the framework calls it during create() and you receive the element
 graph naturally.
+
+# FA410 — history-write
+
+The router owns the address. A raw History API write moves the URL
+while the page, `state.route` / `state.query`, the guards and the
+Back / Forward bookkeeping stay where they were (RULES.md Rule 42).
+
+Bad:    history.pushState({}, '', `/user/${slug}`)
+        window.history.replaceState(null, '', '/login')
+        win.history.replaceState(win.history.state, '', path + '?' + qs)
+Good:   el.router(`/user/${slug}`, el.getRoot())
+        el.router('/login', el.getRoot(), {}, { replace: true })
+        el.router(path + '?' + qs, el.getRoot(), {}, { replace: true, scrollToTop: false })
+
+`{ replace: true }` rewrites the current entry instead of adding one —
+a redirect, a canonical URL, a filter or query sync that must not stack
+Back entries. A query-only navigation keeps the mounted page (no
+re-render) and updates `state.query`; pass `scrollToTop: false` when the
+view must stay where it is. From outside an element (boot code, a
+function called before render) use the app's `app.navigate(path,
+{ replace })`, or accept `el` and call `el.router`.
+
+Not flagged: `history.back()` / `go()` / `forward()` (the router follows
+popstate), reads of `history.state`, test files. A deliberate raw write
+(for example stripping an OAuth code from the address before the app
+renders) keeps `// frank-allow FA410` on or above the call.
 
 
 ---
@@ -1156,11 +1285,34 @@ survive a second surface wanting those words for a different action.
 Override the namespace with the `polyglotNamespace` option; it defaults
 to the audit root's directory name.
 
+## What counts as copy
+
+Props: `text`, `placeholder`, `label`, `title`, `caption`, `helperText`,
+`alt`, and the ARIA strings in every spelling — `'aria-label'`,
+`ariaLabel`, `aria: { label }`, and the same for `description`. Rule 48
+makes no exception for length or language: `'Save'`, `'New'`,
+`'Monthly subscription'` and `'ხმა'` are all flagged.
+
+Not copy, never flagged:
+  - a `{{ … }}` template; a function value;
+  - no letter, or one: numbers, symbols, a glyph or an initial
+    (`'01'`, `'→'`, `'λ'`, `'A'`);
+  - one ALL-CAPS token: an acronym or a key name (`API`, `ESC`, `GET`);
+  - one name-shaped token: an inner capital or a digit (`GitHub`,
+    `OpenAI`, `Auth0`), a file, URL, handle or address (`NavHeader.js`,
+    `@kekela`, `mcp.symbols.app`);
+  - outside the ARIA props, a string whose first letter is lowercase:
+    an identifier, unit, icon name or polyglot key (`'shell.app.studio'`).
+    An ARIA label is read aloud, so there a lowercase word counts.
+Any letter of a non-Latin script makes a string copy whatever its case.
+Test files (`*.test.js`, `__tests__/`) and files outside every frank
+slot are not audited for copy.
+
 ## Escape hatch
 
-Heuristic only — intentionally untranslated product names and internal
-tool copy are allowed with `// frank-allow FA701` on or above the
-offending property.
+Heuristic only — a brand mark spelled as one plain word (`Figma`), a
+person's name, and intentionally untranslated internal tool copy are
+allowed with `// frank-allow FA701` on or above the offending property.
 
 
 ---
@@ -1279,10 +1431,22 @@ Good:   Badge: { Sup: { tag: 'span', text: 'Soon' } }
         Note: { Mark: { tag: 'mark', text: 'hit' } }   // a highlight you MEAN
 
 A child key that names an HTML tag becomes that tag when no `tag:` is set
-(smbls detectTag). These tags carry visible browser styles: mark, sub, sup,
-small, s, u, ins, del, b, i, q, cite, dfn, var, abbr, kbd, samp, dialog,
-menu, details, summary, legend, fieldset. Set the tag you mean. A meant one
-can also stay with `// frank-allow FA809` on or above the key.
+(smbls detectTag). For tags the browser styles, that is almost always an
+accident of naming: `Mark: {}` paints a yellow `<mark>`, `Sub`/`Sup` shift
+and shrink their text, `Dialog` brings a border and a white sheet, `Menu`
+list padding. Flagged tags: mark, sub, sup, small, s, u, ins, del, b, i, q,
+cite, dfn, var, abbr, kbd, samp, dialog, menu, details, summary, legend,
+fieldset. Set the tag you mean.
+
+Message: this key renders a `<x>`; add `tag: 'x'` if you mean it, else `tag: 'div'`
+
+Not flagged: an own `tag:`, an `extends:` (the base decides), lowercase keys,
+tags without a visible UA style (`Strong`, `Em`, `Header`, `P`, …). Keep a
+meant one with `// frank-allow FA809` on or above the key.
+
+Census 2026-10-02: 286 such keys took their tag from the name, 113 more
+already undid it with an explicit `tag:`. The first 19 tags are planned to
+leave key detection in smbls.
 
 
 ---
