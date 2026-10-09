@@ -570,7 +570,7 @@ description: Full Symbols project audit
 When the user asks for a Symbols project audit:
 1. Call mcp__symbols-mcp__get_project_context (no args — uses cwd)
 2. Call mcp__symbols-mcp__audit_project (returns the playbook)
-3. Run `npx -y @symbo.ls/mcp symbols-audit ./symbols` via the terminal
+3. Run `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` via the terminal
 4. For each violation in audit/findings.json, call mcp__symbols-mcp__audit_component to verify the fix
 5. Iterate until findings.json is clean, then write audit/report.md
 ```
@@ -607,7 +607,7 @@ Cascade workflow `~/.codeium/windsurf/workflows/symbols-audit.json`:
   "steps": [
     "Call mcp__symbols-mcp__get_project_context",
     "Call mcp__symbols-mcp__audit_project",
-    "Run `npx -y @symbo.ls/mcp symbols-audit ./symbols` in terminal",
+    "Run `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` in terminal",
     "For each finding, validate the fix with mcp__symbols-mcp__audit_component",
     "Iterate to convergence, then write audit/report.md"
   ]
@@ -642,7 +642,7 @@ The audit CLI is independent of any editor. Run it from any terminal:
 
 ```bash
 # via npm wrapper (no install)
-npx -y @symbo.ls/mcp symbols-audit ./symbols
+npx -y -p @symbo.ls/mcp symbols-audit ./symbols
 
 # via uv (after `uvx symbols-mcp`'s cache populates)
 uvx --from symbols-mcp symbols-audit ./symbols

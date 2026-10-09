@@ -14,7 +14,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 4. **After each component**, run `mcp__symbols-mcp__audit_component(code, file_path)` to validate inline. Compact response (~1K) with violations.
 
-5. **For full project audits**, run `mcp__symbols-mcp__audit_project()` to get the multi-phase playbook, pair with `npx -y @symbo.ls/mcp symbols-audit ./symbols` (the CLI), iterate until convergence per the playbook's strict-mode contract.
+5. **For full project audits**, run `mcp__symbols-mcp__audit_project()` to get the multi-phase playbook, pair with `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` (the CLI), iterate until convergence per the playbook's strict-mode contract.
 
 6. **Before committing**, run `mcp__symbols-mcp__audit_and_fix_frankability(symbols_dir, mode='safe-fix')` — this catches FA0xx–FA5xx violations that break frank.toJSON serialization (silent prod-only bugs). The PostToolUse hook also runs an inline FA-rule check on every `*.js` you edit; fix flagged items before continuing.
 
@@ -202,7 +202,7 @@ Full list lives in RULES.md (64 rules). Most-violated:
 When asked to audit, run:
 
 ```bash
-npx -y @symbo.ls/mcp symbols-audit ./symbols
+npx -y -p @symbo.ls/mcp symbols-audit ./symbols
 ```
 
 Strict + deep-fix + deep-framework-audit are ON by default. The CLI emits two reports:

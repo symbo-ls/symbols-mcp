@@ -8,7 +8,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 2. Call `mcp__symbols-mcp__get_project_rules` before generating any component.
 3. Use `mcp__symbols-mcp__generate_component` / `generate_page` for new code.
 4. Validate with `mcp__symbols-mcp__audit_component(code, file_path)` after each component.
-5. Full audit: `audit_project()` + `npx -y @symbo.ls/mcp symbols-audit ./symbols`.
+5. Full audit: `audit_project()` + `npx -y -p @symbo.ls/mcp symbols-audit ./symbols`.
 
 ## Hard rules (top of mind)
 

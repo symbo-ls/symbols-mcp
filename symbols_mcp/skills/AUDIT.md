@@ -5,7 +5,7 @@ A reusable, multi-phase audit workflow for any Symbols project. Goal: every comp
 > **Invoke:**
 > - In Claude Code: `/symbols-audit [path]`
 > - From the MCP: call `mcp__symbols-mcp__audit_project` (returns this playbook)
-> - From a shell (CI / pre-commit): `npx @symbo.ls/mcp symbols-audit ./symbols`
+> - From a shell (CI / pre-commit): `npx -y -p @symbo.ls/mcp symbols-audit ./symbols`
 >
 > Output lands in `<project>/audit/`.
 
@@ -732,11 +732,11 @@ The slash command:
 ### Static-only audit (CI / pre-commit)
 
 ```bash
-npx @symbo.ls/mcp symbols-audit ./symbols
+npx -y -p @symbo.ls/mcp symbols-audit ./symbols
 # or with --strict for non-zero exit on findings:
-npx @symbo.ls/mcp symbols-audit --strict ./symbols
+npx -y -p @symbo.ls/mcp symbols-audit --strict ./symbols
 # or --json for machine output:
-npx @symbo.ls/mcp symbols-audit --json ./symbols
+npx -y -p @symbo.ls/mcp symbols-audit --json ./symbols
 ```
 
 Exits 0 if open findings == 0 (post-filter), non-zero with `--strict`. Useful as a pre-commit hook.

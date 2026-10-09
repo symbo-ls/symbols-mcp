@@ -105,6 +105,8 @@ npx -y @symbo.ls/mcp init-rules --only=cursor,claude   # restrict editors
 npx -y @symbo.ls/mcp init-rules --list        # dry-run
 ```
 
+On a `@symbo.ls/mcp` release without the package's `mcp` bin, npx cannot pick an executable for `npx -y @symbo.ls/mcp <subcommand>`; name the package and the bin instead: `npx -y -p @symbo.ls/mcp symbols-mcp-init-rules`, `npx -y -p @symbo.ls/mcp symbols-audit ./symbols`.
+
 Disable individual hooks at runtime:
 
 ```

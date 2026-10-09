@@ -13,7 +13,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session.
 3. **For new code**, use `mcp__symbols-mcp__generate_component` / `generate_page`.
 4. **Validate every component** with `mcp__symbols-mcp__audit_component(code, file_path)` after writing.
-5. **For full audits**, run `mcp__symbols-mcp__audit_project()` (playbook) + `npx -y @symbo.ls/mcp symbols-audit ./symbols` (CLI).
+5. **For full audits**, run `mcp__symbols-mcp__audit_project()` (playbook) + `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` (CLI).
 
 ## Hard rules
 

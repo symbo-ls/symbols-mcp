@@ -40,7 +40,7 @@ No API keys required for documentation tools. Project management tools require a
 | `audit_component` | **Inline VALIDATOR** for a single file's code (component, page, function, …). Returns violations + warnings (≈1K chars). Use during generation. Pass `file_path` (e.g. `'functions/listQuerySet.js'`) so the rules that depend on the file's folder apply where it lives — without it the code is audited as a component. Pass `include_playbook=True` to also dump the AUDIT.md playbook. |
 | `audit_project` | Returns the **multi-phase project audit PLAYBOOK** (instructions for the agent — Phase 0 setup → Phase 5 report). Pair with `bin/symbols-audit.cjs` CLI for the static-audit phase. |
 
-For filesystem-wide audits the package ships a CLI: `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings). Under the hood it runs `frank-audit audit --strict` — the audit core is now [`@symbo.ls/frank-audit`](https://github.com/symbo-ls/smbls/tree/main/plugins/frank-audit), the AST-based engine that owns the canonical 59-rule registry, prescription generation, and verify-or-rollback fixers.
+For filesystem-wide audits the package ships a CLI: `npx -y -p @symbo.ls/mcp symbols-audit <symbols-dir>` (strict by default, exit 1 on findings). `-p` names the package and runs its `symbols-audit` bin; every release supports it. The short form `npx -y @symbo.ls/mcp symbols-audit <symbols-dir>` (and `npx -y @symbo.ls/mcp init-rules`) needs a release with the package's `mcp` bin — on an older one npx answers "could not determine executable to run"; use `npx -y -p @symbo.ls/mcp symbols-audit` / `npx -y -p @symbo.ls/mcp symbols-mcp-init-rules` there. Under the hood it runs `frank-audit audit --strict` — the audit core is now [`@symbo.ls/frank-audit`](https://github.com/symbo-ls/smbls/tree/main/plugins/frank-audit), the AST-based engine that owns the canonical 59-rule registry, prescription generation, and verify-or-rollback fixers.
 
 `lib/audit.js` is preserved as a backward-compat shim that delegates to frank-audit (subprocess CLI, or the `/audit-content` HTTP endpoint when `FRANK_AUDIT_URL` is set). The legacy programmatic API stays callable for non-CLI consumers (the `@symbo.ls/cli`, the MCP HTTP worker, web/edge clients):
 
@@ -236,7 +236,7 @@ Three patterns:
 
 1. **Natural language** (zero setup) — just say _"Run a full Symbols audit on this project using symbols-mcp."_ The agent calls `get_project_context` → `audit_project` (playbook) → `bin/symbols-audit.cjs` CLI → iterates fixes with `audit_component`.
 2. **Custom command** — register a Cursor rule, Continue customCommand, Windsurf workflow, etc. for one-keystroke parity. Templates in [SETUP.md](SETUP.md#using-symbols-audit-and-other-tools-in-any-editor).
-3. **Pure shell** — `npx -y @symbo.ls/mcp symbols-audit ./symbols` works from any terminal, no editor needed. Strict by default, exit 1 on findings.
+3. **Pure shell** — `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` works from any terminal, no editor needed. Strict by default, exit 1 on findings.
 
 ---
 
