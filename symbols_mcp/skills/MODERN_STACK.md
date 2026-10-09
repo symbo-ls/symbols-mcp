@@ -489,9 +489,15 @@ const adminGuard = ({ params }) =>
   params.section === 'admin' ? false : true
 
 el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard, adminGuard] })
+
+// app-wide: config.js → export default { router: { guards: [authGuard] } }
 ```
 
-Guards return: `true` to allow, `false` to block, or a string to redirect.
+Guards return: `true` to allow, `false` to block, or a string to redirect. App-wide guards (`router.guards` in `config.js`) run on every navigation, the first render and Back / Forward included. A refused Back / Forward puts the address back (the History moves back by the same number of entries; nothing is added or lost); a redirect replaces the entry that was reached; a first render that is redirected shows the target URL. Never re-push the old URL by hand. Details: SYNTAX.md → Router → Guards.
+
+### Scroll restoration
+
+`router: { scrollRestoration: 'restore' }` in `config.js` keeps each history entry's scroll offset and puts the page back there on Back / Forward once the route has rendered (waiting up to `scrollRestoreTimeout`, default 1000 ms, for the page to be tall enough). `'manual'` / `'auto'` set the browser's own restoration. No hand-written scroll listener or `sessionStorage` bookkeeping. An app in an iframe scrolls its own frame.
 
 ### Custom router element (persistent layouts)
 
@@ -502,7 +508,7 @@ export default {
 }
 ```
 
-The `/` page defines the persistent layout shell. Sub-pages render inside the target element without destroying the shell.
+The `/` page defines the persistent layout shell. Sub-pages render inside the target element without destroying the shell. Every navigation renders there — the first render, Back / Forward, `app.navigate`, `Link`, and `el.router(path, el.getRoot())`.
 
 ### ❌ Forbidden alternatives
 

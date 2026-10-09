@@ -279,7 +279,7 @@ element create:
 
 `initRouter(app, context)` wires `app.onRenderRouter = onRouterRenderDefault` automatically (unless the project defines its own). `app.routes = ctx.pages` is set just before element creation, so `targetEl.routes` is populated when `defaultRouter` reads it.
 
-`onpopstateRouter` registers a `window.onpopstate` handler so back/forward navigation re-runs the router.
+`onpopstateRouter` registers a `popstate` listener (removed by `destroy(app)`) so back/forward navigation re-runs the router — inside `customRouterElement` when one is configured, with the app-wide `router.guards`.
 
 **Anti-patterns to delete on sight:**
 
@@ -312,7 +312,7 @@ context.router = { customRouterElement: 'AppShell.Main' }   // dot path
 context.router = { initRouter: false }                       // disable auto-init
 ```
 
-Default `routerOptions` (from `@symbo.ls/router` README): `pushState`, `replace`, `popState`, `scrollToTop`, `injectRouterInLinkComponent`, `useParamsMatching`, `removeOldElement`, `level`, `contentElementKey: 'content'`, `exitTimeout: 300` (the longest wait for an `onRouteExit` exit before the page swaps; see SYNTAX.md → Router → Route events).
+Default `routerOptions` (from `@symbo.ls/router` README): `pushState`, `replace`, `popState`, `scrollToTop`, `injectRouterInLinkComponent`, `useParamsMatching`, `removeOldElement`, `level`, `contentElementKey: 'content'`, `exitTimeout: 300` (the longest wait for an `onRouteExit` exit before the page swaps; see SYNTAX.md → Router → Route events). Create-time options in `config.js` `router`: `customRouterElement`, `guards` (app-wide; they also run on Back / Forward, where a refusal puts the address back and a redirect replaces the entry), `scrollRestoration: 'restore' | 'manual' | 'auto'` with `scrollRestoreTimeout` (default `1000` ms) (SYNTAX.md → Router). `scrollNode` defaults to the viewport of the document the app renders into, so an iframe app scrolls its own frame.
 
 **Replace, do not push, for a redirect.** `el.router(path, el.getRoot(), {}, { replace: true })` (or `app.navigate(path, { replace: true })`) rewrites the current history entry with `history.replaceState` — a legacy-URL forward, a canonical rewrite, or a filter/query change then adds no Back-button entry. `replace` only picks how the entry is written; `pushState: false` still writes none, so a `{ pushState: false }` "redirect" renders the new route but leaves the OLD URL in the address bar. Never hand-write `history.replaceState` next to a router call. Available after `@symbo.ls/router` 3.14.601 (smbls repo commit `9f498831e`); up to smbls 3.14.805 the option is ignored and the call pushes. Full example: SYNTAX.md → Router → "Replace instead of push".
 

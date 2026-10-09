@@ -464,7 +464,7 @@ export default {
 }
 ```
 
-The `/` (main) page defines the persistent layout. Sub-pages render inside the target element without re-creating the layout.
+The `/` (main) page defines the persistent layout. Sub-pages render inside the target element without re-creating the layout. Every navigation renders there: the first render, Back / Forward, `app.navigate`, `Link` and `el.router(path, el.getRoot())`.
 
 ---
 
@@ -1185,7 +1185,7 @@ onClick: (e, el, s) => el.router(`/profile/${s.userId}`, el.getRoot())
 onClick: () => { window.location.href = '/' }
 ```
 
-`el.router()` integrates with the router plugin — guards, dynamic params (`/:id`), query parsing, scroll management, and `customRouterElement` all work automatically.
+`el.router()` integrates with the router plugin — guards, dynamic params (`/:id`), query parsing, scroll management, and `customRouterElement` all work automatically: `el.router(path, el.getRoot())` renders inside the configured `customRouterElement`, exactly like `Link`, `app.navigate` and Back / Forward. Never write `history.pushState` / `replaceState` next to it — `{ replace: true }` rewrites the entry, app-wide `router.guards` put a refused Back / Forward back, and `scrollRestoration: 'restore'` restores each entry's offset (SYNTAX.md → Router).
 
 ---
 

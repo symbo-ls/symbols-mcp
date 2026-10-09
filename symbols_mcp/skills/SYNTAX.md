@@ -1134,7 +1134,7 @@ export default {
 }
 ```
 
-The `/` page defines the persistent layout shell. Sub-pages render inside the target without destroying the shell.
+The `/` page defines the persistent layout shell. Sub-pages render inside the target without destroying the shell. Every navigation resolves the target: the first render, Back / Forward, `app.navigate`, `Link`, and `el.router(path, el.getRoot())`. A call that passes another element renders into that element; while the target is not rendered yet, the root renders the page.
 
 ### Guards
 
@@ -1142,8 +1142,29 @@ The `/` page defines the persistent layout shell. Sub-pages render inside the ta
 const authGuard = ({ element }) =>
   element.state.root.isLoggedIn ? true : '/login'
 
+// per call
 el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard] })
+
+// app-wide (config.js): every navigation, the first render and Back / Forward included
+export default { router: { guards: [authGuard] } }
 ```
+
+A guard returns `true` (go), `false` (stay) or a path (redirect). On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
+
+### Scroll restoration — `scrollRestoration`
+
+```js
+// config.js
+export default { router: { scrollRestoration: 'restore', scrollRestoreTimeout: 1000 } }
+```
+
+- `'restore'`: the router keeps each history entry's scroll offset (in memory and `sessionStorage`, so a reload or a return from another site works too) and puts the page back there on Back / Forward, after the route has rendered. While the page is not tall enough yet (its data is loading) it shows its top, then moves in one step; after `scrollRestoreTimeout` ms (default `1000`) it goes as far as the page reaches. The visitor's own scroll or a newer navigation ends the wait. New navigations still scroll to the top (`scrollToTop`).
+- `'manual'` / `'auto'`: set the browser's own `history.scrollRestoration`. Unset: the browser default, untouched.
+- The router scrolls the viewport of the document the app renders into (`scrollNode` default), so an app inside an iframe scrolls its own frame.
+
+### URLs no route matches
+
+With a `'/*'` page the not-found page renders; with `onNotFound` that callback decides. Without either, the router renders nothing for an unrouted URL: an in-app navigation to it writes no history, and Back / Forward to it (an entry other code wrote, a route a new deploy removed) rewrites that entry to the page on screen, so Back never gets stuck there.
 
 ---
 
