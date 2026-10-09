@@ -24,7 +24,7 @@ Local dev resolves identifiers via JS module closures; the deployed payload does
 
 - **FA001** — no sibling-imports between project files; use `el.call('fnName', …)` or PascalCase key refs
 - **FA206** — npm packages used in handlers must be `await import('pkg')` inside the handler, NEVER top-level `import`
-- **Nested helpers** — inside handlers they must be `const x = () => {}`, NEVER `function x () {}` (esbuild hoists + frank promotes, stripping the closure; no frank-audit rule checks this)
+- **FA207** — nested helpers inside handlers must be `const x = () => {}`, NEVER `function x () {}` (esbuild hoists + frank promotes, stripping the closure; not audited — no frank-audit rule checks it)
 - **FA208** — `globalScope.js` must NOT cross-import from peer modules (esbuild dedup-rename → `__scope.X2 is not a function` at runtime)
 - **FA209** — `dependencies.js` is the runtime importmap, NOT a build-time manifest (build-time tools 404 from esm.sh)
 - **FA210** — bypass-mode / mock-auth handlers MUST guard `el.node` and optional-chain `s.parent?.x` / `s.root?.x`
