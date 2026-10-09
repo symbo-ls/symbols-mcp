@@ -687,9 +687,18 @@ export const Input = {
 
 Return `null` or `undefined` from a prop function to remove the attribute.
 
+### Which names are attributes — both spellings
+
+- The per-tag tables follow the WHATWG HTML attribute index: every attribute an element has is a flat prop on it — `srcset`, `sizes`, `fetchpriority` on `<img>`; `inputmode`, `enterkeyhint`, `popover`, `nonce` on any tag; `commandfor` on `<button>`; `blocking` on `<link>` / `<script>` / `<style>`.
+- Every multi-word attribute works in its HTML spelling and in camelCase: `fetchpriority` / `fetchPriority`, `inputmode` / `inputMode`, `httpEquiv` → `http-equiv`, `acceptCharset` → `accept-charset`.
+- An element-specific camelCase spelling applies only on a tag that has the attribute: `fetchPriority` on a `<div>` stays a custom prop, exactly like `fetchpriority`. The camelCase spellings of global attributes (`tabIndex`, `inputMode`, `enterKeyHint`, `contentEditable`, `spellCheck`, `autoCapitalize`, `autoCorrect`, `accessKey`, …) apply on every tag.
+- Microdata is lowercase only (`itemid`, `itemtype`, `itemprop`, …): `itemId` / `itemType` stay custom props.
+- A boolean on an enumerated attribute is written as the keyword it expects: `draggable`, `contenteditable`, `spellcheck`, `writingsuggestions` and `aria-*` → `"true"` / `"false"`; `autocorrect` → `"on"` / `"off"`; `translate` → `"yes"` / `"no"` (through `attr: {}` only — a flat `translate` is the CSS property).
+- `attr: {}` is left for names no table lists (non-standard attributes) and for `translate`.
+
 ### Updating an attribute prop after mount
 
-`el.update({ … })` and `el.setProps({ … })` write an attribute prop to the node after mount — `disabled`, `checked`, `readonly`, `required`, `hidden`, ARIA props (`ariaPressed`) and any other attribute valid for the tag. `false`, `null` and `undefined` remove a presence attribute; an ARIA attribute keeps the literal `'false'`. If the element declares a function for that attribute (the built-in `Button`'s `disabled`, `Input`'s `attr.disabled`), that function runs again and its result wins — a factory that reads state keeps following state. CSS props and non-attribute props are never written as attributes. (smbls `217e7c7eb`)
+`el.update({ … })` and `el.setProps({ … })` write an attribute prop to the node after mount — `disabled`, `checked`, `readonly`, `required`, `hidden`, ARIA props (`ariaPressed`) and any other attribute valid for the tag, in either spelling (`readOnly` / `readonly`, `tabIndex` / `tabindex`, `srcSet` / `srcset` on the built-in `Input`, `Button` and `Img` too). `false`, `null` and `undefined` remove a presence attribute; an ARIA attribute keeps the literal `'false'`. If the element declares a function for that attribute (the built-in `Button`'s `disabled`, `Input`'s `attr.disabled`), that function runs again and its result wins — a factory that reads state keeps following state. CSS props and non-attribute props are never written as attributes. (smbls `217e7c7eb`)
 
 ```js
 el.update({ disabled: true })      // node.disabled === true — not focusable, not clickable

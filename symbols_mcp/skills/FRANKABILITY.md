@@ -121,7 +121,7 @@ Button: {
 
 #### FA105 — Don't wrap flat HTML attributes in `attr: { ... }`
 
-DOMQL surfaces these as flat top-level props: `placeholder`, `type`, `name`, `value`, `disabled`, `checked`, `title`, `role`, `tabindex`, `href`, `src`, `alt`, `id`, `min`, `max`, `step`, `pattern`, `required`, `readonly`, `multiple`, `accept`, `autocomplete`, `autofocus`, `rows`, `cols`, `maxlength`, `minlength`, `spellcheck`, `lang`, `dir`, `draggable`, `contenteditable`, `hidden`, `target`, `rel`, `download`, `for`, `colspan`, `rowspan`, `scope`, `headers`, `span`.
+Every attribute the element's tag has (the WHATWG HTML attribute index) is a flat top-level prop, in its HTML spelling or in camelCase (`fetchpriority` / `fetchPriority`; see SYNTAX → `attr` → "Which names are attributes"). frank-audit flags these names when they are wrapped in `attr`: `placeholder`, `type`, `name`, `value`, `disabled`, `checked`, `title`, `role`, `tabindex`, `href`, `src`, `alt`, `id`, `min`, `max`, `step`, `pattern`, `required`, `readonly`, `multiple`, `accept`, `autocomplete`, `autofocus`, `rows`, `cols`, `maxlength`, `minlength`, `spellcheck`, `lang`, `dir`, `draggable`, `contenteditable`, `hidden`, `target`, `rel`, `download`, `for`, `colspan`, `rowspan`, `scope`, `headers`, `span`. It does not flag the other attributes of the tables yet (`srcset`, `sizes`, `fetchpriority`, `inputmode`, `enterkeyhint`, …): write those flat too.
 
 ```js
 // ❌ Bad
@@ -137,7 +137,7 @@ Input: {
 }
 ```
 
-`attr: { ... }` is reserved for attributes NOT exposed as flat props (rare).
+`attr: { ... }` is reserved for attributes no table lists (non-standard ones, rare) and for `translate` (a flat `translate` is the CSS property).
 
 #### FA106 — Handlers receive `(el, s)` (or `(e, el, s)`); never destructure an envelope
 

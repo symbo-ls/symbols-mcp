@@ -382,7 +382,9 @@ The `attrs-in-props` module auto-detects 600+ standard HTML attributes per tag. 
 
 `data-*` and `aria-*` support camelCase (`ariaLabel` → `aria-label`, `dataTestId` → `data-test-id`) and shorthand objects (`aria: { label: 'foo' }`, `data: { testId: 'bar' }`).
 
-Use `attr: {}` ONLY for truly custom attributes not in the attrs-in-props database.
+The per-tag tables follow the WHATWG HTML attribute index, and every multi-word attribute works in both spellings (`fetchpriority` / `fetchPriority`, `inputmode` / `inputMode`). An element-specific camelCase spelling applies only on a tag that has the attribute; microdata (`itemid`, `itemtype`, …) is lowercase only. Details: SYNTAX.md → `attr` → "Which names are attributes".
+
+Use `attr: {}` ONLY for truly custom attributes not in the attrs-in-props database (and for `translate`, whose flat key is the CSS property).
 
 ```js
 // ✅ — standard attrs at root (auto-detected)
