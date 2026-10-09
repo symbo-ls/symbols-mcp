@@ -67,31 +67,62 @@ if ! jq -e '(.dir // .owner // .key) != null' "$SYMBOLS_PROJECT/symbols.json" >/
   [ "$DISCOVERED" = "0" ] && exit 0
 fi
 
+# The Symbols source folder: symbols.json `dir` (relative to the project),
+# else ./symbols when it exists, else the project root. Counting and auditing
+# stay inside it — a repo root also holds tests, tools, agent folders and
+# build output that frank-audit never reads.
+SYMBOLS_DIR=""
+CONF_DIR=$(jq -r '.dir // empty' "$SYMBOLS_PROJECT/symbols.json" 2>/dev/null || true)
+if [ -n "$CONF_DIR" ]; then
+  case "$CONF_DIR" in
+    /*) SYMBOLS_DIR="$CONF_DIR" ;;
+    *)  SYMBOLS_DIR="$SYMBOLS_PROJECT/${CONF_DIR#./}" ;;
+  esac
+  SYMBOLS_DIR="${SYMBOLS_DIR%/}"
+fi
+if [ -z "$SYMBOLS_DIR" ] || [ ! -d "$SYMBOLS_DIR" ]; then
+  if [ -d "$SYMBOLS_PROJECT/symbols" ]; then
+    SYMBOLS_DIR="$SYMBOLS_PROJECT/symbols"
+  else
+    SYMBOLS_DIR="$SYMBOLS_PROJECT"
+  fi
+fi
+
 # Guard 2 — size cap. frank-audit only accepts directories (no single-file
 # mode), so a huge resolved root would cost minutes and hundreds of MB PER
 # EDIT. Skip the heavy audit beyond single-project scale; the inline checks
-# below still run.
+# below still run. Only the Symbols source folder counts; dot-folders
+# (.git, .claude, .parcel-cache, .symbols_local, …), node_modules and dist
+# are pruned.
 MAX_FILES=${SYMBOLS_MCP_AUDIT_MAX_FILES:-400}
-JS_COUNT=$(find "$SYMBOLS_PROJECT" -name '*.js' \
-  -not -path '*/node_modules/*' -not -path '*/dist/*' \
-  -not -path '*/.parcel-cache/*' -not -path '*/.git/*' 2>/dev/null \
+JS_COUNT=$(find "$SYMBOLS_DIR" -mindepth 1 \
+  \( -type d \( -name '.*' -o -name node_modules -o -name dist \) -prune \) \
+  -o \( -type f \( -name '*.js' -o -name '*.mjs' \) -print \) 2>/dev/null \
   | head -n $((MAX_FILES + 1)) | wc -l | tr -d ' ')
+
+# The heavy pass reports on the edited file only; a file outside the Symbols
+# source folder is not in frank-audit's view, so skip the pass for it.
+IN_SYMBOLS_DIR=0
+case "$FILE_PATH" in
+  "$SYMBOLS_DIR"/*) IN_SYMBOLS_DIR=1 ;;
+esac
 
 # Guard 3 — concurrency. Parallel edits used to stack duplicate full-project
 # audits. One in-flight audit per project; concurrent hook runs skip the
 # heavy pass (the next edit's hook re-checks).
-AUDIT_LOCK="${TMPDIR:-/tmp}/symbols-mcp-audit-$(printf '%s' "$SYMBOLS_PROJECT" | shasum | cut -c1-12).lock"
+AUDIT_LOCK="${TMPDIR:-/tmp}/symbols-mcp-audit-$(printf '%s' "$SYMBOLS_DIR" | shasum | cut -c1-12).lock"
 
 # Heavy pass: frank-audit, dir-scoped, locked, and hard-capped at
 # SYMBOLS_MCP_AUDIT_TIMEOUT seconds (perl alarm — portable to macOS, which
 # ships no `timeout`).
 OUT=""
 if command -v npx >/dev/null 2>&1 \
+  && [ "$IN_SYMBOLS_DIR" = "1" ] \
   && [ "$JS_COUNT" -le "$MAX_FILES" ] \
   && mkdir "$AUDIT_LOCK" 2>/dev/null; then
   trap 'rmdir "$AUDIT_LOCK" 2>/dev/null' EXIT
   OUT=$(cd "$SYMBOLS_PROJECT" && perl -e 'alarm shift; exec @ARGV' "${SYMBOLS_MCP_AUDIT_TIMEOUT:-60}" \
-    npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_PROJECT" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206 2>&1 \
+    npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_DIR" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206 2>&1 \
     | grep -E "$(basename "$FILE_PATH")" || true)
 fi
 
@@ -139,7 +170,7 @@ fi
 DUP_OUT=""
 LIB_OUT=""
 case "$FILE_PATH" in
-  *"$SYMBOLS_PROJECT"/components/*|*"$SYMBOLS_PROJECT"/pages/*|*"$SYMBOLS_PROJECT"/snippets/*)
+  "$SYMBOLS_DIR"/components/*|"$SYMBOLS_DIR"/pages/*|"$SYMBOLS_DIR"/snippets/*)
     NEW_NAME=$(grep -oE '^export const [A-Z][A-Za-z0-9_]+' "$FILE_PATH" | head -1 | awk '{print $3}')
     if [ -n "$NEW_NAME" ]; then
       FP=$(grep -oE '^\s+[A-Z][A-Za-z0-9_]*:\s*\{' "$FILE_PATH" | sed 's/[[:space:]]//g' | sort -u | head -20 | tr '\n' '|')
@@ -170,14 +201,17 @@ case "$FILE_PATH" in
       fi
 
       # 2. Local-component duplication (within current project).
-      if [ -n "$FP" ] && [ -d "$SYMBOLS_PROJECT/components" ]; then
-        for PEER in $(find "$SYMBOLS_PROJECT/components" -maxdepth 3 -name '*.js' -not -path "$FILE_PATH" 2>/dev/null); do
+      if [ -n "$FP" ] && [ -d "$SYMBOLS_DIR/components" ]; then
+        for PEER in $(find "$SYMBOLS_DIR/components" -maxdepth 3 -name '*.js' -not -path "$FILE_PATH" 2>/dev/null); do
           PEER_NAME=$(grep -oE '^export const [A-Z][A-Za-z0-9_]+' "$PEER" 2>/dev/null | head -1 | awk '{print $3}')
           [ -z "$PEER_NAME" ] && continue
           [ "$PEER_NAME" = "$NEW_NAME" ] && continue
           PEER_FP=$(grep -oE '^\s+[A-Z][A-Za-z0-9_]*:\s*\{' "$PEER" 2>/dev/null | sed 's/[[:space:]]//g' | sort -u | head -20 | tr '\n' '|')
           [ -z "$PEER_FP" ] && continue
-          SHARED=$(echo "$FP" | tr '|' '\n' | grep -F -f <(echo "$PEER_FP" | tr '|' '\n') 2>/dev/null | wc -l | tr -d ' ')
+          # Whole-line matches of non-empty keys only: the trailing `|` leaves an
+          # empty pattern, and an empty -F pattern matches every line.
+          SHARED=$(echo "$FP" | tr '|' '\n' | grep -v '^$' \
+            | grep -F -x -f <(echo "$PEER_FP" | tr '|' '\n' | grep -v '^$') 2>/dev/null | wc -l | tr -d ' ')
           if [ "${SHARED:-0}" -ge "$MIN_TOK" ]; then
             REL=$(echo "$PEER" | sed "s|$SYMBOLS_PROJECT/||")
             DUP_OUT="${DUP_OUT}  • $NEW_NAME shares $SHARED top-level keys with $PEER_NAME ($REL)"$'\n'
