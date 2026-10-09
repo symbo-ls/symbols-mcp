@@ -1353,7 +1353,7 @@ export const saveArticle = async function saveArticle (form) {
 
 - `el.call('invalidateQueries', match)`, `el.call('removeQueries', match)`, `el.call('getQueryData', keyOrConfig)`, `el.call('setQueryData', keyOrConfig, valueOrUpdater)` — registered whenever fetch is configured (a project function of the same name wins). `match`: a string contained in the key, a RegExp, a `(key) => boolean`, or an array (`['articles', 'select']` → keys containing `articles:select`); nothing matches every key. `keyOrConfig`: a key, or `{ from, method, params }` built the way the calling element would build it.
 - Invalidation marks entries stale: mounted queries refetch at once (one request per key), others on their next mount showing the stale rows meanwhile — use `removeQueries` when they must load without them. A reply already on its way never replaces the refetched rows.
-- A key is `from:method:` + the params as JSON, then `:p<page>` / `:c<cursor>` when set, then `:<lang>`; `cache: { key }` replaces it. A write through `getDB()` knows no keys: invalidate after it, as above.
+- A key is `from:method:` + the params as JSON, then `:infinite` / `:p<page>` / `:c<cursor>` when set, then `:<lang>` when a language is active; `cache: { key }` replaces it. A write through `getDB()` knows no keys: invalidate after it, as above.
 
 ### Early requests — `fetch.early` (REST adapter, opt-in)
 
