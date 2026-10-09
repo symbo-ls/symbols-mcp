@@ -82,7 +82,7 @@ extends, children, content, childExtends, childExtendsRecursive, childProps, chi
 props, if, show, hide, value, define, key, tag, query, parent, node,
 variables, component, context, fetch, routes, metadata,
 onInit, onCreate, onComplete, onRender, onRenderRouter, onUpdate, onBeforeUpdate,
-onStateInit, onStateCreated, onStateUpdate, onBeforeStateUpdate,
+onStateInit, onStateCreated, onStateUpdate, stateDeps, onBeforeStateUpdate,
 onAttachNode, onFrame, onError,
 onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup, onMouseover,
@@ -249,9 +249,6 @@ export const Item = {
   '.isSelected': { background: 'primary', color: 'white' },
   '!isSelected': { opacity: 0.6 }
 }
-
-// ✅ $isX for global cases (browser detection from context.cases)
-$isSafari: { paddingTop: 'env(safe-area-inset-top)' }
 ```
 
 ### Raw Style Object (Escape Hatch)
@@ -274,7 +271,7 @@ export const DropdownParent = {
 Set a custom property as a top-level `'--x'` key or in the `vars` prop. Both spellings take one path:
 
 ```js
-export const Meter = {
+export const Gauge = {
   vars: {
     trackOpacity: 0.4,                                   // a bare name → --trackOpacity; static → the element's class
     '--fill': (el, s) => Math.round((s.done / s.total) * 100) + '%'   // factory → inline, reactive
@@ -282,7 +279,7 @@ export const Meter = {
   '--tilt': (el, s) => (s.flipped ? '180deg' : null),    // a top-level factory is reactive too; null removes it
   isDone: (el, s) => s.done === s.total,
   '.isDone': { vars: { trackOpacity: 1 } },              // in a block: overrides by the cascade
-  Track: { opacity: 'var(--trackOpacity)' },
+  Rail: { opacity: 'var(--trackOpacity)' },
   Bar: { width: 'var(--fill)', transform: 'rotate(var(--tilt, 0deg))' }
 }
 // or the whole bag from state: vars: (el, s) => ({ '--x': s.x + 'px', '--y': s.y + 'px' })
@@ -337,16 +334,33 @@ onComplete:    (el, s, ctx)    => { /* alias of onCreate */ },
 onRender:      (el, s, ctx)    => { /* effects + children + DOM ready */ },
 onRenderRouter:(el, s, ctx)    => { /* router-specific post-render */ },
 onUpdate:      (el, s, ctx)    => { /* after el.update() */ },
-onBeforeUpdate:(changes, el, s, ctx) => { /* return false to cancel */ },
-onStateUpdate: (changes, el, s, ctx) => { /* after state change */ },
-onBeforeStateUpdate: (changes, el, s, ctx) => { /* return false to cancel */ },
+onBeforeUpdate:(el, s, ctx, options) => { /* return false to cancel this update */ },
+onStateUpdate: (el, s, ctx, { prev, next }) => { /* a stateDeps value changed — see below */ },
 onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ },
 onError:       (el, s, ctx)    => { /* lifecycle error caught inside the element */ },
 onBeforeRemove:(el, s, ctx)    => { /* fires BEFORE refs/state are torn down — can still read state and cancel sockets/requests */ },
 onRemove:      (el)            => { /* fires AFTER DOM detach + state.destroy(); refs are still present for logging */ }
 ```
 
-`onBeforeUpdate` / `onStateUpdate` / `onBeforeStateUpdate` receive `changes` as their FIRST parameter.
+Every lifecycle handler takes the element FIRST — none of them receives a `changes` argument. `onStateInit`, `onStateCreated` and `onBeforeStateUpdate` are reserved names that the current runtime does not call: do not put logic in them.
+
+#### `onStateUpdate` + `stateDeps` — react to a state value from any element
+
+`onUpdate` fires on the element whose `.update()` ran. To run a side effect in ANY element when a state value changes (root state included), pair `onStateUpdate` with `stateDeps`, an array of selectors. A selector is a function `(el, s, ctx) => value` or a string key of the element's own state.
+
+```js
+export const MessageList = {
+  stateDeps: [(el, s) => s.root.activeChannelId],
+  onStateUpdate: (el, s, ctx, { prev, next }) => {
+    el.call('markRead', prev[0])     // leaving a channel marks it read
+  }
+}
+```
+
+- The framework reads every selector inside its own effect, so each one is subscribed even when the handler reads it only on some branches.
+- The handler runs only when a selector value changed (`!==`), never on the first render. `prev` and `next` are the selector values, in `stateDeps` order.
+- Without `stateDeps`, `onStateUpdate` never runs.
+- For a value you only display, a reactive prop (`text: (el, s) => …`) is still the answer (Rule 51). Use `onStateUpdate` for side effects: calls, scroll, focus, a third-party API.
 
 `onBeforeRemove` fires inside `dispose(element)` BEFORE effects, event listeners, and state are destroyed — the handler can still access `el.state`, `el.context`, and call methods. `onRemove` fires AFTER DOM detach and `state.destroy()` but BEFORE refs are cleared — safe for logging `el.key` / `el.parent`. Both hooks are wrapped in try/catch so a misbehaving handler does not block sibling cleanup.
 
@@ -1628,7 +1642,7 @@ if, show, hide, value, fetch, routes, metadata, variables, component,
 __name, __ref, __hash, __text,
 onInit, onCreate, onComplete, onRender, onRenderRouter,
 onUpdate, onBeforeUpdate, onStateInit, onStateCreated,
-onStateUpdate, onBeforeStateUpdate, onAttachNode, onFrame,
+onStateUpdate, stateDeps, onBeforeStateUpdate, onAttachNode, onFrame,
 onError, onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup,
 onMouseover, onMouseout, onBlur, onFocus, onScroll, onResize, …

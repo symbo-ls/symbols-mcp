@@ -28,7 +28,7 @@ These are mandatory technical rules for the DOMQL/Symbols runtime. Violating any
 
 - For grouped reactive CSS that shares one condition, use the `isX` + `'.isX'` / `'!isX'` block pattern. It's the canonical way to express a state-driven appearance change without repeating the same condition across many prop functions.
 - For animated show/hide use `hide:` (or `show:`) — these reactively toggle `display`. Using `if:` for animation destroys / re-creates the DOM node which kills CSS transitions.
-- Lifecycle hooks (`onInit`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`) fire ONCE per element creation. To respond to subsequent state changes, use `onUpdate(el, s, ctx)` or `onStateUpdate(changes, el, s, ctx)`, OR (preferred) just declare reactive prop functions and let the framework subscribe.
+- Lifecycle hooks (`onInit`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`) fire ONCE per element creation. To respond to subsequent state changes, use `onUpdate(el, s, ctx)` or `onStateUpdate(el, s, ctx, { prev, next })` with `stateDeps` (see SYNTAX), OR (preferred) just declare reactive prop functions and let the framework subscribe.
 - The effect scheduler drains reactive updates on a wall-clock budget (a few ms per synchronous slice, well under a frame). A normal cascade (1-2 dependent effects) settles in one microtask, same as always. A pathological cascade — e.g. a project-side effect that unconditionally writes back a signal it also reads — degrades to a responsive, yielding drain across macrotasks instead of freezing the tab; an absolute pass cap still catches a truly non-converging cascade and logs a console error naming it. You still shouldn't write reactive code with an unconditional write-back cycle, but the failure mode is "slow" now, not "hung."
 
 ### Pattern comparison
@@ -308,12 +308,12 @@ This same rule applies to sub-component overrides in nested children.
 
 ## Event Handler Signatures
 
-There are exactly two shape categories. Using the wrong one shifts all parameters silently.
+There are two shape categories: the element first, or the event first. Using the wrong one shifts all parameters silently.
 
 | Event type | Signature | Examples |
 |------------|-----------|----------|
-| Lifecycle events | `(el, state, context, options?)` | `onInit`, `onAttachNode`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`, `onUpdate`, `onFrame` |
-| State events | `(changes, el, state, context, options?)` | `onBeforeUpdate`, `onStateUpdate`, `onBeforeStateUpdate` (changes is FIRST) |
+| Lifecycle events | `(el, state, context, options?)` | `onInit`, `onAttachNode`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`, `onBeforeUpdate`, `onUpdate`, `onFrame` |
+| State-change effect | `(el, state, context, { prev, next })` | `onStateUpdate`, paired with `stateDeps: [selector, …]` (runs only when a selector value changes) |
 | DOM events | `(event, el, state)` | `onClick`, `onInput`, `onKeydown`, `onSubmit`, `onMouseover`, `onScroll` |
 
 **Common bug:** Writing `(event, el, s)` in a lifecycle handler. The first arg is actually the element, so `s` becomes `undefined`.
@@ -322,7 +322,8 @@ There are exactly two shape categories. Using the wrong one shifts all parameter
 // ✅ CORRECT
 onInit:   (el, s, ctx) => {}
 onUpdate: (el, s, ctx) => {}
-onStateUpdate: (changes, el, s, ctx) => {}
+stateDeps: [(el, s) => s.root.activeChannelId],
+onStateUpdate: (el, s, ctx, { prev, next }) => {}
 onClick:  (e, el, s) => {}
 ```
 

@@ -467,7 +467,7 @@ AFTER:
 | `import Component from './Component'`  | Reference by key: `{ Component: {} }`                                     |
 | `useState(val)`                        | `state: { key: val }` + `s.update({ key: newVal })`                       |
 | `useEffect(() => {}, [])`              | `onRender: (el, s) => {}`                                                 |
-| `useEffect(() => {}, [dep])`           | `onStateUpdate: (changes, el, s) => {}`                                   |
+| `useEffect(() => {}, [dep])`           | `stateDeps: [(el, s) => s.dep], onStateUpdate: (el, s, ctx, { prev, next }) => {}` |
 | `useContext`                           | `s.root` for global state                                                 |
 | `useRef`                               | `el.node` for DOM access                                                  |
 | `props.onClick`                        | `onClick: (e, el, s) => {}`                                               |
@@ -499,7 +499,7 @@ AFTER:
 | `ngOnInit()`                       | `onInit: (el, s) => {}`                                                |
 | `ngAfterViewInit()`                | `onRender: (el, s) => {}`                                              |
 | `ngOnDestroy()`                    | Return cleanup fn from `onRender`                                      |
-| `ngOnChanges(changes)`             | `onStateUpdate: (changes, el, s) => {}`                                |
+| `ngOnChanges(changes)`             | `stateDeps: [(el, s) => s.x], onStateUpdate: (el, s, ctx, { prev, next }) => {}` |
 | Services / DI                      | `functions/` folder + `el.call('serviceFn', args)`                     |
 | `RouterModule` routes              | `pages/index.js` route mapping                                         |
 | `routerLink="/path"`               | `Link: { href: '/path' }`                                              |
@@ -522,7 +522,7 @@ AFTER:
 | `ref="myRef"`                     | `el.node` or `el.lookup('Key')`                                                   |
 | `data()` / `ref()` / `reactive()` | `state: { key: value }`                                                           |
 | `computed`                        | `text: (el, s) => s.first + ' ' + s.last`                                        |
-| `watch`                           | `onStateUpdate: (changes, el, s) => {}`                                           |
+| `watch`                           | `stateDeps: [(el, s) => s.x], onStateUpdate: (el, s, ctx, { prev, next }) => {}` |
 | `mounted()`                       | `onRender: (el, s) => {}`                                                         |
 | `created()` / `setup()`           | `onInit: (el, s) => {}`                                                           |
 | Vuex / Pinia store                | `state/` folder + `s.root` access                                                 |
