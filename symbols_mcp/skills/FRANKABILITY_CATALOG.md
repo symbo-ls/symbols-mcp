@@ -481,7 +481,7 @@ infrastructure. Two costs of leaving it inline:
 Move the function to `globalScope.js`. Every consumer references it
 as a bare identifier; frank wires the resolution at toJSON time.
 
-For a helper only ONE file uses, see FA207 (keep module scope empty:
+For a helper only ONE file uses, see FA211 (keep module scope empty:
 `functions/X.js` + `el.call('X', …)`).
 
 # FA203 — multifile-constant
@@ -589,7 +589,7 @@ The audit reports these but does not auto-fix because rewriting an
 import that's destructured into multiple bindings or used in
 module-top-level code requires a call-graph trace.
 
-# FA207 — module-scope-binding
+# FA211 — module-scope-binding
 
 Keep module scope EMPTY in `components/`, `pages/`, `snippets/` and
 `functions/` files (RULES.md Rule 33). frank does not drop a
@@ -644,14 +644,14 @@ becomes a prescription.
 
 ## Opt-in
 
-FA207 is not in the default rule set: a default run reports no FA207
+FA211 is not in the default rule set: a default run reports no FA211
 finding, count or prescription (on 24 measured projects it would add
 3 582, 1 336 in one of them). Name it to run it:
 
-  frank-audit audit <dir> --rule FA207
-  smbls frank-audit --rule FA207
-  audit(dir, { ruleIds: new Set(['FA207']) })   // HTTP: { ruleIds: ['FA207'] }
-  eslint: rules: { 'frank/FA207': 'warn' }
+  frank-audit audit <dir> --rule FA211
+  smbls frank-audit --rule FA211
+  audit(dir, { ruleIds: new Set(['FA211']) })   // HTTP: { ruleIds: ['FA211'] }
+  eslint: rules: { 'frank/FA211': 'warn' }
 
 
 ---
