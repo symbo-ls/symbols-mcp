@@ -533,6 +533,7 @@ fetch: {
 
 - A request is the adapter call it stands for (`method` `'select'` / `'rpc'`, `from`, `params`, `select`, `limit`, `offset`, `order`, `single`). A function form runs before the app: no imports, no project functions — only its arguments (`ctx = { path, query, lang, storage(key) }`) and browser globals.
 - Adopted only when it is the same request: same address, same `Accept-Language` (set `lang: false` for a call that sends none), no other headers — a signed-in call never takes the anonymous answer. Each answer is taken once; a failed one, an expired one, or one still waiting after an invalidation is not.
+- `early.query` and `early.rpc` default to `fetch.reads` (SYNTAX → Anonymous reads), which makes the call itself send the same anonymous GET; declare them once in `reads`.
 - `smbls build` (and `smbls deploy`) writes the script as `early.<hash>.js`, referenced first in `<head>` (a file, so a CSP without `'unsafe-inline'` allows it). `smbls start` does not emit it. Without `fetch.early` nothing changes.
 
 ### Auth guard

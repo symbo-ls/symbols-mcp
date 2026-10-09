@@ -1373,6 +1373,29 @@ export const saveArticle = async function saveArticle (form) {
 
 `config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Config and rules: FRAMEWORK.md §5 → Early requests.
 
+### Anonymous reads — `fetch.reads` (REST adapter, opt-in)
+
+Every RPC is a POST with a JSON body and the configured headers, so a cross-origin read waits for a CORS preflight. With `reads`, an anonymous read goes as a simple GET:
+
+```js
+// config.js
+fetch: {
+  adapter: 'rest',
+  url: 'https://<project>.supabase.co/rest/v1',
+  headers: { apikey: '<publishable key>' },
+  reads: {
+    query: { apikey: 'apikey' },   // header → query parameter on anonymous reads. A PUBLIC key only: URLs land in logs and history
+    rpc: 'get'                     // read-only RPCs go as GET <url>/rpc/<from>?<params> (PostgREST: STABLE/IMMUTABLE functions)
+  }
+}
+```
+
+- A read RPC is a declarative `fetch` with `method: 'rpc'` that is a query (no `on: 'submit'` / `'click'`, no `invalidates`, no `mutation: true`), a prefetch of one, or `db.rpc({ …, read: true })`. `read: false` keeps a declarative rpc a POST; `db.rpc()` without `read: true` stays a POST. Actions stay POSTs.
+- Only scalar arguments (strings, finite numbers, booleans) go in a GET; a `null`, an object or an array keeps the call a POST.
+- Only anonymous calls: with a token (`setToken`, `auth.token`) or a per-call `Authorization` header the call is unchanged. A session token never goes into a URL.
+- A GET answered `405` is sent again as the POST. A relative `url` (same origin) keeps RPCs as POSTs. Without `reads` nothing changes.
+- `fetch.early` takes `query` and `rpc` from `reads` when it does not set its own, so the pre-boot GET and the call's GET match.
+
 ### Response types and request bodies (REST adapter)
 
 `responseType` sets how the REST adapter reads the response body. It works on `db.select / rpc / insert / update / upsert / delete` and in a declarative `fetch:`.
@@ -1546,20 +1569,31 @@ Helmet renders at runtime AND in `smbls brender` SSR. In the browser the head is
 
 ### Loading State via `fetch:`
 
+Keep the flags in the element's own state and set them from the fetch callbacks:
+
 ```js
 export const DataList = {
-  state: { items: [] },
-  fetch: { from: 'items', cache: '5m', placeholderData: [] },
-  Loader: { if: (el, s) => s.__loading, extends: 'Spinner' },
-  Error:  { if: (el, s) => Boolean(s.__error), text: (el, s) => s.__error.message },
-  Items:  {
-    if: (el, s) => !s.__loading && !s.__error,
-    children:     (el, s) => s.items,
-    childExtends: 'ListItem',
-    childrenAs:   'state'
+  state: { items: [], loading: false, error: null },
+  fetch: { from: 'items', as: 'items', cache: '5m' },
+  onFetchStart:    (el, s) => s.update({ loading: true, error: null }),
+  onFetchComplete: (data, el, s) => s.update({ loading: false }),
+  onFetchError:    (error, el, s) => s.update({ loading: false, error: error?.message || String(error) }),
+  Loader:  { if: (el, s) => s.loading, text: 'Loading…' },
+  Failure: { if: (el, s) => Boolean(s.error), text: (el, s) => s.error },
+  Items: {
+    if: (el, s) => !s.loading && !s.error,
+    children: (el, s) => s.items,
+    childrenAs: 'state',
+    childProps: { text: (el, s) => s.title }
   }
 }
 ```
+
+- The fetch plugin writes no loading or error key into state: there is no `s.__loading` or `s.__error`. A `__`-prefixed state key never re-renders anything.
+- Start with `loading: false`: a fresh cache hit sends no request, so neither `onFetchStart` nor `onFetchComplete` runs.
+- The REST adapter's `error` is a string; other adapters may give an object with `message`.
+- `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
+- The three callbacks also work inside the `fetch` object (`fetch: { …, onFetchStart }`), with the same arguments.
 
 ### Active List Item
 
