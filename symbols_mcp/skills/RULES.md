@@ -2151,7 +2151,7 @@ This rule is enforced by:
 
 **Every interactive element MUST declare `:hover`, `:active`, `:focus-visible` and — where applicable — `:disabled`, on the component that defines it.** A control that only has a resting style is a bug, not a minimal design.
 
-Set them ONCE on the primitive (`Button`, or your project's `PrimaryBtn` / `GhostBtn` / row / tile) and let every call site inherit. Re-declaring states per instance is how an app ends up with 40 buttons that each behave differently.
+Set them ONCE on the primitive (`Button`, or your project's `PrimaryBtn` / `GhostBtn` / row / tile) and let every call site inherit. Re-declaring states per instance is how an app ends up with 40 buttons that each behave differently. The house focus ring of every built-in that extends `Focusable` is set once in `designSystem.focusableRing` (DESIGN_SYSTEM.md → Design system flags).
 
 ```js
 // ✅ Declared once, on the primitive

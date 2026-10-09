@@ -388,7 +388,10 @@ reason for custom routing.**
   already wires `onpopstate` via `onpopstateRouter(element, context)`.
 - For programmatic nav: `el.router(path, el.getRoot())`. For declarative
   links: `extends: 'Link', href: '/path'` (the framework injects router
-  click handling into the `Link` component).
+  click handling into the `Link` component). `Link` routes only a plain
+  primary-button click on a same-tab link: modified clicks (Ctrl/Cmd/Shift/
+  Alt), a middle click, `target` other than `_self`, `download` and an
+  already-prevented click stay the browser's.
 
 ---
 

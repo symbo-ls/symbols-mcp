@@ -1048,7 +1048,7 @@ The scratch default config includes only 4 media tokens. The responsive breakpoi
 | `mobileS` | `max-width: 480px` | down |
 | `mobileXS` | `max-width: 375px` | down |
 
-`<` suffix = min-width (upward): `tabletL<` = `min-width: 1366px`. All breakpoints have both `max-width` and `min-width` (`<`) variants.
+`<` suffix = min-width (upward), starting just above the pair's width: `tabletL<` = `min-width: 1366.02px`, while `tabletL` (`max-width: 1366px`) keeps 1366px itself. So at every width exactly one of `@tabletL` / `'@tabletL<'` applies, fractional widths (page zoom, a non-integer device scale) included. All breakpoints have both variants (`'mobileL<'` = `min-width: 768.02px`, …). A project's own pairs in `designSystem/media.js` should follow the same rule: `X` = `max-width: Npx`, `'X<'` = `min-width: N.02px`.
 
 Custom media tokens can be added in `designSystem/media.js`.
 
@@ -1445,6 +1445,7 @@ Do NOT wrap these under `props` or other wrappers.
 | `useDocumentTheme` | `true` | Apply document theme to `<html>` |
 | `useDefaultIcons` | `true` | Include default icon set |
 | `verbose` | `false` | Suppress design system debug output |
+| `focusableRing` | unset | The keyboard focus ring of every built-in that extends `Focusable` (`Button`, `Link`, `Input`, `Select`, …). Unset / `true`: the default `solid X currentColor` outline. A string sets the `:focus-visible` outline (`'hairline2 solid black'`); `{ outline, outlineOffset }` sets either or both. Values resolve like the same string on a component (size tokens, colour tokens with their theme). `false`: no ring (for a design system that paints its own, e.g. a box-shadow ring). A component's own `':focus-visible': { outline, outlineOffset }` still replaces each key. `Checkbox` / `Radio` / `Toggle` mirror the ring onto their visible box, also with `false` |
 
 **`createConfig(name, overrides, { cleanBase })` strips ALL of these flags (plus `globalTheme`) from whatever base it clones** — they never inherit into an isolated secondary-app config, cleanBase or not. A secondary app (embedded iframe, multi-DS page) that wants its own reset, font import, icon sprite, or document-theme behavior must set the flags explicitly in the `overrides` it passes to `createConfig` / its own `config.js` — silently expecting them to carry over from the primary is a common source of "fonts don't load in the iframe" / "no CSS reset in the embedded app" bugs.
 

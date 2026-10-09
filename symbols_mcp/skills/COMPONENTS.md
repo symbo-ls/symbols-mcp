@@ -28,6 +28,18 @@ All components are plain objects. Props are **flat on the element** — no `prop
 
 If `src` is not a valid URL, it resolves via `context.files[filename]`. Paths starting with `/files/` have the prefix stripped automatically (`/files/logo.png` looks up `"logo.png"` in context.files).
 
+### Img — `alt` and `title`
+
+`Img` writes a `title` attribute only from its own `title` prop; it never copies `alt` into `title` (a copied title is a hover tooltip and a second screen-reader announcement of the same text). `alt` falls back to `title`, else `''` (decorative). `Avatar` and the `Picture` child inherit this.
+
+### Link — clicks the browser keeps
+
+`Link` (and `A`, `RouterLink`, `RouteLink`) routes a click on an internal `href` through the router only for a plain primary-button click on a same-tab link. These go to the browser unchanged: Ctrl/Cmd/Shift/Alt + click (new tab, new window, download), a middle click, a link whose `target` is not `_self`, a `download` link, and a click an inner handler already prevented (`e.preventDefault()` on a control inside a card link). No document-level click handler is needed for "open in new tab".
+
+### Focus ring
+
+Every built-in that extends `Focusable` (`Button`, `Link`, `Input`, `Select`, `Checkbox`, …) paints its `:focus-visible` ring from `designSystem.focusableRing`: set one house ring there (`'hairline2 solid black'`, or `{ outline, outlineOffset }`) instead of repeating `':focus-visible'` on every component; `false` turns the built-in ring off. See DESIGN_SYSTEM.md → Design system flags.
+
 ### Svg rule
 
 Use `Icon` (not `Svg`) for icons. `Icon: { name: 'iconName' }` references `designSystem.icons`. Use `Svg` only for decorative/structural SVGs that are not icons.
