@@ -1486,6 +1486,27 @@ export const ModalCard = {
 }
 ```
 
+### In-place modal layer — `inertOutside`
+
+`inertOutside` makes an element a modal layer WITHOUT moving it: while the prop is truthy and the element is in the document, everything outside it gets the `inert` attribute (as behind `<dialog>.showModal()`), so a field that expands in place keeps its editor's text, selection and undo history.
+
+```js
+export const NoteField = {
+  state: { expanded: false },
+  inertOutside: (el, s) => s.expanded,
+  role: (el, s) => (s.expanded ? 'dialog' : null),
+  aria: { modal: (el, s) => (s.expanded ? 'true' : null) },
+  Button: { text: '{{ notes.expand | polyglot }}', onClick: (e, el, s) => s.update({ expanded: !s.expanded }) },
+  Editor: { tag: 'textarea' }
+}
+// An `if:`-gated layer can declare it statically: { if: (el, s) => s.root.sheetOpen, inertOutside: true }
+```
+
+- Inert while open: the siblings of the element and of each ancestor up to `<body>`, plus whatever lands there while it is open (a toast, a portal appended to `<body>`). Closing (the prop turns false, the element is removed or `if:`-hidden) takes off exactly the `inert` it added; an element that was inert already, or sets its own `inert` meanwhile, keeps it.
+- Layers stack: the newest open layer defines what is interactive; closing it hands the page back to the one below. A dialog that opens over a layer must be a layer itself, or live inside it.
+- Opening moves focus into the layer when focus is outside it (an `[autofocus]` element first); closing returns focus to the element that had it.
+- It follows the prop, not visibility: gate it on what shows the layer. `role`, `aria-modal`, Escape and scroll locking stay the component's own. An iframe app's layer inerts its own frame. A server render (brender) writes no `inert`.
+
 ### Search + Filter (state-driven, no DOM traversal)
 
 See Rule 32 in RULES.md.
