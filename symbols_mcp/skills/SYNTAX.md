@@ -266,6 +266,8 @@ export const DropdownParent = {
 }
 ```
 
+Design-system tokens resolve in a `style` block and its `&` blocks like the same key at the top level: `style: { padding: 'A', '& > span': { marginLeft: '-Z' } }` gets the spacing variables. This happens only for a real CSS property that has a transformer, only for a spacing / typography / timing letter (`A`, `-Z`, `B2`) or a `sizes` name, and only when the browser rejects the raw value. Other values pass through verbatim: `gridArea: 'A'` stays `A`, and smbls aliases (`round`, `flow`, `boxSize`) are not CSS there.
+
 ### CSS Custom Properties — `vars` and `'--x'`
 
 Set a custom property as a top-level `'--x'` key or in the `vars` prop. Both spellings take one path:

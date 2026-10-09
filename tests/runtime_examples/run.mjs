@@ -77,8 +77,10 @@ function eq (actual, expected, what) {
 }
 
 let n = 0
-// The docs' colour tokens (`primary`, …) come from a project design system.
-const DS = { color: { primary: '#336699' } }
+// The docs' tokens (`primary`, `hairline2`) come from a project design system.
+// One document holds every app here and its :root variables come from the
+// first app's config, so every app gets the same design system.
+const DS = { color: { primary: '#336699' }, sizes: { hairline2: '2px' } }
 
 async function mount (tree, extra = {}) {
   const holder = document.createElement('div')
@@ -263,6 +265,26 @@ Object.assign(cases, {
     await mount({ Late: { onWindowLoad: (e, el) => { runs++; eq(el.key, 'Late', 'second argument is the element') } } })
     await flush()
     eq(runs, 1, 'onWindowLoad runs once for an element created after load')
+  }
+})
+
+// SYNTAX "Raw Style Object" tokens; DESIGN_SYSTEM sizes negation + variables.
+Object.assign(cases, {
+  async styleBlockTokens () {
+    const app = await mount({ Box: { style: { padding: 'A', gridArea: 'A', '& > span': { marginLeft: '-Z' } }, Span: { tag: 'span' } } })
+    const st = app.Box.node.style
+    expect(/var\(--[\w-]*spacing-A\)/.test(st.getPropertyValue('padding')), 'style padding: A → spacing var (got ' + st.getPropertyValue('padding') + ')')
+    eq(st.getPropertyValue('grid-area'), 'A', 'gridArea: A stays A')
+    const rules = rulesText().join('\n')
+    expect(/> span[^{]*\{[^}]*margin-(left|inline-start):[^;}]*spacing-Z/.test(rules), '& block marginLeft: -Z resolves')
+  },
+
+  async sizesNegationAndVars () {
+    const app = await mount({ Ring: { outlineOffset: '-hairline2', width: 'hairline2' } })
+    const own = ownRules(app.Ring.node) + app.Ring.node.style.cssText
+    expect(/outline-offset:\s*calc\(2px \* -1\)/.test(own), 'negated size: ' + own)
+    expect(/width:\s*2px/.test(own), 'positive size stays literal')
+    expect(/--size-hairline2:\s*2px/.test(rulesText().join('\n')), '--size-hairline2 published')
   }
 })
 

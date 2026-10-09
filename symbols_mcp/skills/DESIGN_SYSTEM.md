@@ -772,6 +772,9 @@ The scratch runtime (`getSequenceValue`) checks `CONFIG.sizes[value]` BEFORE the
 // NOT var(--spacing-AVATARMD) — that variable doesn't exist
 ```
 
+- A leading dash negates a size like a spacing token: `outlineOffset: '-hairline2'` → `calc(2px * -1)`. A name registered with its own dash still matches first.
+- Every string or number size is also published as a CSS variable, `--size-<name>` (`--<varPrefix>-size-<name>` with a var prefix), name case kept: `var(--size-hairline2)`, `var(--size-avatarMd)`. Props still resolve sizes to the literal value; the variables are for `calc()`, `style: {}` and third-party CSS.
+
 ### Usage
 
 ```js
