@@ -315,7 +315,7 @@ function checkNode (src, toks, node, ctx, out) {
     out.push({
       line: lineOf(src, es[0].keyTok.start),
       rule: 'Rule 19',
-      message: `[Rule 19] ${ctx.label}: the condition \`${cond.replace(/\$(\d)/g, (_, d) => ['el', 's', 'ctx'][d] || 'arg' + d)}\` gates ${es.length} CSS props (${es.map((e) => e.key).join(', ')}) — declare it once as \`isX: (el, s) => …\` and move the values into a \`'.isX'\` / \`'!isX'\` block`
+      message: `[Rule 19] ${ctx.label}: the condition \`${cond.replace(/\$(\d)/g, (_, d) => ['el', 's', 'ctx'][d] || 'arg' + d)}\` gates ${es.length} CSS props (${es.map((e) => e.key).join(', ')}) — declare it once as \`isX: (el, s) => …\` and move the values into a \`'.isX'\` / \`'!isX'\` block (frank-audit FA810, opt-in)`
     })
   }
 
@@ -342,7 +342,7 @@ function checkNode (src, toks, node, ctx, out) {
     out.push({
       line: lineOf(src, hoverKey.keyTok.start),
       rule: 'Rule 65',
-      message: `[Rule 65] ${ctx.label}: an interactive element declares ':hover' but no ':active' — declare ':active' (and ':focus-visible') on the same element`
+      message: `[Rule 65] ${ctx.label}: an interactive element declares ':hover' but no ':active' — declare ':active' (and ':focus-visible') on the same element (frank-audit FA811, opt-in)`
     })
   }
 
@@ -354,7 +354,7 @@ function checkNode (src, toks, node, ctx, out) {
       out.push({
         line: lineOf(src, over[0].keyTok.start),
         rule: 'Rule 68',
-        message: `[Rule 68] ${ctx.label}: this ${btn} call site overrides ${over.map((e) => e.key).join(', ')} — keep the control's scale; use a variant on the primitive (its own minHeight + padding) or a design-system token`
+        message: `[Rule 68] ${ctx.label}: this ${btn} call site overrides ${over.map((e) => e.key).join(', ')} — keep the control's scale; use a variant on the primitive (its own minHeight + padding) or a design-system token (frank-audit FA812, opt-in)`
       })
     }
   }

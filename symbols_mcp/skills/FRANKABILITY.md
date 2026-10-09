@@ -417,6 +417,16 @@ rules: { 'frank/FA211': 'warn' }              # eslint-plugin-frank
 
 Not FA207: that id stays the nested-helper guidance above (not audited), as FA208–FA210 stay documented ids. frank-audit has no rule FA207 — `--rule FA207` runs nothing and frank-audit reports the id as ignored.
 
+#### FA810 / FA811 / FA812 — component shape (opt-in)
+
+Three opt-in rules check the shape of a component object, the same way `audit_component` does:
+
+- FA810 condition-case-block — 3+ CSS props of one element gated by the same `(el, s) => cond ? a : b` → one `isX` + `'.isX'` / `'!isX'` block (RULES.md Rule 19).
+- FA811 interactive-states — an interactive element (Link / Button family, tag `a` / `button`, or `href` / `onClick` on a definition) with `:hover` and no `:active` (Rule 65).
+- FA812 button-call-site-override — a built-in Button call site that sets `padding*`, `height` or `minHeight`; use a variant or a token (Rule 68).
+
+Run them by name, like FA211: `--rule FA810,FA811,FA812`, `ruleIds`, or `'frank/FA810': 'warn'` in eslint-plugin-frank.
+
 ---
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)

@@ -910,9 +910,9 @@ Good:   'onWindowSymbols:auth-callback': (e, el) => onAuth(e, el)
 
 Flat `onEvent` handlers are tracked by DOMQL's lifecycle and are
 cleaned up automatically when the element unmounts. `onDocumentXxx` /
-`onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange`
-extend that to events that never
-reach an element the project owns — third-party widgets portaled into
+`onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange` extend
+that to events that never reach an element the project owns —
+third-party widgets portaled into
 document.body, outside-click / Escape for layers, window resize/scroll,
 the soft-keyboard viewport and a media-query flip: registered once when
 the element gets its node, inert while `if:`-hidden,
@@ -1082,7 +1082,7 @@ Fixes by context:
        Bad:    window.update({ onScroll: onScroll })
        Good:   declare onScroll on the page/root component, OR
                onWindowScroll: (e, el, s) => onScroll(e, el, s) on the
-               owning component (window-level listener owned by DOMQL;
+               owning component (a window-level listener DOMQL owns;
                raw addEventListener stays FA503)
 
   2. DOM ref (querySelector result, el.node, sibling ref):
@@ -1233,8 +1233,9 @@ language including English, with no error anywhere.
 | `label`, `caption`, `helperText` (custom props) | works | works | FUNCTION |
 | `title` | works | renders "" as content | TEMPLATE |
 
-Why: since smbls 2026-09-24 an attribute prop holding a `{{ }}` template gets its own
-reactive effect, resolved against the element STATE with the polyglot
+Why: since smbls 2026-09-24 an attribute prop holding a `{{ }}`
+template gets its own reactive effect, resolved against the element
+STATE with the polyglot
 filter, and the prop KEEPS its template. Before that fix the static
 attribute pass resolved the template once, without the element binding
 (so a filtered template rendered ""), and wrote the empty answer back
@@ -1265,9 +1266,8 @@ A `title` a child reads as content is still better RENAMED to a prop
 that is not an HTML attribute (`heading`, `label`): the attribute also
 paints a native tooltip nobody asked for.
 
-Measured in
-smbls/packages/element/__tests__/polyglotPropFormReactivity.test.js —
-that file and this rule must change together.
+Measured on the smbls element runtime; the runtime test that pins this
+table and this rule change together.
 
 ## The key comes from the LOCATION, never from the copy
 
@@ -1316,7 +1316,6 @@ slot are not audited for copy.
 Heuristic only — a brand mark spelled as one plain word (`Figma`), a
 person's name, and intentionally untranslated internal tool copy are
 allowed with `// frank-allow FA701` on or above the offending property.
-
 
 ---
 
@@ -1451,6 +1450,85 @@ Census 2026-10-02: 286 such keys took their tag from the name, 113 more
 already undid it with an explicit `tag:`. The first 19 tags are planned to
 leave key detection in smbls.
 
+
+# FA810 — condition-case-block
+
+Bad:    Card: {
+          background: (el, s) => s.open ? 'surface' : 'transparent',
+          color: (el, s) => s.open ? 'title' : 'caption',
+          padding: (el, s) => s.open ? 'B' : 'A'
+        }
+Good:   Card: {
+          isOpen: (el, s) => s.open,
+          background: 'transparent', color: 'caption', padding: 'A',
+          '.isOpen': { background: 'surface', color: 'title', padding: 'B' }
+        }
+
+One condition declared once as `isX` drives a `'.isX'` (or `'!isX'`) block:
+one reactive class instead of N reactive props. Flagged when 3 or more
+CSS props of one element use the same condition (parameters compared by
+position, whitespace ignored).
+
+## Opt-in
+
+FA810 is not in the default rule set: a default run reports no FA810
+finding, count or prescription. Name it to run it:
+
+  frank-audit audit <dir> --rule FA810
+  smbls frank-audit --rule FA810
+  audit(dir, { ruleIds: new Set(['FA810']) })   // HTTP: { ruleIds: ['FA810'] }
+  eslint: rules: { 'frank/FA810': 'warn' }
+
+symbols-mcp's audit_component runs the same check; the two agree.
+
+# FA811 — interactive-states
+
+Bad:    Save: { extends: 'Button', ':hover': { background: 'accent' } }
+Good:   Save: { extends: 'Button',
+          ':hover': { background: 'accent' },
+          ':active': { background: 'accent.-1' },
+          ':focus-visible': { outline: 'solid, Z, accent' } }
+
+An interactive element with a hover state and no pressed state gives no
+feedback on touch and on click. Interactive here: the Link / Button
+family by extends or key, tag 'a' / 'button', or href / onClick on an
+exported definition or a lowercase-keyed element. An element extending
+only project components is skipped — its primitive owns the states.
+
+## Opt-in
+
+FA811 is not in the default rule set: a default run reports no FA811
+finding, count or prescription. Name it to run it:
+
+  frank-audit audit <dir> --rule FA811
+  smbls frank-audit --rule FA811
+  audit(dir, { ruleIds: new Set(['FA811']) })   // HTTP: { ruleIds: ['FA811'] }
+  eslint: rules: { 'frank/FA811': 'warn' }
+
+symbols-mcp's audit_component runs the same check; the two agree.
+
+# FA812 — button-call-site-override
+
+Bad:    Toolbar: { Button_save: { text: 'Save', padding: 'Z A', height: 'B' } }
+Good:   // components/CompactButton.js — a variant owns the scale
+        export const CompactButton = { extends: 'Button', padding: 'Z A', minHeight: 'B' }
+        Toolbar: { CompactButton: { text: 'Save' } }
+
+Buttons keep one scale across the product. A call site that changes a
+Button's padding or height breaks that; a variant (an exported
+component extending Button) or a design-system token keeps it.
+
+## Opt-in
+
+FA812 is not in the default rule set: a default run reports no FA812
+finding, count or prescription. Name it to run it:
+
+  frank-audit audit <dir> --rule FA812
+  smbls frank-audit --rule FA812
+  audit(dir, { ruleIds: new Set(['FA812']) })   // HTTP: { ruleIds: ['FA812'] }
+  eslint: rules: { 'frank/FA812': 'warn' }
+
+symbols-mcp's audit_component runs the same check; the two agree.
 
 ---
 

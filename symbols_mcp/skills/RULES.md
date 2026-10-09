@@ -536,7 +536,7 @@ The framework wraps each `.isX` / `'!isX'` PAIR in its own `createEffect` (`regi
 
 **`$isX` is the one exception and currently does NOT apply at all** — nothing in the runtime reads a `$`-prefixed key, so a `$isSafari: {...}` block silently emits no CSS, not even once at create. Do not use it; express a global-case condition (`context.cases`) as an ordinary reactive prop function instead.
 
-**STRICTLY enforce this pattern when two or more CSS properties share the same condition.** Repeating the same condition across multiple property functions is redundant and harder to read — collapse them into a single `isX` + `'.isX'` block.
+**STRICTLY enforce this pattern when two or more CSS properties share the same condition.** Repeating the same condition across multiple property functions is redundant and harder to read — collapse them into a single `isX` + `'.isX'` block. Audit: FA810 (opt-in, `--rule FA810`) and `audit_component` flag 3+ props on one condition.
 
 ```js
 // ✅ CORRECT — single condition drives a whole CSS block (reactive)
@@ -2194,6 +2194,8 @@ export const PrimaryBtn = { extends: 'Button', background: 'brand', cursor: 'poi
 
 **A hover step must be perceptible.** Two tokens one step apart on a tinted surface can differ by less than the eye resolves. If you cannot see it in the browser, it is not a state — measure the composited luminance delta of the two, and treat anything under ~0.02 as no change at all.
 
+Audit: FA811 (opt-in, `--rule FA811`) and `audit_component` flag an interactive element with `:hover` and no `:active`.
+
 ---
 
 ## Rule 66 — STRICT: never let chrome change the page's LAYOUT — reserve the box or overlay it
@@ -2268,6 +2270,8 @@ BfGhostBtn: { text: 'Save assessment' }
 If a genuinely denser control is needed, define a compact VARIANT on the primitive (its own `minHeight` + `padding` pair) and extend that. One named variant beats N ad-hoc overrides — and when the scale changes, every consumer moves together.
 
 Compact SPANS (pills, badges, hint chips) are not controls: they carry no `minHeight` and no tap-target obligation, so a small padding pair on them is the intended scale, not an override.
+
+Audit: FA812 (opt-in, `--rule FA812`) and `audit_component` flag a built-in Button call site that sets padding or height.
 
 ---
 
