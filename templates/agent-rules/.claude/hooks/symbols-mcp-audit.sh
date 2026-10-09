@@ -91,7 +91,7 @@ if command -v npx >/dev/null 2>&1 \
   && mkdir "$AUDIT_LOCK" 2>/dev/null; then
   trap 'rmdir "$AUDIT_LOCK" 2>/dev/null' EXIT
   OUT=$(cd "$SYMBOLS_PROJECT" && perl -e 'alarm shift; exec @ARGV' "${SYMBOLS_MCP_AUDIT_TIMEOUT:-60}" \
-    npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_PROJECT" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206,FA207 2>&1 \
+    npx -y --no-install @symbo.ls/frank-audit audit "$SYMBOLS_PROJECT" --rule FA001,FA101,FA102,FA103,FA104,FA105,FA106,FA206 2>&1 \
     | grep -E "$(basename "$FILE_PATH")" || true)
 fi
 
@@ -117,7 +117,7 @@ fi
 if grep -qE 'function\s+[A-Za-z_]+\s*\([^)]*\)\s*\{' "$FILE_PATH"; then
   # Catch only inside lifecycle handlers — heuristic
   if grep -qE 'on(Render|Click|Init|Input|Change|Submit|Mount|Update)\s*:\s*(async\s+)?\([^)]*\)\s*=>' "$FILE_PATH"; then
-    add "FA207 — possible nested 'function name () {}' inside a handler; use const x = () => {}"
+    add "nested helper — possible 'function name () {}' inside a handler; use const x = () => {}"
   fi
 fi
 if grep -qE "^\s*(import\s+\{[^}]*\}|import\s+[A-Za-z_]+)\s+from\s+['\"][^./@][^'\"]*['\"]" "$FILE_PATH"; then

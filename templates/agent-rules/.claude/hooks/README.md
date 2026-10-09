@@ -43,7 +43,7 @@ Three bash scripts that make `symbols-mcp` rule-loading non-bypassable in Claude
 2. Walks up looking for `symbols.json`. If not found, exits silently.
 3. If found, prints to stdout:
    - The MUST-DO sequence (`get_project_context` → `get_project_rules` → `generate_component`/`generate_page` → `audit_component` → `audit_and_fix_frankability`).
-   - Frankability cheatsheet covering FA001 / FA101 / FA102 / FA105 / FA106 / FA201 / FA204 / FA206 / FA207 / FA208 / FA209 / FA210 / FA513 / FA514.
+   - Frankability cheatsheet covering FA001 / FA101 / FA102 / FA105 / FA106 / FA201 / FA204 / FA206 / FA208 / FA209 / FA210 / FA513 / FA514, plus nested helpers.
    - Reminder that the PreToolUse hook will block Edit/Write until step 2 runs.
 
 **Bypass:** `SYMBOLS_MCP_REMINDER=0`.
@@ -70,7 +70,7 @@ Three bash scripts that make `symbols-mcp` rule-loading non-bypassable in Claude
    - **FA105** `attr: { placeholder | type | name | … }` wrapping flat HTML attrs
    - **FA106** destructured handler signatures `({state}) =>`
    - **FA206** top-level static npm imports in handler-bearing files
-   - **FA207** `function name () {}` inside lifecycle handlers
+   - **nested helpers** `function name () {}` inside lifecycle handlers (no FA id: not a frank-audit rule)
    - **FA513** `window.update()` / `document.update()`
    - **FA514** `window.__projectInit` module-side-effect bridges
 6. If anything triggers, prints a `[symbols-mcp post-write audit]` block listing FA-IDs and pointing at the auto-fix tool.
