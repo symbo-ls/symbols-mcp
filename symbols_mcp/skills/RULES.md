@@ -1562,7 +1562,7 @@ import { fetchPlugin } from '@symbo.ls/fetch'
 context.plugins = [routerPlugin, fetchPlugin, polyglotPlugin, helmetPlugin]
 ```
 
-`@symbo.ls/sync` (live sync for the editor and `smbls start`) is on by default, but it loads socket.io-client only when the configuration names a sync transport (`editor.socketUrl` / `settings.socketUrl`, or the runner), so a production page never downloads it; `sync: false` removes the plugin.
+`@symbo.ls/sync` (live sync for the editor and `smbls start`) is on by default, but it loads socket.io-client only when the configuration names a sync transport (`editor.socketUrl`, `settings.socketUrl`, or `editor.runtime: 'runner'`), so a production page never downloads it; `sync: false` removes the plugin. The ESM build ships the client as a separate file, `dist/smbls.socket-io-client.esm.js`, next to `dist/smbls.esm.js`, and loads it by relative path on connect: when you copy or self-host the ESM build, keep the two files together. The IIFE builds carry the client inline.
 
 ---
 
