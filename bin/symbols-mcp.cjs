@@ -37,6 +37,16 @@ const http = require('http')
 
 const SKILLS_DIR = path.join(__dirname, '..', 'symbols_mcp', 'skills')
 const { structuralChecks } = require(path.join(__dirname, '..', 'symbols_mcp', 'checks', 'structural.cjs'))
+
+// serverInfo.version is the package version — read from the package.json that
+// ships beside bin/ (npm always packs it), never a hand-kept constant.
+const PACKAGE_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || '0.0.0'
+  } catch (_) {
+    return '0.0.0'
+  }
+})()
 const API_BASE = process.env.SYMBOLS_API_URL || 'https://api.symbols.app'
 
 // ---------------------------------------------------------------------------
@@ -1171,7 +1181,7 @@ async function handle(req) {
       result: {
         protocolVersion: req.params?.protocolVersion ?? '2025-03-26',
         capabilities: { tools: {} },
-        serverInfo: { name: 'Symbols MCP', version: '1.0.15' }
+        serverInfo: { name: 'Symbols MCP', version: PACKAGE_VERSION }
       }
     })
   }
