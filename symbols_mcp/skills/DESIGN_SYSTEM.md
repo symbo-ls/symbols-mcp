@@ -959,19 +959,23 @@ The scratch default animation config is empty — define your own in `designSyst
 ### CSS shorthand syntax
 
 ```js
-Modal:  { animation: 'fadeIn 2s ease-in-out' }
-Ticker: { animation: 'marquee 8s linear infinite' }
-Spinner:{ animation: 'spin 1s linear infinite alternate' }
+Modal:    { animation: 'fadeIn 2s ease-in-out' }
+Ticker:   { animation: 'marquee 8s linear infinite' }
+Spinner:  { animation: 'spin 1s linear infinite alternate' }
+Skeleton: { animation: 'skeletonPulse I defaultBezier infinite' }     // design-system words work here too
+Stack:    { animation: 'fadeIn B, slideUp C defaultBezier A' }        // a comma list is several animations
 ```
 
-Parser token identification:
-- **Name**: looked up in `ANIMATION` registry
-- **Duration**: `Xs`, `Xms` (first = duration, second = delay)
-- **Timing**: `ease`, `linear`, `ease-in-out`, `cubic-bezier(...)`, `steps(...)`
-- **Iteration**: `infinite` or number
+Parser token identification — every word resolves the way its longhand (`animationDuration`, `animationTimingFunction`, …) resolves it:
+- **Name**: a key of the `animation` registry (keyframes); else the first word no other slot takes. A repeated keyword is the name, as CSS reads it (`ease ease 1s`).
+- **Duration / delay**: a timing token of the active `timing` sequence (`A`, `B`, `I`, `-A`) or a CSS time (`2s`, `150ms`, a negative delay too). The first time is the duration, the second the delay.
+- **Timing function**: `ease`, `linear`, `ease-in-out`, … , `cubic-bezier(...)`, `steps(...)`, or a named curve of the design system's `timing` (`defaultBezier`).
+- **Iteration**: `infinite` or a number (fractional too: `2.5`).
 - **Direction**: `normal`, `reverse`, `alternate`, `alternate-reverse`
-- **Fill mode**: `none`, `forwards`, `backwards`, `both` (default: `both`)
+- **Fill mode**: `none`, `forwards`, `backwards`, `both`. Unset: the element's own `animationFillMode`, else `backwards` when the last keyframe sets only `transform` / `translate` / `rotate` / `scale` / `opacity` at their natural values (identity, `opacity: 1`) and the direction does not reverse, else `both`. So an entry animation never holds its last frame over the element's own `transform` / `opacity`.
 - **Play state**: `running`, `paused`
+- **`var()`, `env()`, `calc()`, a bare `--x`**: CSS types these only after substitution, so each takes the first open slot in the order duration, timing function, delay, iteration, direction, fill mode, play state (`fadeIn 900ms var(--ease-out)` → the easing). When no other word can be the name, the first one is the name (`var(--name) 1s`).
+- A comma list is several animations, emitted as aligned longhand lists. The prop always emits longhands. A shorthand that names no animation (`'B ease-in'`) leaves the element's own `animationName` alone.
 
 ### Individual animation properties
 
@@ -1176,6 +1180,8 @@ vars: {
 ```
 
 Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. Any `--` prefixed value is auto-wrapped in `var()`.
+
+Per element, set custom properties with the `vars` prop or a top-level `'--x'` key (static → the element's class, a function → inline and reactive; see SYNTAX.md → CSS Custom Properties). A custom property's name keeps its case in the emitted CSS (`--iconShift` is not `--icon-shift`).
 
 ---
 

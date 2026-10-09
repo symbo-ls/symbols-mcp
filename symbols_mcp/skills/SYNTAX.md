@@ -229,7 +229,7 @@ Three prefix types for conditional CSS and attributes:
 | `.` | Element/state first, then `context.cases` | `'.isActive': { opacity: 1 }` |
 | `!` | Inverted — applies when falsy | `'!isActive': { opacity: 0 }` |
 
-Cases are defined in `cases.js` at the project root and added to `context.cases`. CSS props AND HTML attributes inside `.`/`!` conditional blocks are applied.
+Cases are defined in `cases.js` at the project root and added to `context.cases`. CSS props AND HTML attributes inside `.`/`!` conditional blocks are applied while the block matches: `aria: { selected: true }`, `'aria-pressed': 'true'`, `title`, `data: { state: 'on' }`. An attribute value may be a factory (`(el, s, ctx)`) or a `{{ }}` template and follows what it reads while the block matches; when the block stops matching, each attribute goes back to the value it had before the block took it (removed when it had none). The block's CSS keys keep their turn-on value. Not read inside a block: `attr: {}` holders, event handlers, and `style` / `class` / `value`; keys that are attributes on the tag itself (`fill` on an `<svg>`, `rows` on a `<textarea>`) stay CSS inside a block.
 
 `.isX` / `'!isX'` blocks are fully reactive — the framework wraps the `isX` condition in its own `createEffect` (both directions: applying AND reverting), so the matching block re-applies every time the state read by the condition changes, for a flag on the element's own state or on root state, whether the state key is declared up front or arrives later. Use the pattern when two or more CSS props share a single condition; it's cleaner than repeating the same condition across many prop functions.
 
@@ -268,6 +268,33 @@ export const DropdownParent = {
   }
 }
 ```
+
+### CSS Custom Properties — `vars` and `'--x'`
+
+Set a custom property as a top-level `'--x'` key or in the `vars` prop. Both spellings take one path:
+
+```js
+export const Meter = {
+  vars: {
+    trackOpacity: 0.4,                                   // a bare name → --trackOpacity; static → the element's class
+    '--fill': (el, s) => Math.round((s.done / s.total) * 100) + '%'   // factory → inline, reactive
+  },
+  '--tilt': (el, s) => (s.flipped ? '180deg' : null),    // a top-level factory is reactive too; null removes it
+  isDone: (el, s) => s.done === s.total,
+  '.isDone': { vars: { trackOpacity: 1 } },              // in a block: overrides by the cascade
+  Track: { opacity: 'var(--trackOpacity)' },
+  Bar: { width: 'var(--fill)', transform: 'rotate(var(--tilt, 0deg))' }
+}
+// or the whole bag from state: vars: (el, s) => ({ '--x': s.x + 'px', '--y': s.y + 'px' })
+```
+
+- A STATIC value compiles into the element's atomic class, so a `:hover` / `@media` / `.isX` block overrides it. A FACTORY (`'--x': fn`, a `vars` entry, a whole `vars: (el, s) => ({…})`) is written inline and re-runs when what it reads changes.
+- `null`, `undefined`, `false` or `''` removes the property (only what that factory wrote).
+- Names are verbatim and case-sensitive: `--rteTop` and `--rte-top` are two properties. Values are verbatim too: no design-token lookup (`'C'` stays `C`).
+- `vars` inside a pseudo / media / theme / `.isX` block declares custom properties there. `el.update({ vars })` re-applies the static entries.
+- Prefer `vars` / `'--x'` over `style: { '--x': … }` and over `node.style.setProperty` (Rule 30).
+
+**`fill` and `stroke`** are CSS props on every tag except `<svg>`, where the element's own flat `fill` / `stroke` stay the presentation attributes they always were. Inside a CSS block (`:hover`, `.isActive`, `@dark`) they are CSS on every tag, which outranks the attribute, so a block still repaints an `<svg>`. Their values are written as given (no colour-token lookup): `fill: 'currentColor'` with a `color` token.
 
 ### Media Queries
 

@@ -889,17 +889,15 @@ Do NOT animate layout properties (`width`, `height`, `top`, `left`) -- they forc
 
 When to use: Any page or main content area that should fade in when navigated to.
 
-Define a custom keyframe in `designSystem/animation.js`, then apply it via `style.animation` on the layout container:
+Define a custom keyframe in `designSystem/animation.js`, then apply it with the `animation` prop on the layout container (timing tokens and named curves resolve in the shorthand):
 
 ```js
 // designSystem/animation.js
 export default {
   fadeInPage: {
-    keyframes: {
-      '0%': { opacity: '0', transform: 'translateY(10px)' },
-      '100%': { opacity: '1', transform: 'translateY(0)' },
-    },
-  },
+    from: { opacity: 0, transform: 'translateY(12.5%)' },
+    to:   { opacity: 1, transform: 'translateY(0)' }
+  }
 }
 
 // pages/dashboard.js
@@ -909,7 +907,7 @@ export const dashboard = {
   Layout: {
     flow: 'y',
     flex: '1',
-    style: { animation: 'fadeInPage 0.3s ease' },
+    animation: 'fadeInPage B defaultBezier',
     // ... rest of layout
   },
 }
