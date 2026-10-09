@@ -75,6 +75,35 @@ Editor: {
 - Keep DOMQL children BESIDE the host, not in it — the library may replace what is inside. A `text` on the host stops at the mount.
 - frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA205, FA503–FA510, FA512). The same code anywhere else is still flagged, and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511).
 
+### TooltipLayer — tooltips for nodes that cannot hold a child
+
+The built-in `Tooltip` is a child element that `TooltipParent` reveals, so a node a library owns (a toolbar button inside a `Bridge` host) or an icon-only button cannot get one. Mount `TooltipLayer` as a child: it serves every `[data-tooltip]` node inside its PARENT, whoever made it and whenever (library nodes added later included).
+
+```js
+RichText: {
+  Editor: {
+    extends: 'Bridge',
+    onBridgeMount: async (node) => {
+      const quill = new Quill(…)
+      node.querySelector('.ql-bold').setAttribute('data-tooltip', 'Bold')   // library DOM, inside the Bridge hook
+      return quill
+    }
+  },
+  TooltipLayer: {}   // beside the host, not inside it
+},
+Toolbar: {
+  Close: { extends: 'SquareButton', icon: 'x', aria: { label: 'Close' }, data: { tooltip: 'Close panel' } },
+  TooltipLayer: { tooltipPlacement: 'top' }
+}
+```
+
+- Attributes: `data-tooltip` (the title; empty = none), `data-tooltip-description` (a second line), `data-tooltip-placement` (`top` | `bottom` | `left` | `right`; beats the layer's `tooltipPlacement`, default `bottom`). Read at every show. On a DOMQL element set them with `data: { tooltip: '…', tooltipDescription: '…' }`.
+- Props: `tooltipPlacement`, `tooltipDelay` (hover, ms, default 250), `tooltipHideDelay` (ms, default 100). Style it like any element (`theme`, `padding`, …); default `theme: 'dialog'`.
+- Opens on hover after the delay (moving to the next target while one shows switches at once) and at once on keyboard focus (`:focus-visible`); hover wins over focus; touch never opens it. Escape or a press on the target hides it until the pointer or focus moves to another target. The pointer may move onto the bubble (WCAG 1.4.13).
+- A `role="tooltip"` node with real text and an id; the target's `aria-describedby` carries that id while it shows (ids already there stay). It describes: an icon-only control still needs `aria-label`. Do not add `title` as well.
+- `position: fixed`, centred, flipped when the side is short, kept in the viewport, followed on scroll and resize.
+- One layer per parent; with nested layers the innermost serves a target. Its listeners are `onDocument*` / `onWindowResize`, removed with the element.
+
 ### Picture
 
 **CRITICAL**: `<picture>` does NOT support `src`. Never put `src` on Picture — it is silently ignored. Always put `src` on the `Img` child.
@@ -285,6 +314,8 @@ ToggleHgroupList: {
 |-----------|-----|---------|
 | `Modal` | Dialog overlay container | `Modal: { Hgroup: { H: { text: '{{ confirm_action | polyglot }}' } }, IconButton: { Icon: { name: 'x' } } }` |
 | `MessageModal` | Informational modal | — |
+| `Tooltip` | Hover tooltip as a child of a `TooltipParent` | — |
+| `TooltipLayer` | Tooltips for every `[data-tooltip]` node inside its parent — library nodes and icon-only buttons (Built-in Atoms → TooltipLayer) | `Toolbar: { Close: { extends: 'SquareButton', icon: 'x', aria: { label: 'Close' }, data: { tooltip: 'Close panel' } }, TooltipLayer: {} }` |
 | `Accordion` | Expandable/collapsible section | `Accordion: { ButtonParagraph: { P: { text: '{{ billing_question | polyglot }}' } }, P: { text: '{{ billing_answer | polyglot }}' } }` |
 
 ---

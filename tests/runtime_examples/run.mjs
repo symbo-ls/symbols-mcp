@@ -333,6 +333,34 @@ Object.assign(cases, {
   }
 })
 
+// COMPONENTS "TooltipLayer": data attributes from `data: {}`, a role=tooltip
+// node, aria-describedby while it shows, Escape hides it.
+Object.assign(cases, {
+  async tooltipLayer () {
+    const app = await mount({
+      Toolbar: {
+        Close: { extends: 'SquareButton', icon: 'x', aria: { label: 'Close' }, data: { tooltip: 'Close panel', tooltipDescription: 'Esc also closes' } },
+        TooltipLayer: { tooltipDelay: 0 }
+      }
+    })
+    const btn = app.Toolbar.Close.node
+    eq(btn.getAttribute('data-tooltip'), 'Close panel', 'data: { tooltip } → data-tooltip')
+    eq(btn.getAttribute('data-tooltip-description'), 'Esc also closes', 'data: { tooltipDescription } → data-tooltip-description')
+    btn.focus()
+    btn.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true }))
+    await flush()
+    await new Promise((r) => setTimeout(r, 30))
+    const tip = document.querySelector('[role="tooltip"]')
+    expect(tip, 'a role=tooltip node exists')
+    const shown = (btn.getAttribute('aria-describedby') || '').split(/\s+/).includes(tip.id)
+    expect(shown && /Close panel/.test(tip.textContent), 'focus shows it: aria-describedby + text (' + btn.getAttribute('aria-describedby') + ')')
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flush()
+    await new Promise((r) => setTimeout(r, 150))
+    expect(!(btn.getAttribute('aria-describedby') || '').split(/\s+/).includes(tip.id), 'Escape hides it')
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {

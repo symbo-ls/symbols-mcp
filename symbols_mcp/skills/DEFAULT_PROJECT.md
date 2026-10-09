@@ -100,6 +100,7 @@ The default library (`default.symbo.ls`) provides 127+ pre-built, production-rea
 | `Modal` | Modal dialog |
 | `Notification` | Notification banner |
 | `Tooltip` | Hover tooltip |
+| `TooltipLayer` | Tooltips from `data-tooltip` attributes inside its parent (COMPONENTS.md → TooltipLayer) |
 | `Dropdown` | Dropdown menu |
 | `Accordion` | Expandable sections |
 
