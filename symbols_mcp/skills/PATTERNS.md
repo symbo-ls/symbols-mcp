@@ -12,10 +12,14 @@ When to use: Any component that fetches data asynchronously.
 
 ```js
 export const DataList = {
-  state: { items: [], loading: true, error: null },
+  state: { items: [], loading: false, error: null },
+  fetch: { from: 'items', as: 'items', cache: '5m' },
+  onFetchStart:    (el, s) => s.update({ loading: true, error: null }),
+  onFetchComplete: (data, el, s) => s.update({ loading: false }),
+  onFetchError:    (error, el, s) => s.update({ loading: false, error: error?.message || String(error) }),
 
-  Loader: { if: (el, s) => s.loading, extends: 'Spinner' },
-  Error: {
+  Loader: { if: (el, s) => s.loading, text: '{{ loading | polyglot }}' },
+  Failure: {
     if: (el, s) => Boolean(s.error),
     role: 'alert',
     text: (el, s) => s.error
@@ -23,19 +27,14 @@ export const DataList = {
   Items: {
     if: (el, s) => !s.loading && !s.error,
     children: (el, s) => s.items,
-    childExtends: 'ListItem'
-  },
-
-  onRender: async (el, s) => {
-    try {
-      const items = await el.call('fetchItems')
-      s.update({ items, loading: false })
-    } catch (e) {
-      s.update({ error: e.message, loading: false })
-    }
+    childrenAs: 'state',
+    childProps: { text: (el, s) => s.title }
   }
 }
 ```
+
+- Start with `loading: false`: a fresh cache hit sends no request, so neither `onFetchStart` nor `onFetchComplete` runs.
+- The fetch plugin writes no `s.__loading` / `s.__error`; keep the flags in the element's own state (SYNTAX.md → Loading State via `fetch:`).
 
 ### Toggle / Accordion
 
@@ -65,8 +64,9 @@ When to use: Navigation menus or lists where one item is selected.
 ```js
 export const Menu = {
   state: { active: null },
-  childExtends: 'NavLink',
+  childExtends: 'Link',
   childProps: {
+    href: (el) => '/' + el.key.toLowerCase(),
     isActive: (el, s) => s.active === el.key,
     '.isActive': { fontWeight: '600', color: 'primary' },
     onClick: (e, el, s) => s.update({ active: el.key })
@@ -529,7 +529,7 @@ Add `aid-*` attributes so AI agents can parse structural intent.
 
 ```js
 export const HeroSection = {
-  extends: 'Section',
+  tag: 'section',
   'aid-type': 'main',
   'aid-desc': 'Primary hero section with CTA',
   'aid-state': 'idle',
@@ -666,7 +666,7 @@ export const ProjectList = {
     params: (el, s) => ({ org: s.root.orgId })
   },
   onFetchError: (err, el, s) => s.update({ error: err?.message || String(err) }),
-  childExtends: 'ProjectTile',
+  childExtends: 'ProjectTile',   // a project component: components/ProjectTile.js
   children: (el, s) => s.items
 }
 
