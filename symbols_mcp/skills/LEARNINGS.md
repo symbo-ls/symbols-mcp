@@ -482,7 +482,7 @@ Use `show` only for elements that should be completely removed from layout (no a
 
 | Method | Behavior | Use when |
 |--------|----------|----------|
-| `state.update()` | Merges new values into existing state, triggers re-render | Updating individual properties |
+| `state.update()` | Assigns each top-level key it is given and keeps the others; a nested object it is given REPLACES that key's object (no deep merge — `s.auth.update({...})` for a partial nested write). Triggers re-render | Updating individual properties |
 | `state.replace()` | Replaces the entire state object | Replacing arrays or resetting state entirely |
 
 ```js

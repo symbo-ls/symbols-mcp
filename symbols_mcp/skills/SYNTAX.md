@@ -461,6 +461,19 @@ s.root.update({ x: 1 })
 s.parent.update({ y: 2 })
 ```
 
+**A key an element's state does not hold falls back to the ROOT state.** An element's own state (`state: { … }`, each `childrenAs: 'state'` child) reads a key it does not hold — absent, or holding `undefined` — from the root state (the app's `state.js`), never from its parent:
+
+```js
+// state.js → export default { lang: 'ka', active: true }
+Row: { state: { id: 1 }, text: (el, s) => s.lang }    // 'ka': the row holds no `lang`
+// childrenAs: 'state' rows that carry no `active` key all read the ROOT's `active`:
+isActive: (el, s) => s.active                          // true on EVERY row
+```
+
+- The fallback read is reactive (a later root write re-runs it), but it is not the child's data: `s.parse()`, `s.keys()`, `Object.keys(s)` and `'key' in s` leave it out.
+- A write through the child (`s.update({ active: false })`) creates the child's own key, which shadows the root's from then on. A nested object inside a state (`s.auth`) has no fallback.
+- So give list items every key they read (an explicit `active: false`), or pick names the root does not use; read app state on purpose through `s.root.key`.
+
 ### Targeted Updates (Performance)
 
 ```js
