@@ -1326,7 +1326,7 @@ All user-facing strings MUST go through the polyglot plugin (`@symbo.ls/polyglot
 - `tr` — DO NOT use; reactivity comes from the `{{ key | polyglot }}` template, not a separate `tr` function
 - `i18n` / `__i18n` — DO NOT use
 
-The ONLY registered polyglot exports (verified at `plugins/polyglot/functions.js:5-14`) are: `polyglot`, `getLocalStateLang`, `getActiveLang`, `getLang`, `setLang`, `getLanguages`, `loadTranslations`, `upsertTranslation`. Use `polyglot` for both reactive (in `{{ key | polyglot }}`) and imperative (`el.call('polyglot', 'key')`) lookups.
+The ONLY registered polyglot exports (verified at `plugins/polyglot/functions.js:5-15`) are: `polyglot`, `getLocalStateLang`, `getActiveLang`, `getLang`, `setLang`, `getPendingLang`, `getLanguages`, `loadTranslations`, `upsertTranslation`. Use `polyglot` for both reactive (in `{{ key | polyglot }}`) and imperative (`el.call('polyglot', 'key')`) lookups.
 
 **Setup (`context`):**
 

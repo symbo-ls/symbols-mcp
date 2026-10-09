@@ -554,6 +554,7 @@ context.polyglot = {
   languages: ['en', 'ka', 'ru'],
   storageLangKey: 'myapp_lang',     // localStorage key for active lang
   storagePrefix: 'myapp_t_',        // localStorage prefix for translations
+  fontWait: 3000,                   // ms setLang waits for the new labels' font faces (default); false = no wait
   translations: {
     en: { hello: 'Hello' },
     ka: { hello: 'გამარჯობა' },
@@ -580,14 +581,17 @@ Mixed mode: ship `translations` in the bundle (UI strings) and add `fetch` (cont
 ### Using translations in components
 
 The functions registered by `polyglotFunctions` (verified at
-`plugins/polyglot/functions.js:5-14`) are:
+`plugins/polyglot/functions.js:5-15`) are:
 
 ```
 polyglot          → translate(key, lang?)
 getLocalStateLang → reads `state.<key>_<lang>` for per-language state fields
 getActiveLang     → reads state.root.lang or context.polyglot.defaultLang
 getLang           → alias for getActiveLang
-setLang           → switch + persist + load remote (async); setLang(lang, { persist: false }) stores nothing
+setLang           → switch (async): persist first, wait for labels + their font faces (polyglot.fontWait,
+                    default 3000 ms; false/0 = no wait), then text, state.root.lang and <html lang> in ONE frame;
+                    the last call wins; setLang(lang, { persist: false }) stores nothing
+getPendingLang    → the language a switch is waiting for, or null (reactive — a busy state; no state key)
 getLanguages      → array of available language codes
 loadTranslations  → manually trigger remote load for a lang
 upsertTranslation → CMS write (optimistic + persists)
@@ -643,7 +647,7 @@ el.call('upsertTranslation', 'ui.nav.home', 'en', 'Home')   // optimistic + pers
 ### Anti-patterns
 
 - Don't mirror `lang` into a separate state field. `state.root.lang` is the source of truth — polyglot reads/writes it directly.
-- Don't rebuild your own language switcher; `setLang` already handles localStorage + remote refetch + state.
+- Don't rebuild your own language switcher; `setLang` already handles localStorage + remote refetch + fonts + state, switching text, `state.root.lang` and `<html lang>` together. For a busy indicator read `el.call('getPendingLang')`, not a state flag of your own.
 - Don't read UI text from root state (`s.root.hello`), and never name a state flag after a text key. At boot polyglot copies each translation key that NOTHING in state declares into `state.root`; a language switch re-translates only those seeded keys, and only while each still holds the text polyglot wrote. A key the app has set since, and a key that was never seeded (a module's text keys join after boot), is left alone — a switch never fills an empty key by name. Read text through `'{{ key | polyglot }}'`, a bare `'{{ key }}'` (it falls back to the active translation map) or `el.call('polyglot', 'key')`, and declare every flag in `state.js`: an undeclared flag that shares a text key's name boots holding that text.
 - Don't put the language switch UI's `show:` logic on JS — flag the UI with `data-lang="ka"` and use CSS `[data-lang="ka"] &` selectors in design tokens if you want pure-CSS reactivity.
 

@@ -1491,7 +1491,8 @@ When `state.root.lang` changes, every fetch request gets an `Accept-Language` he
 | `getLocalStateLang(prefix)` | Read per-language state field (`state.<prefix>_<activeLang>`) |
 | `getActiveLang()` | Active language code |
 | `getLang()` | Alias for getActiveLang |
-| `setLang(lang, { persist? })` | Switch language + persist + load remote (async). `persist: false` switches the screen and writes nothing to storage |
+| `setLang(lang, { persist? })` | Switch language (async): stores the choice at once (`persist: false` writes nothing to storage), waits while the old language stays on screen for the new labels (when not cached) and their font faces (up to `polyglot.fontWait` ms, default 3000; `false` / `0` = no wait), then switches text, `state.root.lang` and `<html lang>` (last) in one frame. The last call wins; a failed load keeps the current language |
+| `getPendingLang()` | The language a switch is waiting for, or `null` — reactive, for a busy state: `aria: { busy: (el) => (el.call('getPendingLang') ? 'true' : null) }` |
 | `getLanguages()` | Available language codes |
 | `loadTranslations(lang)` | Manually trigger remote load |
 | `upsertTranslation(key, lang, value)` | CMS write (optimistic + persists) |
