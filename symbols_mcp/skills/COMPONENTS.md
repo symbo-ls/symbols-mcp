@@ -23,6 +23,7 @@ All components are plain objects. Props are **flat on the element** — no `prop
 | `Img` | `<img>` | `src`, `alt`, `loading`, `width`, `height`, `boxSize`, `objectFit` | `Img: { src: '/logo.png', alt: '{{ logo_alt | polyglot }}', boxSize: 'B' }` |
 | `Iframe` | `<iframe>` | `src`, `width`, `height` | `Iframe: { src: 'https://example.com', width: '100%', height: 'F' }` |
 | `Video` | `<video>` | `src`, `controls`, `width`, `height` | `Video: { src: '/demo.mp4', controls: true, width: '100%' }` |
+| `Bridge` | `<div>` | `onBridgeMount`, `onBridgeUpdate`, `onBridgeDestroy`, `el.bridge`. The host for a library that owns its DOM (rich-text editor, map, chart, code editor) — see below | `Editor: { extends: 'Bridge', onBridgeMount: async (node) => … }` |
 
 ### Img — file resolution
 
@@ -43,6 +44,36 @@ Every built-in that extends `Focusable` (`Button`, `Link`, `Input`, `Select`, `C
 ### Svg rule
 
 Use `Icon` (not `Svg`) for icons. `Icon: { name: 'iconName' }` references `designSystem.icons`. Use `Svg` only for decorative/structural SVGs that are not icons.
+
+### Bridge — host a library that owns its DOM
+
+DOMQL owns the host node (its classes, styles, attributes, its place in the tree); the library owns everything inside it, and DOMQL never writes there. Any element that declares `onBridgeMount` is a host; `Bridge` is the named one (it stays a `<div>` under any key, so `Map: { extends: 'Bridge' }` is not an image map).
+
+```js
+Editor: {
+  extends: 'Bridge',
+  // Once, when the node is connected (just before onMounted). Returns the instance; may be async.
+  onBridgeMount: async (node, el, s) => {
+    const { default: Quill } = await import('quill')       // the package is listed in dependencies.js
+    const box = node.ownerDocument.createElement('div')
+    node.appendChild(box)
+    return new Quill(box, { theme: 'snow' })
+  },
+  // After the mount, and again when a value it read changes (and on an empty el.update()).
+  onBridgeUpdate: (quill, el, s) => quill.enable(!s.locked),
+  // Exactly once per started mount: removal, an ancestor's removal, a route swap.
+  onBridgeDestroy: (quill) => quill.off('text-change'),
+  // Events from the library's nodes: the options form (SYNTAX.md → Events).
+  onScroll: { capture: true, passive: true, selector: '.ql-editor', handler: (e, el) => el.call('syncScroll', e) }
+}
+```
+
+- `onBridgeMount(node, el, s, ctx)` → the instance; `onBridgeUpdate(instance, el, s, ctx)`; `onBridgeDestroy(instance, el, s, ctx)` — also when an async mount resolves after the element was removed (the instance is destroyed at once and never exposed). Release the library's own listeners and timers there.
+- `el.bridge` is the instance once the mount settled (`undefined` before and after destroy); other elements reach it through `el.lookup` / `el.lookdown`.
+- An `if:`-hidden host keeps its library; shown again, it does not mount twice.
+- Browsers only: a server render (brender) leaves the host empty and runs no hook; the browser mounts once the client re-creates the tree.
+- Keep DOMQL children BESIDE the host, not in it — the library may replace what is inside. A `text` on the host stops at the mount.
+- frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA205, FA503–FA510, FA512). The same code anywhere else is still flagged, and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511).
 
 ### Picture
 

@@ -470,7 +470,7 @@ The `/` (main) page defines the persistent layout. Sub-pages render inside the t
 
 ## Rule 18 — Tab/view switching: use `show:` or `hide:`, NOT `if:` or manual DOM
 
-⚠️ **`if:` is DESTRUCTIVE.** Each `if:` toggle false → true destroys the DOM node and re-creates it on the next true. CSS transitions, focus state, scroll position, video playback, IntersectionObserver subscriptions, mounted libraries (chart.js, mapbox, leaflet) — all reset every toggle. For animated show/hide, use `hide:` (a CSS_PROPS_REGISTRY entry that reactively toggles `display`). For modal/dropdown opacity-fade, use the `opacity + pointerEvents` pattern (COMMON_MISTAKES #16).
+⚠️ **`if:` is DESTRUCTIVE.** Each `if:` toggle false → true destroys the DOM node and re-creates it on the next true. CSS transitions, focus state, scroll position, video playback, IntersectionObserver subscriptions, mounted libraries (chart.js, mapbox, leaflet) — all reset every toggle (a library mounted in a `Bridge` host is the exception: the host keeps it across `if:` toggles and never mounts it twice). For animated show/hide, use `hide:` (a CSS_PROPS_REGISTRY entry that reactively toggles `display`). For modal/dropdown opacity-fade, use the `opacity + pointerEvents` pattern (COMMON_MISTAKES #16).
 
 - **`if:`** removes / re-creates from DOM — reserve for content that genuinely shouldn't exist when the condition is false (404 page, error state, unmounted modal contents).
 - **`show:`** / **`hide:`** toggles visibility (keeps in DOM) — for tabs, views, toggles, animated reveals.
@@ -836,6 +836,8 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 | `IntersectionObserver` from components | scoped via `el.scope` cleanup; preferred: a `functions/observeVisibility.js` helper invoked in `onRender` with a return-cleanup |
 
 **Reading is fine. Writing is not.** `el.node.scrollTop`, `el.node.value`, `el.node.selectionStart`, `el.node.focus()`, `el.node.blur()`, `el.node.select()` are acceptable. Assigning to `el.node.X` is not (Rule 39).
+
+**The one exception — a library that owns its DOM** (a rich-text editor, a map, a chart): mount it in a `Bridge` host (COMPONENTS.md → Bridge). DOM work inside its `onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` hooks and the host's own `onXxx` handlers works on the library's nodes; DOMQL never writes inside the host.
 
 ```js
 // ✅ declarative — full feature in DOMQL
@@ -2125,7 +2127,7 @@ onClick: () => changeGlobalTheme('dark')
 ### The two narrow read-only exceptions (NOT assignments)
 
 - **`window.location` reads** (`window.location.pathname`, `.hash`, `.search`) are tolerated for inspection — but for navigation, ALWAYS `el.router(path, el.getRoot())` (Rule 42). Never `window.location.href = '/x'`.
-- **Global-target listeners** for genuine browser events (`resize`, `beforeunload`, `hashchange`, `storage`) and for events that never reach an element you own (foreign portals, outside-click, Escape) — declare the flat `onWindowXxx:` / `onDocumentXxx:` prop on the owning component (framework-owned: registered once, inert while `if:`-hidden, torn down on dispose). Two further targets take the same shapes: `onVisualViewportResize:` / `onVisualViewportScroll:` (`window.visualViewport` — soft keyboard, pinch-zoom) and `onMediaQueryChange: { query: '(max-width: 768px)', handler }` (`window.matchMedia`; an array of `{ query, handler }` watches several queries). A non-identifier event name is a QUOTED key — `'onWindowSymbols:auth-callback':`. Prefer node-level `onResize:` / `onScroll:` when the event reaches the element. Raw `window.addEventListener` / `document.addEventListener` / `vv.addEventListener` / `mql.addEventListener` from project code is FA503 — there is no longer a case it is needed for. **Listeners are reads, not writes.**
+- **Global-target listeners** for genuine browser events (`resize`, `beforeunload`, `hashchange`, `storage`) and for events that never reach an element you own (foreign portals, outside-click, Escape) — declare the flat `onWindowXxx:` / `onDocumentXxx:` prop on the owning component (framework-owned: registered once, inert while `if:`-hidden, torn down on dispose). Two further targets take the same shapes: `onVisualViewportResize:` / `onVisualViewportScroll:` (`window.visualViewport` — soft keyboard, pinch-zoom) and `onMediaQueryChange: { query: '(max-width: 768px)', handler }` (`window.matchMedia`; `query` may be a design-system media key, `'mobileL'`; an array of `{ query, handler }` watches several queries). A non-identifier event name is a QUOTED key — `'onWindowSymbols:auth-callback':`. Prefer node-level `onResize:` / `onScroll:` when the event reaches the element. Raw `window.addEventListener` / `document.addEventListener` / `vv.addEventListener` / `mql.addEventListener` from project code is FA503 — there is no longer a case it is needed for (a library's own nodes inside a `Bridge` host are the one exception, COMPONENTS.md → Bridge). **Listeners are reads, not writes.**
 
 Anything else — including formal devtools hooks (`__REDUX_DEVTOOLS_EXTENSION__`, `__SMBLS_DEVTOOLS_GLOBAL_HOOK__`) — must be added at the framework level, not from a project. If you need a hook that doesn't exist, open a ticket in `FRAMEWORK_TICKETS.md` (per the no-hacks policy in Rule 55) — never add a project-side `window.__X = …` shim.
 

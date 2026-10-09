@@ -360,7 +360,24 @@ key.length > 2 && key[0] === 'o' && key[1] === 'n' &&
   isFunction(value)
 ```
 
-Detection is structural (pattern of `onUpper...`), not registry-based — any custom event name like `onCustomThing` works as long as it's a function.
+Detection is structural (pattern of `onUpper...`), not registry-based — any custom event name like `onCustomThing` works as long as it's a function. A DOM event handler may also be a string naming a project function (`onClick: 'toggleMenu'` → `el.call('toggleMenu', e)`) or the options form below.
+
+### Options Form — `{ capture, passive, once, selector, handler }`
+
+Every DOM `onXxx` also takes an options object, the shape the document / window family below takes:
+
+```js
+onScroll:  { capture: true, passive: true, selector: '.ql-editor', handler: (e, el, s) => {} }  // a scroll INSIDE the element
+onPaste:   { capture: true, handler: (e, el, s) => {} }        // runs before an inner node's own listener
+onWheel:   { passive: false, handler: (e, el, s) => {} }       // may call e.preventDefault()
+onClick:   { selector: 'figure', handler: (e, el, s) => {} }   // only targets inside a <figure> of this element
+onKeydown: { once: true, handler: 'closeOnEscape' }             // string → el.call('closeOnEscape', e)
+```
+
+- A plain handler hears an event only on its way UP: a `scroll` inside the element never bubbles to it, and a `paste` / `keydown` reaches it after an inner node's own listener. `capture: true` hears both, first.
+- `capture`, an explicit `passive` or `once` bind the listener on the element's own node with exactly those options (a plain handler shares one delegated listener). Touch and wheel stay passive unless `passive` is declared.
+- `selector`: the handler runs only when the event target's closest match lies inside the element's node; an invalid selector matches nothing.
+- Same `(e, el, s, ctx)` signature; removed on dispose like every handler. This is the declared way to listen on nodes a library owns (see `Bridge` in COMPONENTS.md) — never `addEventListener` (FA503).
 
 ### Global-Target Events — `onDocumentXxx` / `onWindowXxx` / `onVisualViewportXxx` / `onMediaQueryChange`
 
@@ -385,9 +402,12 @@ element's document or its window, so neither has any other declarative form:
 onVisualViewportResize: (e, el, s) => {},                   // window.visualViewport
 onVisualViewportScroll: (e, el, s) => {},                   //   soft keyboard, pinch-zoom
 onMediaQueryChange:     { query: '(max-width: 768px)', handler: (e, el, s) => {} },
-onMediaQueryChange:     [ { query: '(max-width: 768px)', handler: a },
+onMediaQueryChange:     { query: 'mobileL', handler: (e, el, s) => {} },   // a designSystem.media key
+onMediaQueryChange:     [ { query: '@tabletS<', handler: a },              // '@' form, any key of the table
                           { query: '(pointer: coarse)', handler: b } ]
 ```
+
+`query` may name a key of the design system's media table — the query `'@mobileL'` blocks use, so a moved breakpoint moves the listener too: `'@name'` (an unknown key registers nothing and logs one dev warning), a bare `'name'` (when the table has that key; any other string is a raw media query, as before), or `'@media <query>'`. A table value that is not a media query (`@supports`, `@container`, a theme selector) registers nothing.
 
 `matchMedia(query)` MINTS its target, so the query is the target's identity and
 travels in the options form — a CSS media query cannot be spelled in a prop

@@ -7,6 +7,8 @@ Reference by PascalCase string key — `extends: 'Button'`, `extends: 'IconButto
 
 For project configuration, see PROJECT_STRUCTURE.md. For library catalog + design system token defaults, see DEFAULT_PROJECT.md.
 
+The framework's own atoms (`Box`, `Text`, `Img`, `Link`, `Input`, `Bridge`, …) are in COMPONENTS.md → Built-in Atoms; the components below extend them as `smbls.X`. `Bridge` — the host for a library that owns its DOM (an editor, a map, a chart) — has no template wrapper: use `extends: 'Bridge'` (COMPONENTS.md → Bridge).
+
 ---
 
 ## Components

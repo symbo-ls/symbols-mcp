@@ -263,6 +263,8 @@ const navTab = (path) => ({
 
 When frank stringifies the `color: () => ...` function, the closure over `path` is gone. Without `scope: { path }`, `path` is undefined at runtime — wrong color, no error.
 
+Not flagged inside a `Bridge` host's own code (`onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers): the option objects a library takes are built there at runtime, inside one serialized function, so their closures survive. A factory that RETURNS a bridge host is still flagged.
+
 #### FA206 — NPM packages used inside handlers should be dynamic-imported
 
 ```js
@@ -397,6 +399,8 @@ onRender: async (el, s) => {
 ---
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)
+
+The DOM bans (FA503–FA510, FA512) have one sanctioned exception: a `Bridge` host (default-config `Bridge`, or any element that declares `onBridgeMount`). The library owns the DOM inside it, so DOM work in the three bridge hooks and the host's own `onXxx` handlers is not flagged; document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511) still are, and the same code anywhere else is. See COMPONENTS.md → Bridge.
 
 #### FA513 — Never call `window.update(...)` / `document.update(...)`
 
