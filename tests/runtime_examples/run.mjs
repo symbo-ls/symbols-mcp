@@ -167,28 +167,49 @@ const cases = {
     expect(!app.MessageList.node.children.length, 'stateDeps renders no child element')
   },
 
-  // SYNTAX lifecycle list: onBeforeUpdate is element-first, and the three
-  // reserved names the runtime does not call stay uncalled (when one starts
-  // to run, the docs must say so).
+  // SYNTAX lifecycle list + "State hooks".
   async lifecycleSignatures () {
-    const seen = {}
+    const seen = []
     const app = await mount({
       state: { x: 1 },
       Probe: {
         state: { y: 1 },
-        onStateCreated: (el, s, ctx) => { seen.stateCreated = [el.key, typeof s.update, !!ctx] },
-        onBeforeUpdate: (el, s, ctx) => { seen.beforeUpdate = [el.key, typeof s.update, !!ctx] },
-        onStateInit: () => { seen.stateInit = true },
-        onBeforeStateUpdate: () => { seen.beforeStateUpdate = true }
+        onStateInit: (el, data, ctx) => { seen.push('stateInit'); data.seeded = true; eq(typeof data.update, 'undefined', 'onStateInit gets plain data') },
+        onStateCreated: (el, s, ctx) => { seen.push('stateCreated'); eq(typeof s.update, 'function', 'onStateCreated gets the store') },
+        onInit: () => seen.push('init'),
+        onBeforeUpdate: (el, s, ctx) => { seen.push(['beforeUpdate', el.key, typeof s.update, !!ctx].join()) },
+        onBeforeStateUpdate: (el, s, ctx, { changes }) => {
+          seen.push('beforeStateUpdate:' + JSON.stringify(changes))
+          if (changes.y === 99) return false
+          if (changes.y === 5) changes.y = 6
+        },
+        onUpdate: () => seen.push('update'),
+        Shared: { onStateInit: () => seen.push('sharedInit'), onStateCreated: () => seen.push('sharedCreated') }
       }
     })
-    app.Probe.update({})
-    app.Probe.state.update({ y: 2 })
+    const p = app.Probe
+    eq(seen.slice(0, 3).join(), 'stateInit,stateCreated,init', 'state hooks run before onInit')
+    expect(!seen.includes('sharedInit') && !seen.includes('sharedCreated'), 'an element sharing its parent state runs neither')
+    eq(p.state.seeded, true, 'onStateInit writes land in the state')
+    seen.length = 0
+    p.update({})
     await flush()
-    eq(JSON.stringify(seen.beforeUpdate), '["Probe","function",true]', 'onBeforeUpdate(el, s, ctx)')
-    eq(seen.stateInit, undefined, 'onStateInit is not called')
-    eq(seen.stateCreated, undefined, 'onStateCreated is not called')
-    eq(seen.beforeStateUpdate, undefined, 'onBeforeStateUpdate is not called')
+    expect(seen.includes('beforeUpdate,Probe,function,true'), 'onBeforeUpdate(el, s, ctx)')
+    seen.length = 0
+    const ret = p.state.update({ y: 99 })
+    await flush()
+    expect(ret === p.state, 'a cancelled update still returns the state')
+    eq(p.state.y, 1, 'false cancels the write')
+    expect(!seen.includes('update'), 'cancelled: no onUpdate')
+    p.state.update({ y: 5 })
+    await flush()
+    eq(p.state.y, 6, 'the handler may adjust changes')
+    seen.length = 0
+    p.state.update({ y: 7 }, { preventBeforeStateUpdateListener: true })
+    p.state.y = 8
+    p.state.toggle('seeded')
+    await flush()
+    expect(!seen.some((x) => String(x).startsWith('beforeStateUpdate')), 'skip option, direct write, toggle run no onBeforeStateUpdate: ' + seen)
   }
 }
 

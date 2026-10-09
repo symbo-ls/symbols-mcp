@@ -1,12 +1,19 @@
 {
   "smbls": "3.14.826",
-  "commit": "d78afdffa",
+  "commit": "ae9e77bcf",
   "checked": "2026-10-09",
   "examples": [
     "isxRootState",
     "isxInverse",
     "vars",
     "stateDeps",
-    "lifecycleSignatures"
+    "lifecycleSignatures",
+    "onUpdateContract",
+    "ariaFromState",
+    "settled",
+    "onWindowLoadAfterLoad",
+    "styleBlockTokens",
+    "sizesNegationAndVars",
+    "reactiveBaseBlocksWin"
   ]
 }

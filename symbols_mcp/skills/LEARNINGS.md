@@ -312,7 +312,8 @@ There are two shape categories: the element first, or the event first. Using the
 
 | Event type | Signature | Examples |
 |------------|-----------|----------|
-| Lifecycle events | `(el, state, context, options?)` | `onInit`, `onAttachNode`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`, `onBeforeUpdate`, `onUpdate`, `onFrame` |
+| Lifecycle events | `(el, state, context, options?)` | `onInit`, `onAttachNode`, `onCreate`, `onComplete`, `onRender`, `onRenderRouter`, `onBeforeUpdate`, `onUpdate`, `onStateInit` (2nd arg: the initial data), `onStateCreated`, `onFrame` |
+| Before a state write | `(el, state, context, { changes, options })` | `onBeforeStateUpdate` on the state's owner — return `false` to cancel |
 | State-change effect | `(el, state, context, { prev, next })` | `onStateUpdate`, paired with `stateDeps: [selector, …]` (runs only when a selector value changes) |
 | DOM events | `(event, el, state)` | `onClick`, `onInput`, `onKeydown`, `onSubmit`, `onMouseover`, `onScroll` |
 

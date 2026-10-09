@@ -337,6 +337,9 @@ onRender:      (el, s, ctx)    => { /* effects + children + DOM ready */ },
 onRenderRouter:(el, s, ctx)    => { /* router-specific post-render */ },
 onUpdate:      (el, s, ctx, opts) => { /* after el.update() on THIS element — see the table below */ },
 onBeforeUpdate:(el, s, ctx, options) => { /* return false to cancel this update */ },
+onStateInit:   (el, data, ctx, options) => { /* the element builds its OWN state — see below */ },
+onStateCreated:(el, s, ctx, options)    => { /* the element's state exists, methods included */ },
+onBeforeStateUpdate: (el, s, ctx, { changes, options }) => { /* return false to cancel the write */ },
 onStateUpdate: (el, s, ctx, { prev, next }) => { /* a stateDeps value changed — see below */ },
 onFrame:       (el, s, ctx)    => { /* every requestAnimationFrame */ },
 onError:       (el, s, ctx)    => { /* lifecycle error caught inside the element */ },
@@ -344,7 +347,13 @@ onBeforeRemove:(el, s, ctx)    => { /* fires BEFORE refs/state are torn down —
 onRemove:      (el)            => { /* fires AFTER DOM detach + state.destroy(); refs are still present for logging */ }
 ```
 
-Every lifecycle handler takes the element FIRST — none of them receives a `changes` argument. `onStateInit`, `onStateCreated` and `onBeforeStateUpdate` are reserved names that the current runtime does not call: do not put logic in them.
+Every lifecycle handler takes the element FIRST.
+
+State hooks:
+
+- `onStateInit(el, data, ctx, options)` runs in create(), before `onInit`, while the element builds its OWN state from plain data (an object or function `state:`, or the app root from context state). `data` is a new plain object with the initial values (never the shared definition); what the handler writes into it is in the state. It does not run for a string-path state, a ready-made store, a function that returns a store, or an element that only shares its parent's state. The return value is ignored.
+- `onStateCreated(el, s, ctx, options)` runs in create(), before `onInit`, after the state exists with its methods: for every element that declares `state` (object, function, string path, store) and for the app root from context state; not for an element that only shares its parent's state.
+- `onBeforeStateUpdate(el, s, ctx, { changes, options })` runs on the element that OWNS the state, before `s.update()`, `s.replace()`, `s.set()` or `s.quietUpdate()` writes. Return `false` to cancel: nothing is written, `onUpdate` does not run, the call still returns the state. `changes` is the object that will be applied, so the handler may adjust it. `{ preventBeforeStateUpdateListener: true }` skips it. A direct write (`s.key = v`), `s.toggle()` and a descendant's state change do not run it.
 
 #### Which hook runs on which state change
 
