@@ -823,6 +823,51 @@ def _audit_code(code: str, file_path: str = "") -> dict:
         return _done(result, tmp)
 
 
+STRUCTURAL_CHECKS = Path(__file__).parent / "checks" / "structural.cjs"
+
+
+def _structural_checks(code: str) -> list[dict] | None:
+    """Shape checks for the STRICT rules a regex cannot see (Rules 19, 65, 68).
+
+    One implementation, `checks/structural.cjs`, serves this server and the
+    Node one (bin/symbols-mcp.cjs). Returns warning entries, or None when
+    `node` is not available.
+    """
+    node = shutil.which("node")
+    if not node or not STRUCTURAL_CHECKS.exists():
+        return None
+    try:
+        proc = subprocess.run(
+            [node, str(STRUCTURAL_CHECKS)], input=code, capture_output=True,
+            text=True, timeout=20,
+        )
+        found = json.loads(proc.stdout or "[]")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    return [
+        {"line": f.get("line", 0), "severity": "warning", "message": f.get("message", "")}
+        for f in found
+    ]
+
+
+def _add_structural_findings(result: dict, code: str) -> dict:
+    found = _structural_checks(code)
+    if found is None:
+        result["structural_note"] = "Structural checks (Rules 19, 65, 68) need `node`; they did not run."
+        return result
+    if not found:
+        return result
+    result["warnings"] = list(result.get("warnings", [])) + found
+    total = len(result.get("violations", [])) + len(result["warnings"])
+    result["score"] = max(1, 10 - total)
+    if not result.get("unavailable"):
+        result["summary"] = (
+            f"{len(result.get('violations', []))} errors, {len(result['warnings'])} warnings "
+            f"— compliance score: {result['score']}/10"
+        )
+    return result
+
+
 def _convert_findings_to_legacy(payload: dict) -> dict:
     """Convert frank-audit JSON payload to the legacy {violations,warnings,score}
     shape audit_component callers expect."""
@@ -1463,7 +1508,10 @@ def audit_component(component_code: str, include_playbook: bool = False, file_pa
     Runs the @symbo.ls/frank-audit rules (flat element API, signal reactivity, design
     system tokens, declarative fetch/polyglot/helmet/router, no DOM manipulation, Rule 62
     icon ban, …) against an in-memory string of code. Returns a tight report with
-    violations + warnings.
+    violations + warnings. It also warns on three STRICT shape rules: one condition
+    repeated across 3+ CSS props (Rule 19 — use isX + '.isX'), an interactive element
+    with ':hover' but no ':active' (Rule 65), a built-in Button call site overriding
+    padding / height (Rule 68).
 
     Pass `file_path` so the rules that depend on the file's folder apply where the file
     really lives: a `functions/` file is not a component (no FA903 "exported as a
@@ -1502,7 +1550,7 @@ def audit_component(component_code: str, include_playbook: bool = False, file_pa
                    route group's folder ('admin/components/AdminTable.js') is
                    audited by its path inside the group. Empty → a component.
     """
-    result = _audit_code(component_code, file_path)
+    result = _add_structural_findings(_audit_code(component_code, file_path), component_code)
     audited = result.get("file") or "components/Inline.js"
 
     output = f"""# Audit Report
@@ -1511,6 +1559,8 @@ Audited as: `{audited}` (frank slot: {_frank_slot(audited)})
 """
     if result.get("note"):
         output += f"{result['note']}\n"
+    if result.get("structural_note"):
+        output += f"{result['structural_note']}\n"
     if not (file_path or "").strip():
         output += (
             "No `file_path` given, so the code was audited as a component. Pass "
