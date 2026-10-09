@@ -1481,7 +1481,7 @@ context.plugins   = [polyglotPlugin, …]
 { text: (el) => el.call('getLang') }
 ```
 
-When `state.root.lang` changes, every fetch request gets an `Accept-Language` header automatically. The header is the **only** injection — fetch does NOT add a `lang` query parameter or RPC argument. If your backend expects `lang` in `params`, set it explicitly: `fetch: { from: 'articles', params: (el, s) => ({ lang: s.root.lang, status: 'published' }) }`.
+When `state.root.lang` changes, every declarative `fetch` request (queries and writes) gets an `Accept-Language` header automatically (a `getDB()` call sends none unless you pass it). The header is the **only** injection — fetch does NOT add a `lang` query parameter or RPC argument. If your backend expects `lang` in `params`, set it explicitly: `fetch: { from: 'articles', params: (el, s) => ({ lang: s.root.lang, status: 'published' }) }`.
 
 **Available polyglot functions** (registered automatically when `context.polyglot` is set; do NOT use `t` or `tr` — those don't exist):
 

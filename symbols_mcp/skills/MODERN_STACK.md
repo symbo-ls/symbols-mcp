@@ -204,7 +204,7 @@ upsertTranslation: (e, el) => el.call('upsertTranslation', 'ui.nav.home', 'en', 
 
 ### Fetch integration
 
-When `state.root.lang` changes (via `setLang`), `@symbo.ls/fetch` automatically adds an `Accept-Language` header to every request. The header is the **only** injection — fetch does NOT add a `lang` query parameter or RPC argument (verified at `plugins/fetch/index.js:537-540`). If your backend expects `lang` in `params`, set it explicitly:
+When `state.root.lang` changes (via `setLang`), `@symbo.ls/fetch` automatically adds an `Accept-Language` header to every declarative `fetch` request (queries and writes; a `getDB()` call sends none unless you pass the header). The header is the **only** injection — fetch does NOT add a `lang` query parameter or RPC argument. If your backend expects `lang` in `params`, set it explicitly:
 
 ```js
 fetch: { from: 'articles', params: (el, s) => ({ lang: s.root.lang, status: 'published' }) }

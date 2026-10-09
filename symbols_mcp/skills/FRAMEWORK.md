@@ -518,7 +518,7 @@ this.call('setQueryData', 'articles:select:', (old) => [...old, newOne])
 
 ### Status surfaces
 
-`el.__ref.__fetchStatus = { isFetching, isLoading, isStale, isSuccess, error, status, fetchStatus }` (verified at `plugins/fetch/index.js:394-399, 508-514`). Also `__fetching` (mirrors `isFetching`), `__fetchError` (mirrors `error`). Callbacks: `onFetchStart`, `onFetchComplete`, `onFetchError`.
+`el.__ref.__fetchStatus = { isFetching, isLoading, isStale, isSuccess, error, status, fetchStatus }` (`plugins/fetch/index.js`). Also `__fetching` (mirrors `isFetching`), `__fetchError` (mirrors `error`). Callbacks: `onFetchStart`, `onFetchComplete`, `onFetchError`.
 
 Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error` if needed.
 
@@ -628,9 +628,10 @@ re-evaluates inside text-effect createEffect on state change:
 
 ### Auto integration with fetch
 
-When polyglot sets `state.root.lang`, every fetch request gets an
-`Accept-Language` header automatically (verified at
-`plugins/fetch/index.js:537-540`). The header is the only injection;
+When polyglot sets `state.root.lang`, every declarative `fetch` request
+(queries and writes) gets an `Accept-Language` header automatically, and a
+query's cache key ends in `:<lang>`; a `getDB()` call sends no language unless
+you pass the header (`plugins/fetch/index.js`). The header is the only injection;
 fetch does NOT add a `lang` query parameter or RPC argument. If your
 backend expects `lang` in `params`, set it explicitly:
 
