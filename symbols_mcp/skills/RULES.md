@@ -1562,6 +1562,8 @@ import { fetchPlugin } from '@symbo.ls/fetch'
 context.plugins = [routerPlugin, fetchPlugin, polyglotPlugin, helmetPlugin]
 ```
 
+`@symbo.ls/sync` (live sync for the editor and `smbls start`) is on by default, but it loads socket.io-client only when the configuration names a sync transport (`editor.socketUrl` / `settings.socketUrl`, or the runner), so a production page never downloads it; `sync: false` removes the plugin.
+
 ---
 
 ## Rule 53 — Always run frank to recompile JSON when modifying templates
