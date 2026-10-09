@@ -659,15 +659,13 @@ When to use: Any element that needs server data. **Never call `window.fetch` fro
 ```js
 // CORRECT — declarative fetch
 export const ProjectList = {
-  state: { items: [] },
-
+  state: { items: [], error: null },
   fetch: {
-    url: (el, s) => `/api/projects?org=${s.root.orgId}`,
-    method: 'GET',
-    onSuccess: (data, el, s) => s.update({ items: data.projects }),
-    onError: (err, el, s) => s.update({ error: err.message })
+    from: 'projects',
+    as: 'items',
+    params: (el, s) => ({ org: s.root.orgId })
   },
-
+  onFetchError: (err, el, s) => s.update({ error: err?.message || String(err) }),
   childExtends: 'ProjectTile',
   children: (el, s) => s.items
 }
@@ -683,10 +681,14 @@ export const ProjectList = {
 ```
 
 The `fetch:` prop:
-- Re-runs whenever the reactive `url` changes.
-- Hands `data` to `onSuccess(data, el, s)`.
-- Hands errors to `onError(err, el, s)`.
+- Reads through the adapter in `config.js` `fetch` (`from` is the table or endpoint, `as` the state key).
+- Re-runs when a reactive `params` value changes; caches and dedupes by key.
+- Calls `onFetchStart(el, s)`, `onFetchComplete(data, el, s)`, `onFetchError(error, el, s)` (on the element or inside `fetch`).
 - Aborts in-flight requests on element teardown.
+
+#### Seeding the early registry from a server render
+
+A server that already fetched the first view's data can hand the answers to the client, so the REST adapter does not ask again. `@symbo.ls/fetch` exports `createEarlySeedScript(entries)` (entries: `{ url, lang, status, type, body }`), `earlyKey(url, lang)` and `EARLY_KEY`; brender's `fetchSeed` + `adoptionScripts` use them. The adapter adopts a seeded answer once, and only for a call with no header beyond `Accept-Language` (a signed-in call never takes it).
 
 ### Polyglot — internationalised strings
 
