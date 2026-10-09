@@ -718,6 +718,8 @@ Three things the rule deliberately does NOT do:
 - **A longhand that resolves to a theme PAIR stays in its class.** `backgroundColor: 'primary'` under `@dark`/`@light` has no single inline value, so a reactive `background` still wins over it. Write the reactive half as a longhand too when you need both.
 - **`style: (el, s) => ({ … })` is untouched.** The raw-style escape hatch is inline by contract and beats every class, longhand included.
 
+A CSS block that sets the SAME property as a reactive prop — `:hover`, `:active`, `:focus-visible`, `@dark`, a media block — is emitted with `!important`, so the block still wins while it applies: `background: (el, s) => …` plus `':hover': { background: 'gray1' }` repaints on hover.
+
 Where a preset and a prop disagree the ladder is unchanged: `theme` < design-system `class` fragment < the element's own prop. A reactive prop is the element's own prop, so it beats both.
 
 ---
@@ -948,7 +950,7 @@ export const Layout = {
 
 ## Boolean / Computed Conditional Props
 
-`is*`, `has*`, `use*` prefixes are treated as boolean conditions when followed by a function. Pair with `'.isX'` blocks (Rule 19):
+`is*`, `has*`, `use*` prefixes are treated as boolean conditions when followed by a function. Pair with `'.isX'` blocks (RULES Rule 19 → Conditional props):
 
 ```js
 export const TabBtn = {

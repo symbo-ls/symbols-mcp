@@ -813,7 +813,7 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 | `document.createElement(tag)` | Nest a child key: `Child: { tag }` |
 | `el.appendChild(child)` | Add as object key, or `children` array |
 | `el.removeChild(child)` | `if: (el, s) => condition` |
-| `el.classList.add/remove/toggle` | `isX` + `'.isX'` (Rule 19) or `class: { name: bool }` |
+| `el.classList.add/remove/toggle` | `isX` + `'.isX'` (Rule 19 → Conditional props) or `class: { name: bool }` |
 | `el.style.X = …` | DOMQL CSS-in-props (`color: …`, etc.) |
 | `el.style.display = 'none'` | `show:` / `hide:` (keep in DOM) or `if:` (remove) |
 | `el.innerHTML = '...'` | `text:` or `html:` prop |

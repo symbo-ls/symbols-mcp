@@ -288,6 +288,30 @@ Object.assign(cases, {
   }
 })
 
+// SYNTAX "Reactive CSS Props Write Inline": a block that sets the same
+// property as a reactive (inline) prop is emitted with !important, so the
+// block still wins while it applies.
+Object.assign(cases, {
+  async reactiveBaseBlocksWin () {
+    const app = await mount({
+      state: { on: false },
+      Swatch: {
+        background: (el, s) => s.on ? 'blue' : 'red',
+        ':hover': { background: 'green' },
+        ':active': { background: 'green' },
+        '@dark': { background: 'green' }
+      }
+    })
+    const node = app.Swatch.node
+    expect(/background/.test(node.style.cssText), 'reactive background is inline')
+    const own = ownRules(node)
+    for (const sel of [':hover', ':active', '[data-theme="dark"]']) {
+      const rule = own.split('\n').find((t) => t.includes(sel) && /background/.test(t))
+      expect(rule && /!important/.test(rule), `${sel} block carries !important: ${rule}`)
+    }
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {

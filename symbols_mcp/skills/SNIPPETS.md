@@ -45,7 +45,8 @@ export const Header = {
       text: '{{ value | polyglot }}',
       href: (el, s) => '/' + s.value.toLowerCase(),
       textDecoration: 'none',
-      ':hover': { opacity: '.7' },
+      ':hover': { color: 'primary' },
+      ':active': { color: 'primary-10' },
       onClick: (e, el, s) => {
         e.preventDefault()
         el.router('/' + s.value.toLowerCase(), el.getRoot())
@@ -114,13 +115,11 @@ export const Hero = {
     align: 'center',
     Button_Primary: {
       text: '{{ getStarted | polyglot }}',
-      theme: 'primary',
-      padding: 'Z2 B'
+      theme: 'primary'
     },
     Button_Secondary: {
       text: '{{ learnMore | polyglot }}',
-      theme: 'secondary',
-      padding: 'Z2 B'
+      theme: 'secondary'
     }
   }
 }
@@ -257,8 +256,7 @@ export const PriceCard = {
   Button: {
     text: '{{ getStarted | polyglot }}',
     theme: 'primary',
-    width: '100%',
-    padding: 'Z2'
+    width: '100%'
   }
 }
 ```
@@ -347,6 +345,7 @@ export const SearchDropdown = {
       padding: 'Z A',
       cursor: 'pointer',
       ':hover': { background: 'hover' },
+      ':active': { background: 'hover+10' },
       onClick: (e, el, s) => {
         s.root.update({ query: s.value })
       }
