@@ -684,7 +684,9 @@ DarkLogo: { extends: 'Icon', icon: 'logoDark', display: 'none', '@dark': { displ
 ## 26. Module-level helpers — banned, use `functions/` + `el.call()` or `el.scope`
 
 ```js
-// ❌ WRONG — variable / helper outside the export (lost during platform serialization)
+// ❌ WRONG — variable / helper outside the export: frank hoists both into the project's ONE shared
+//    globalScope as TAX_RATE / formatPrice (Rule 33) — a same-name declaration in another file, or an
+//    element `scope` key of that name, collides with them
 const TAX_RATE = 0.08
 const formatPrice = (n) => `$${n.toLocaleString()}`
 
@@ -692,16 +694,16 @@ export const PriceCard = {
   text: (el, s) => formatPrice(s.price * (1 + TAX_RATE))
 }
 
-// ✅ CORRECT — register in functions/, call via el.call
+// ✅ CORRECT — register in functions/, call via el.call; its constant lives inside it
 // functions/formatPrice.js
 export const formatPrice = function formatPrice(amount) {
-  return `$${amount.toLocaleString()}`
+  const TAX_RATE = 0.08
+  return `$${(amount * (1 + TAX_RATE)).toLocaleString()}`
 }
-export const TAX_RATE = 0.08
 
 // components/PriceCard.js
 export const PriceCard = {
-  text: (el, s) => el.call('formatPrice', s.price * 1.08)
+  text: (el, s) => el.call('formatPrice', s.price)
 }
 
 // ✅ CORRECT — el.scope for shared local instance values

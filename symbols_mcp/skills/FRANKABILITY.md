@@ -533,9 +533,13 @@ hand-writing a Symbols project file, verify ALL of:
 1. ✅ **No top-level `import { X } from 'npmpkg'`** for runtime-only deps —
    must be dynamic `await import('npmpkg')` inside the handler. (FA206)
 2. ✅ **No sync `require('X')`** anywhere — always async `import()`. (FA206)
-3. ✅ **No module-scope `const`/`let`** captured by exported handlers (other
-   than environment-independent constants like `const SCALE = 1.25`). Use
-   `scope: { X }` or `globalScope.js`. (FA201–204)
+3. ✅ **No module-scope `const`/`let`/helpers** read by exported handlers.
+   frank hoists an environment-independent one (`const SCALE = 1.25`) into the
+   project's ONE shared `globalScope` under its own name, so it publishes —
+   but a same-name declaration in another file or an element `scope` key
+   collides with it. Use `scope: { X }` (one component), `globalScope.js`
+   (several files) or a local inside the `functions/` export. (Rule 33,
+   FA201–204)
 4. ✅ **Nested helper functions inside lifecycle methods use `const X = () => {}`** —
    never `function X () {}`. (FA207)
 5. ✅ **HTML attributes are flat props** (`placeholder`, `type`, etc.), NOT
@@ -562,7 +566,7 @@ hand-writing a Symbols project file, verify ALL of:
 
 1. **No imports between sibling project files** outside the allow-list (`index.js`, `context.js`, `app.js`, `dependencies.js`, `sharedLibraries.js`).
 2. **No `let` / `var` at module scope** in component / page / snippet files. (Mutable state lives in `globalScope.js`.)
-3. **No module-scope `const` referenced by handlers** unless it's a closure scoped via `scope: { X }`.
+3. **No module-scope `const` or helper referenced by handlers** — `scope: { X }`, `globalScope.js` or a local inside the function (Rule 33).
 4. **No `el.props.X`, `el.on.event`, `props: {}`, `on: {}`, `attr: { placeholder }`, or `({ props, state })` signatures.** All flattened.
 5. **Every sub-folder `index.js` re-exports every sibling file.**
 6. **`components/index.js` uses `export *`, never `export * as`.**

@@ -941,24 +941,33 @@ State drives the UI. Children react automatically — never find DOM nodes, neve
 
 ## Rule 33 — NEVER use module-level variables, helpers, closures — use `functions/` + `el.call`, or `el.scope`
 
-Functions and variables defined outside the component object are NOT available at runtime. The platform serializes components — closures, helpers, and module-level constants are lost.
+Keep module scope EMPTY in `components/`, `pages/`, `snippets/` and `functions/` files: no `const` / `let` / `var` or helper outside the export.
+
+frank does not drop a module-level constant or helper that a function reads: it evaluates the module at publish and hoists the value into the project's ONE shared `globalScope` under its own name, rewriting the read to `__scope.<name>`. That keeps an environment-independent value (a literal, a pure helper) working, but it is a fallback with three costs:
+
+- **One flat namespace per project.** Two files that both declare `DEFAULT` publish as `DEFAULT` and `DEFAULT2` with a `scope-read-name-collision` warning, or the publish is refused (`module-scope-name-conflict`) when frank cannot tell which declaration a read means.
+- **Shadowing at runtime.** The read resolves through the calling element's scope chain (`el.scope` → … → `context.globalScope`), so an element whose own `scope` has a key of that name silently replaces the value.
+- **Computed where frank runs.** A value that reads `window`, `document` or an import is evaluated at publish, not in the browser.
+
+frank-audit flags mutable `let` / `var` (FA201), a helper or constant several files share (FA202 / FA203), a constant one component's functions read (FA204) and factory closures (FA205). It does not flag a helper only one file uses, a constant inside a `functions/` file, or a module-level object spread into a component — review those by hand.
 
 ```js
-// ❌ — variables outside scope
+// ❌ — variables outside scope (hoisted into the shared globalScope as TAX_RATE / formatPrice)
 const formatPrice = (n) => `$${n.toLocaleString()}`
 const TAX_RATE = 0.08
 export const PriceCard = {
   text: (el, s) => formatPrice(s.price * (1 + TAX_RATE))
 }
 
-// ✅ — functions/ + el.call
+// ✅ — functions/ + el.call; the constant lives inside the function
 // functions/formatPrice.js
 export const formatPrice = function formatPrice(amount) {
-  return `$${amount.toLocaleString()}`
+  const TAX_RATE = 0.08
+  return `$${(amount * (1 + TAX_RATE)).toLocaleString()}`
 }
 // components/PriceCard.js
 export const PriceCard = {
-  text: (el, s) => el.call('formatPrice', s.price * 1.08)
+  text: (el, s) => el.call('formatPrice', s.price)
 }
 
 // ✅ — el.scope for shared local values within a component instance
@@ -976,8 +985,17 @@ export const FilterPanel = {
 }
 ```
 
+| What | Where |
+| -- | -- |
+| A value one component uses | `scope: { X }` on that component (FA204) |
+| A value or helper several files use | `globalScope.js`, declared once, under a distinctive name (FA202 / FA203) |
+| A callable helper | `functions/X.js` + `el.call('X', …)` |
+| A constant a `functions/` export needs | inside the function |
+| A style cluster several parts share | a component + `extends` / `childProps` (Rule 61), not a module-level object or helper spread into them |
+| Mutable state | `globalScope.js` (FA201), or `el.scope` per instance |
+
 **What's safe:** component object properties, state, `text:`, `if:`, `show:`, `onX:` handler bodies (they're stringified during push to the platform).
-**What is lost:** `const`/`let`/`var` outside the export, imported helpers, closures, module-level side effects.
+**What breaks:** closures over a factory's parameters (FA205), module-level side effects (they run at publish, not in the browser), imports between project files (FA001).
 
 ---
 
