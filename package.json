@@ -1,6 +1,6 @@
 {
   "name": "@symbo.ls/mcp",
-  "version": "3.14.771",
+  "version": "3.14.772",
   "description": "Symbols.app MCP — docs, code generation, publishing, CLI/SDK reference",
   "mcpName": "io.github.symbo-ls/symbols-mcp",
   "files": [
