@@ -101,6 +101,11 @@ def _run_frank_audit(*args, stdin_data=None, timeout=120):
 # ---------------------------------------------------------------------------
 SKILLS_DIR = os.getenv("SYMBOLS_SKILLS_DIR", str(Path(__file__).resolve().parent / "skills"))
 
+try:
+    PACKAGE_VERSION = _pkg_version("symbols-mcp")
+except PackageNotFoundError:
+    PACKAGE_VERSION = "dev"
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("symbols-mcp")
 
@@ -248,6 +253,11 @@ mcp = FastMCP(
         "user-global ~/.claude/ install."
     ),
 )
+# FastMCP's constructor has no `version=` kwarg, so the low-level Server it
+# builds internally defaults to importlib.metadata.version("mcp") — the SDK's
+# own version, not ours. `version` is a plain mutable attribute on that
+# low-level server (read fresh on each `initialize`), so set it explicitly.
+mcp._mcp_server.version = PACKAGE_VERSION
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -2620,11 +2630,7 @@ def _looks_like_project_key(project: str) -> bool:
 
 
 def _mcp_client_string() -> str:
-    try:
-        ver = _pkg_version("symbols-mcp")
-    except PackageNotFoundError:
-        ver = "dev"
-    return f"symbols-mcp@{ver}"
+    return f"symbols-mcp@{PACKAGE_VERSION}"
 
 
 def _read_cwd_lock_project_id() -> str | None:
@@ -3567,12 +3573,8 @@ def _print_banner(transport: str, host: str | None = None, port: int | None = No
 
     stderr is safe — stdio MCP only uses stdout for JSON-RPC frames.
     """
-    try:
-        ver = _pkg_version("symbols-mcp")
-    except PackageNotFoundError:
-        ver = "dev"
     where = f"http://{host}:{port}" if transport == "sse" else "stdio (waiting for JSON-RPC client on stdin)"
-    print(f"symbols-mcp {ver} → {where}", file=sys.stderr, flush=True)
+    print(f"symbols-mcp {PACKAGE_VERSION} → {where}", file=sys.stderr, flush=True)
     if transport != "sse":
         print("  (running in a terminal? this server expects a JSON-RPC client — Ctrl-C to exit)", file=sys.stderr, flush=True)
 
