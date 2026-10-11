@@ -1000,6 +1000,8 @@ onRender: (el) => {
 | **`globalScope`** / root state | Entire app (every component reads same value) | Yes (signal) | App-wide UI state that is NOT business data (active theme, sidebar open/closed, current modal id) — update via `s.rootUpdate({...})` or `el.getRootState().update({...})` |
 | **`context`** | Passed at `create(app, context)` boot | No (config-like) | Project-level config + registered functions (`context.functions`, `context.designSystem`, `context.fetch`) |
 
+**Where an `el.scope` write lands.** A key some scope already declares is written to that owner — the nearest ancestor whose `scope: {}` declares it, else `globalScope.js` (smbls ≥ 3.14.834) — so every part that reads it sees the new value. A key nobody declares lands on the nearest element that declares its own `scope`, so two scoped parts of one page get SEPARATE bags (a navbar cannot read what the scene wrote). Page-wide data: declare the key on the root (`scope: { memo: null }` in the app/root definition, or in `globalScope.js`) and write it through any `el.scope`; or write `el.getRoot().scope.memo` directly. Never a module `let`, never `globalThis`.
+
 ### Correct patterns for each channel
 
 ```js

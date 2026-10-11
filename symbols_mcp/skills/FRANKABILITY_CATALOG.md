@@ -825,6 +825,7 @@ Use the framework element tree:
   Good:   const root = el.getRootState()                 // what 'state' was
   Good:   const ctx  = el.context                        // assembled context
   Good:   el.context.globalScope.myThing = ...           // long-lived shared data
+  Good:   el.getRoot().scope.myThing = ...               // page-wide; or declare it on the root scope
 
 For boot-time bridges that need to run before any element exists,
 declare a function in `functions/` and accept `el` as the first arg —
