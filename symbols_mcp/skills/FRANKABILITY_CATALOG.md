@@ -1561,6 +1561,47 @@ finding, count or prescription. Name it to run it:
 
 symbols-mcp's audit_component runs the same check; the two agree.
 
+# FA813 — if-in-flow
+
+Bad:    SearchBar: { flow: 'x', Field: { extends: 'Input' },
+          ClearBtn: { extends: 'Button', if: (el, s) => !!s.root.query, text: 'Clear' } }
+        // enters the row on the first keystroke and shoves its neighbours
+Good:   ClearBtn: {
+          extends: 'Button',
+          text: 'Clear',
+          visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
+          pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
+          tabindex: (el, s) => (s.root.query ? '0' : '-1'),
+          aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+        }
+
+An `if:` adds and removes its node, so everything beside it in the
+flow moves when it toggles — layout shift, the most-reported UI defect
+in review. Chrome (a Clear button, a result count, a status line)
+keeps its box: mounted, hidden, neither clickable nor focusable. A
+`role="status"` live region must exist before its text changes, so
+an `if:` also silences the announcement it was written for.
+
+Reported: a nested element with a sibling, an `if:` that reads state
+(`(el, s) => …s…`, `({ state }) => …`, `….state`), not out of the
+flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow
+built-in such as Dropdown or ModalRoot). One file cannot tell chrome
+from content: a list swapped for its empty state is reported too.
+Keep a meant one with `// frank-allow FA813` on the line above it; a
+read-then-dismiss panel belongs on an overlay (fixed panel + backdrop).
+
+## Opt-in
+
+FA813 is not in the default rule set: a default run reports no FA813
+finding, count or prescription. Name it to run it:
+
+  frank-audit audit <dir> --rule FA813
+  smbls frank-audit --rule FA813
+  audit(dir, { ruleIds: new Set(['FA813']) })   // HTTP: { ruleIds: ['FA813'] }
+  eslint: rules: { 'frank/FA813': 'warn' }
+
+symbols-mcp's audit_component runs the same check; the two agree.
+
 ---
 
 ## FA9xx — Reference resolution

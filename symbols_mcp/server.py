@@ -837,7 +837,7 @@ STRUCTURAL_CHECKS = Path(__file__).parent / "checks" / "structural.cjs"
 
 
 def _structural_checks(code: str) -> list[dict] | None:
-    """Shape checks for the STRICT rules a regex cannot see (Rules 19, 65, 68).
+    """Shape checks for the STRICT rules a regex cannot see (Rules 19, 65, 66, 68).
 
     One implementation, `checks/structural.cjs`, serves this server and the
     Node one (bin/symbols-mcp.cjs). Returns warning entries, or None when
@@ -863,7 +863,7 @@ def _structural_checks(code: str) -> list[dict] | None:
 def _add_structural_findings(result: dict, code: str) -> dict:
     found = _structural_checks(code)
     if found is None:
-        result["structural_note"] = "Structural checks (Rules 19, 65, 68) need `node`; they did not run."
+        result["structural_note"] = "Structural checks (Rules 19, 65, 66, 68) need `node`; they did not run."
         return result
     if not found:
         return result
@@ -1518,10 +1518,11 @@ def audit_component(component_code: str, include_playbook: bool = False, file_pa
     Runs the @symbo.ls/frank-audit rules (flat element API, signal reactivity, design
     system tokens, declarative fetch/polyglot/helmet/router, no DOM manipulation, Rule 62
     icon ban, …) against an in-memory string of code. Returns a tight report with
-    violations + warnings. It also warns on three STRICT shape rules: one condition
+    violations + warnings. It also warns on four STRICT shape rules: one condition
     repeated across 3+ CSS props (Rule 19 — use isX + '.isX'), an interactive element
-    with ':hover' but no ':active' (Rule 65), a built-in Button call site overriding
-    padding / height (Rule 68).
+    with ':hover' but no ':active' (Rule 65), a state-driven `if:` on an element in
+    flow beside siblings (Rule 66 — keep it mounted, toggle visibility), a built-in
+    Button call site overriding padding / height (Rule 68).
 
     Pass `file_path` so the rules that depend on the file's folder apply where the file
     really lives: a `functions/` file is not a component (no FA903 "exported as a

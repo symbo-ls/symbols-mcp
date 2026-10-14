@@ -13,6 +13,11 @@ its current RULES.md number. Fixtures below follow the report's examples;
 the clean ones are the forms the rules ask for. The existing validator
 fixtures must stay clean.
 
+The XMA report (item 19) added Rule 66: its own wrong example — a Clear
+button gated by `if:` in a row — passed audit_component with no word about
+it. A state-driven `if:` on an element in flow beside siblings is now a
+warning (frank-audit FA813, opt-in there).
+
 A fourth report item — a reactive `fill`/`color`/`background` under a
 `:hover` block for the same property — is NOT a check: the runtime emits
 that block's declaration with `!important`, so the hover wins (pinned by
@@ -116,6 +121,48 @@ export const Toolbar = {
 }
 """
 
+# RULES.md Rule 66's wrong example, as the XMA report quotes it.
+IF_IN_FLOW = """export const SearchBar = {
+  flow: 'x',
+  Field: { extends: 'Input' },
+  ClearBtn: { extends: 'Button', if: (el, s) => !!s.root.query, text: (el) => el.call('polyglot', 'clear') }
+}
+
+export const Row = {
+  Label: { text: 'x' },
+  Badge: { if: ({ state }) => state.count > 0 },
+  Spinner: { if: (el) => !!el.state.loading }
+}
+"""
+
+# The right form, and every shape that moves nothing.
+IF_QUIET = """export const SearchBar = {
+  flow: 'x',
+  Field: { extends: 'Input' },
+  ClearBtn: {
+    extends: 'Button',
+    visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
+    pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
+    tabindex: (el, s) => (s.root.query ? '0' : '-1'),
+    aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+  }
+}
+
+export const Row = {
+  Label: { text: 'x' },
+  Tip: { position: 'absolute', if: (el, s) => s.tip },
+  Toast: { position: 'fixed', if: (el, s) => s.toast },
+  Menu: { extends: 'Dropdown', if: (el, s) => s.open },
+  ModalRoot: { if: (el, s) => s.modal },
+  Icon: { if: (el) => !!el.parent.icon },
+  Never: { if: false }
+}
+
+export const Alone = {
+  Badge: { if: (el, s) => s.count > 0 }
+}
+"""
+
 # The fixtures of the other validator tests (Python and Node).
 EXISTING = [
     """export const PriceCard = {
@@ -186,6 +233,26 @@ def test_rule_68_quiet_for_a_variant_and_other_props():
     assert _python(BUTTON_CLEAN) == []
 
 
+def test_rule_66_state_driven_if_in_flow():
+    found = _python(IF_IN_FLOW)
+    assert _rules(found) == ["Rule 66", "Rule 66", "Rule 66"]
+    assert [f["line"] for f in found] == [4, 9, 10]
+    assert "SearchBar › ClearBtn: `if:` adds and removes this element" in found[0]["message"]
+    for word in ("visibility", "pointerEvents", "tabindex", "aria.hidden", "FA813"):
+        assert word in found[0]["message"]
+
+
+def test_rule_66_quiet_for_the_right_form_and_out_of_flow_elements():
+    assert _python(IF_QUIET) == []
+
+
+def test_python_report_lists_rule_66(monkeypatch):
+    monkeypatch.setattr(server, "FRANK_AUDIT_URL", None)
+    monkeypatch.setattr(server, "_run_frank_audit", lambda *a, **k: {"ok": True, "findings": []})
+    out = server.audit_component(IF_IN_FLOW)
+    assert out.split("## Warnings")[1].count("[Rule 66]") == 3
+
+
 @pytest.mark.parametrize("code", EXISTING)
 def test_existing_fixtures_stay_clean(code):
     assert _python(code) == []
@@ -214,10 +281,10 @@ def _node_audit(code):
     return reply["result"]["content"][0]["text"]
 
 
-@pytest.mark.parametrize("code", [REPEATED_CONDITION, HOVER_NO_ACTIVE, BUTTON_PADDING, ISX_FORM, BUTTON_CLEAN])
+@pytest.mark.parametrize("code", [REPEATED_CONDITION, HOVER_NO_ACTIVE, BUTTON_PADDING, ISX_FORM, BUTTON_CLEAN, IF_IN_FLOW, IF_QUIET])
 def test_node_server_reports_the_same_findings(code):
     text = _node_audit(code)
     for f in _python(code):
         assert f["message"] in text
-    for rule in ("[Rule 19]", "[Rule 65]", "[Rule 68]"):
+    for rule in ("[Rule 19]", "[Rule 65]", "[Rule 66]", "[Rule 68]"):
         assert text.count(rule) == sum(1 for f in _python(code) if f["message"].startswith(rule))
