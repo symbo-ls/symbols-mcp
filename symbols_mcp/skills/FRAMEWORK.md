@@ -983,6 +983,10 @@ smbls build                     # build SPA + brender pre-render
 smbls build --no-brender        # SPA only
 ```
 
+**Lean app bundles — `smbls/core`.** The `smbls` entry is the full runtime: it registers every bundled package on `globalThis.__SMBLS_PKGS__`, which published or fetched project code (frank-serialized functions, libraries fetched with `smbls fetch --scope libs`, raw JSON handed to `create()`) reads synchronously — and that registry keeps every export alive, so a bundler can drop nothing. `smbls/core` is the same API without the registry (no `registerHostPackages`), without the Simone client and socket.io, code-split so each kit and platform plugin is a file loaded only when switched on. For a parcel build, set `"smblsEntry": "core"` in `symbols.json` (CLI.md → Dev / build / deploy): every bare `smbls` import then resolves to `smbls/core`. Never import both entries in one app (two copies of the runtime), and never use `core` for an app that runs published or fetched code — its registry reads get `{}`.
+
+On both entries the kits and platform plugins load only when the configuration switches them on, before the first render: `windows` / `dropdown` / `tooltip` (on by default, `false` keeps each out), `analyze`, `shorthand`, `inspect`, `fetch`, and live sync (`@symbo.ls/sync`, only with an `editor` config, `settings.socketUrl` or `notifications: true`). Turn off the kits an app does not use.
+
 ### `smbls deploy`
 
 Targets a static host:
