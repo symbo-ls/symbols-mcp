@@ -33,24 +33,22 @@ The CLI looks at three files in priority order, walking up from CWD until it hit
 | `.symbols_local/libs/` | Scaffolded shared libraries (read-only) | ⛔ gitignored |
 | `.symbols_local/snapshots/` | Pre-write source snapshots for `restore` | ⛔ gitignored |
 
-API URL resolution order (verified `helpers/config.js:128-167`):
+API URL resolution order (`helpers/config.js` `loadCliConfig`; `push` and `publish` print which one decided):
 
-1. `SYMBOLS_API_BASE_URL` env var
-2. `.symbols_local/config.json` `channel` field → `apiUrl(channel)` from `@symbo.ls/channels`
-3. `.symbols_local/config.json` `apiBaseUrl` literal (legacy)
-4. Legacy `.smblsrc` `apiUrl` (legacy)
-5. `useLocal: true` in `symbols.json` → channel `local`
-6. `useNext: true` in `symbols.json` (default) → channel `next`
-7. Global credential manager (set by `smbls login`)
-8. Channel `production` (final fallback)
+1. `SYMBOLS_API_BASE_URL` env var — the one per-call pin that always wins
+2. `--local` / `SYMBOLS_LOCAL=true` → channel `local`
+3. `.symbols_local/config.json` `channel` field → `apiUrl(channel)` from `@symbo.ls/channels`
+4. `.symbols_local/config.json` `apiBaseUrl` literal (legacy)
+5. Legacy project `.smblsrc` `apiUrl`
+6. `useLocal: true` in `symbols.json` → channel `local`
+7. This machine's ACTIVE channel — `~/.smblsrc` `currentApiBaseUrl`, shared by every shell and agent on the machine. Set by `smbls channels`, `smbls login --use`, or the first sign-in; never by a token refresh or a plain `smbls login`
+8. `@symbo.ls/channels` `defaultChannel` (production) — only when no active channel is recorded
 
-Env-var URL overrides (always win, no editing files needed):
+`NODE_ENV` changes only step 8. `SYMBOLS_API_URL` replaces the URL a channel NAME resolves to (steps 2, 3, 6, 8), never a literal URL (steps 1, 4, 5, 7). So neither moves a target that comes from the machine's active channel: pin a call with `SYMBOLS_API_BASE_URL`.
 
-- `SYMBOLS_API_URL` — direct URL override
-- `NODE_ENV` — channel name (`local`, `development`, `next`, `test`, `upcoming`, `staging`, `preview`, `production`)
 - `SYMBOLS_PROJECT_KEY`, `SYMBOLS_PROJECT_ID`, `SYMBOLS_BRANCH`, `SYMBOLS_OWNER` — per-process project pin
 
-Auth tokens live in the OS keychain via `CredentialManager` (`helpers/credentialManager.js`); not in `.symbols_local/`. Wipe with `smbls logout`.
+Credentials live in `~/.smblsrc` (one profile per API base URL), via `CredentialManager` (`helpers/credentialManager.js`); not in `.symbols_local/`. Wipe with `smbls logout`. `smbls whoami` shows the active channel.
 
 ---
 
@@ -129,6 +127,8 @@ Non-interactive login (CI/MCP/agents):
 smbls login --non-interactive --token <token>
 smbls login --non-interactive --email <email> --password <password>
 ```
+
+A sign-in saves that API base's profile and leaves the ACTIVE channel as it was — `smbls login --api-base-url https://api.symbols.app` signs in to production without making it the machine's channel, and says which channel stays active. `--use` switches too; the first sign-in on a machine sets it. Login never pins the current directory's project (`.symbols_local/config.json`).
 
 Long-lived tokens (CI / service accounts, e.g. a release pipeline that needs a durable credential instead of a short-lived session token):
 
@@ -411,8 +411,8 @@ For full pre-publish checklist + common failures table see `FRAMEWORK.md` §10.
 These are **hard requirements** when the CLI is invoked from a non-TTY agent (MCP, CI, automation):
 
 1. **Always pass `--non-interactive`.** Without it, any missing required input opens an `inquirer` prompt that blocks forever. The CLI does not auto-answer.
-2. **Always pass `-y, --yes`** for any command that has a "Are you sure?" confirmation gate (publish, delete, restore, project create, github connect, integrations purchase). Different flag from `--non-interactive` — this one APPROVES, that one DISABLES prompts.
-3. **Pin the channel explicitly** with `NODE_ENV=<name>` env var (or `--local`/`--next`/`--no-next` flag). Don't rely on the `next` default — agents may be running against `production` in deployment.
+2. **Always pass `-y, --yes`** for any command that has a "Are you sure?" confirmation gate (publish, delete, restore, project create, github connect, integrations purchase). Different flag from `--non-interactive` — this one APPROVES, that one DISABLES prompts. `push` and `publish` print their target first (`Target: <channel> · <API base> · branch … (from <setting>)`); a PRODUCTION target needs `--yes` on the call (a terminal user types `production` instead) — without it they exit 1 before auth. A `yes` default in `symbols.json` does not confirm production.
+3. **Pin the channel explicitly** with `SYMBOLS_API_BASE_URL=<url>` on the call. `NODE_ENV` / `SYMBOLS_API_URL` do not move a target that comes from the machine's active channel, and that channel is shared by every shell — another session may have switched it.
 4. **Authenticate via token, not browser.** Agent flows can't open a browser. Use:
    ```bash
    SYMBOLS_TOKEN=<token> smbls <cmd>
@@ -426,7 +426,7 @@ These are **hard requirements** when the CLI is invoked from a non-TTY agent (MC
 
 ```bash
 # Set channel + auth once per session
-export NODE_ENV=next
+export SYMBOLS_API_BASE_URL=https://dev.api.symbols.app
 export SYMBOLS_TOKEN=<from-secret-store>
 
 # Then run with hard non-interactive + auto-confirm:
