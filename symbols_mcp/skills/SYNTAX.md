@@ -739,6 +739,7 @@ Where a preset and a prop disagree the ladder is unchanged: `theme` < design-sys
 - One-value-type shorthands state every longhand: `borderWidth`, `borderStyle`, `borderColor`, `padding`, `margin`, `inset`, `gap`, `overflow`, `borderRadius`, `place*`, `scrollMargin` / `scrollPadding`. An instance's `padding: 'A'` replaces the base's `paddingTop`.
 - A line shorthand (`border`, `borderTop`…, `outline`, `columnRule`) states width, style and colour when it has three words. With fewer words it states only a style keyword: `border: 'none'` resets only the style.
 - Positional shorthands (`background`, `transition`, `animation`, `font`, `flex`, `grid`, …) never remove a base longhand. To override one, write the longhand.
+- A `theme:` preset sits below every layer. A shorthand the element declares (or a `class` fragment sets) overrides each theme longhand it states, in every colour scheme: `{ extends: 'Input', border: '1px solid grayMid' }` paints grayMid, not the `field` theme's `borderColor`. A longhand the shorthand does not state stays the theme's: `border: '1px solid'` keeps the theme's border colour.
 - A pseudo or selector block key gets `!important` when the element writes the same property, or any member of its shorthand family, inline. So `':focus-visible': { outlineColor: 'accent' }` recolours a `Link` / `Focusable` ring.
 
 ---
