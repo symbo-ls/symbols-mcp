@@ -410,6 +410,58 @@ Object.assign(cases, {
   }
 })
 
+// SYNTAX: "A base that owns a lifecycle step" and "View events".
+Object.assign(cases, {
+  // The base's `always` onRender runs although Card declares its own.
+  async alwaysLifecycle () {
+    const [[, Tracked], [, Card]] = docExports('SYNTAX.md', 'never instead of it')
+    const seen = []
+    await mount({ Item: { extends: 'Card' } }, {
+      components: { Tracked, Card },
+      functions: { trackImpression (key) { seen.push(key) } }
+    })
+    eq(JSON.stringify(seen), '["Item"]', "Tracked's onRender ran beside Card's own")
+  },
+
+  // Rise rises once at its threshold; onLeaveView runs on the way out.
+  async viewEvents () {
+    const [[, Rise]] = docExports('SYNTAX.md', 'every component that extends Rise keeps this step')
+    const observers = []
+    class FakeIO {
+      constructor (cb, options) { this.cb = cb; this.options = options || {}; this.targets = new Set(); observers.push(this) }
+      observe (node) { this.targets.add(node) }
+      unobserve (node) { this.targets.delete(node) }
+      disconnect () { this.targets.clear() }
+    }
+    const had = dom.window.IntersectionObserver
+    dom.window.IntersectionObserver = FakeIO
+    try {
+      const paused = []
+      const app = await mount({ Card: { extends: 'Rise' } }, {
+        components: { Rise },
+        functions: { pausePreview (el) { paused.push(el.key) } }
+      })
+      const node = app.Card.node
+      const deliver = (ratio) => {
+        for (const io of observers) {
+          if (io.targets.has(node)) io.cb([{ target: node, isIntersecting: ratio > 0, intersectionRatio: ratio, time: 1 }], io)
+        }
+      }
+      eq(node.getAttribute('data-rise'), 'wait', 'waits before it is seen')
+      deliver(0.05)
+      eq(node.getAttribute('data-rise'), 'wait', 'below threshold 0.1: still waiting')
+      deliver(0.5)
+      eq(node.getAttribute('data-rise'), 'in', 'rose at its threshold')
+      deliver(0)
+      eq(JSON.stringify(paused), '["Card"]', 'onLeaveView ran on the way out')
+      expect(observers.filter((io) => io.options.threshold === 0.1).every((io) => !io.targets.size), '`once` let the element go')
+    } finally {
+      if (had) dom.window.IntersectionObserver = had
+      else delete dom.window.IntersectionObserver
+    }
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {
