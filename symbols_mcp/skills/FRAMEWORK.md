@@ -135,12 +135,12 @@ renaming the key to match the extended component over aliasing.
 - Design system token keys are lowercase (`color`, `theme`, `typography`,
   `font`, `spacing`); values are tokens (no raw `px`, `rem`, `hex`,
   `rgb()`).
-- `color`, `background`, `boxShadow`, `border`, `textShadow`, etc. follow CSS syntax but are **empowered by the scratch design system** — values can be design-system tokens (named colors, spacing keys, timing keys, CSS vars), and color tokens accept opacity + lightness modifiers via the grammar below.
-- Color token grammar `<colorName>(.<alphaDigits>)?(<+N|-N|=N>)?` (`packages/scratch/src/utils/color.js:180`):
+- `color`, `background`, `boxShadow`, `border`, `textShadow`, etc. follow CSS syntax but are **empowered by the scratch design system** — values can be design-system tokens (named colors, spacing keys, timing keys, CSS vars), and color tokens accept opacity + tone modifiers via the grammar below.
+- Color token grammar `<colorName>(.<alphaDigits>)?(<+N|-N|=N>)?` (`COLOR_TOKEN_REGEX` in `packages/scratch/src/utils/color.js`; `colorName` may be hyphenated when every segment starts with a letter, e.g. `line-highlight`):
   - `.N` is **alpha** (`'white.5'` → `rgba(...,0.5)`), NOT a shade index — don't confuse with Tailwind's `blue-700` palette syntax.
-  - `+N` lightens by `N` / `-N` darkens by `N` (both operate on lightness).
-  - `=N` sets HSL lightness to `N%` (absolute).
-  - Combinable: `'white.5+10'` (alpha 0.5 + lighter), `'neutral.3=40'` (alpha 0.3 + lightness 40%).
+  - `+N` / `-N` add / subtract `N` to/from **each of R, G and B** (0–255), clamped — a channel shift, NOT HSL lightness. `'black+51'` → `rgb(51, 51, 51)`; `'gray+100'` with `gray: '#4e4e50'` → `rgb(178, 178, 180)`.
+  - `=N` sets HSL lightness to `N%` (absolute; hue and saturation stay).
+  - Combinable: `'white.5-10'` (alpha 0.5, each channel −10), `'neutral.3=40'` (alpha 0.3 + lightness 40%).
 - Border shorthand `border: '1px solid border'` works
   (`packages/scratch/src/transforms/index.js:37` resolves color tokens,
   spacing keys, CSS vars). The split form (`borderWidth` /

@@ -332,9 +332,9 @@ Use dot-notation for opacity. Use `+`/`-`/`=` for tone modifiers.
 // ✅
 { color: 'white.7' }
 { background: 'black.5' }
-{ background: 'gray.92+8' }      // opacity 0.92, tone +8
-{ color: 'gray+16' }             // full opacity, tone +16
-{ color: 'gray=90' }             // absolute lightness 90%
+{ background: 'gray.92+8' }      // opacity 0.92, tone +8 (each RGB channel +8)
+{ color: 'gray+16' }             // full opacity, tone +16 (each RGB channel +16)
+{ color: 'gray=90' }             // absolute HSL lightness 90%
 
 // ❌ — old space-separated syntax
 { color: 'white .7' }
@@ -1237,7 +1237,7 @@ Button: {
 
 ## Rule 45 — Define each color ONCE — use modifier syntax for shades
 
-Never define multiple shade variants of the same color (`blue100`, `blue200`, `blue300`). Define one base value and use modifiers: `.XX` (opacity), `+N` (lighten), `-N` (darken), `=N` (absolute lightness).
+Never define multiple shade variants of the same color (`blue100`, `blue200`, `blue300`). Define one base value and use modifiers: `.XX` (opacity), `+N` / `-N` (lighten / darken: each RGB channel ±N on the 0–255 scale, clamped — not HSL lightness), `=N` (absolute HSL lightness %).
 
 ```js
 // ✅
