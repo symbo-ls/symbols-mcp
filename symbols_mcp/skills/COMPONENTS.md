@@ -317,6 +317,22 @@ ToggleHgroupList: {
 | `Tooltip` | Hover tooltip as a child of a `TooltipParent` | — |
 | `TooltipLayer` | Tooltips for every `[data-tooltip]` node inside its parent — library nodes and icon-only buttons (Built-in Atoms → TooltipLayer) | `Toolbar: { Close: { extends: 'SquareButton', icon: 'x', aria: { label: 'Close' }, data: { tooltip: 'Close panel' } }, TooltipLayer: {} }` |
 | `Accordion` | Expandable/collapsible section | `Accordion: { ButtonParagraph: { P: { text: '{{ billing_question | polyglot }}' } }, P: { text: '{{ billing_answer | polyglot }}' } }` |
+| `Dialog` | A `<dialog>` with `DialogHeader` (title + close) and `DialogFooter` (Cancel / OK). `modal` opens it with `showModal()` | `ConfirmDelete: { extends: 'Dialog', modal: (el, s) => s.root.confirmDelete, onOk: (e, el) => el.call('deleteFile'), onClose: (e, el, s) => s.root.update({ confirmDelete: false }), DialogHeader: { Title: { Text: { text: '{{ delete_file | polyglot }}' } } }, DialogFooter: {} }` |
+| `DropdownParent` / `DropdownParentFocus` | A dropdown the CSS opens on hover / while focus is inside, and a menu button for keyboard and screen reader | `FilterMenu: { extends: 'DropdownParent', Button: { text: '{{ filter | polyglot }}' }, Dropdown: { DropdownList: { options: [{ key: 'all', text: '{{ all | polyglot }}' }, { key: 'mine', text: '{{ mine | polyglot }}' }] } } }` |
+| `DropdownList` | A `role="menu"` list of options inside a `Dropdown` (rows `menuitemradio`, `aria-checked` = the row's `isActive`) | see `DropdownParent` |
+
+### Dialog — modal, events, names
+
+- `modal` (a value or `(el, s) => …`): truthy → `showModal()` (top layer, inert page, Escape, focus moved in and given back); falsy → `close()`. A closed modal dialog is hidden. `modal: true` under an `if:` works too. Without `modal` the dialog renders in the flow as before, and a flat `open: true` is the native NON-modal attribute — use `modal` for a modal.
+- Escape, Cancel, OK and the close button close it themselves: keep your state in step in `onClose`. `el.node.returnValue` is `'ok'`, `'cancel'` or `''` (Escape).
+- `onCancel` hears Escape, Cancel and the close button; `onOk` hears OK; `e.preventDefault()` keeps the dialog open. Any button inside can carry an action: `data: { dialogAction: 'ok' }`.
+- Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with English defaults.
+
+### Dropdowns — the menu-button contract
+
+- The trigger is the dropdown parent itself when it renders a button (`extends: ['Button', 'DropdownParentFocus']`), else its first child other than the `Dropdown` panel and `Input_trigger`. Use a `Button` there: a plain text element (`Label`, `Text`) is given `role="button"` + `tabindex="0"`; a link, a field or an icon leaves the dropdown CSS-only.
+- The trigger gets `aria-expanded`, `aria-controls` and `aria-haspopup` (the panel's popup role); what you set yourself is kept. Enter / Space / click toggle, ArrowDown / ArrowUp open on the first (checked) / last item, Escape closes back to the trigger, arrows / Home / End move inside a `DropdownList`.
+- The open state is `data-dropdown-open` on the parent (`"true"` open, `"false"` closed even while hovered); without it the CSS hover / focus-within reveal decides, as before.
 
 ---
 
