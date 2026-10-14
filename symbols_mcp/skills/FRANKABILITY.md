@@ -265,7 +265,7 @@ const navTab = (path) => ({
 
 When frank stringifies the `color: () => ...` function, the closure over `path` is gone. Without `scope: { path }`, `path` is undefined at runtime — wrong color, no error.
 
-Not flagged inside a `Bridge` host's own code (`onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers): the option objects a library takes are built there at runtime, inside one serialized function, so their closures survive. A factory that RETURNS a bridge host is still flagged.
+Not flagged inside a `Bridge` host's own code (`onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers): the option objects a library takes are built there at runtime, inside one serialized function, so their closures survive. The same holds in a `functions/` function only that code calls (`el.call('rteBindings', Quill)` from a hook), or only such functions call: its result goes to the library at runtime, never through frank on its own. A factory that RETURNS a bridge host is still flagged.
 
 #### FA206 — NPM packages used inside handlers should be dynamic-imported
 
@@ -432,6 +432,8 @@ Run them by name, like FA211: `--rule FA810,FA811,FA812`, `ruleIds`, or `'frank/
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)
 
 The DOM bans (FA503–FA510, FA512) have one sanctioned exception: a `Bridge` host (default-config `Bridge`, or any element that declares `onBridgeMount`). The library owns the DOM inside it, so DOM work in the three bridge hooks and the host's own `onXxx` handlers is not flagged; document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511) still are, and the same code anywhere else is. See COMPONENTS.md → Bridge.
+
+The sanction follows the bridge's helpers into `functions/` (one job per file, as the rules ask): a function whose EVERY reference in the project sits in bridge code — `el.call('rteSetup', Quill)` in `onBridgeMount` — or in another function sanctioned this way (transitively) is not flagged either, and neither is FA205 on the option objects it builds for the library. One reference anywhere else — a component, a page, a non-bridge handler (the host's PARENT included), `onRender`, the module scope of a function file, a `{{ key | name }}` pipe, `context.functions.name`, the name passed on as a string — and it is flagged as before. A name built at runtime (`'rte' + kind`) is the one reference the audit cannot see.
 
 #### FA513 — Never call `window.update(...)` / `document.update(...)`
 

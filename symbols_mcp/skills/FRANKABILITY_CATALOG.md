@@ -556,8 +556,11 @@ Not flagged inside a bridge's own code (`onBridgeMount` /
 `onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers):
 the option objects a library takes (toolbar handlers, key bindings,
 paste matchers) are built there at runtime, inside one serialized
-function, so their closures survive. A factory that RETURNS a bridge
-host is still flagged.
+function, so their closures survive. The same holds in a `functions/`
+function that only that code calls (`el.call('rteBindings', Quill)`
+from a hook) or only such functions call: its result is handed to the
+library at runtime, never serialized on its own. A factory that RETURNS
+a bridge host is still flagged.
 
 # FA206 — npm-import-in-handler
 
@@ -932,7 +935,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA504 — classlist-mutation
 
@@ -949,7 +955,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA505 — inner-html-write
 
@@ -964,7 +973,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA506 — set-attribute
 
@@ -979,7 +991,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA507 — remove-attribute
 
@@ -990,7 +1005,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA508 — append-child
 
@@ -1002,7 +1020,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA509 — remove-child
 
@@ -1016,7 +1037,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA510 — insert-before
 
@@ -1027,7 +1051,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA511 — el-node-write
 
@@ -1060,7 +1087,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA513 — window/document update misuse
 
