@@ -884,6 +884,32 @@ An element key is a string. A NUMBER key (a numeric id, a row index) is normaliz
 
 Keyed reconcile preserves both **identity and order**: kept nodes are diffed against the new key order and repositioned in the DOM (`insertBefore`) rather than left wherever they were first inserted — so a pure reorder, or a new item landing mid-array, moves existing nodes instead of destroying and recreating them. Moving a node this way preserves its listeners, focus, and any in-progress CSS transition on it. No key-rotation workaround is needed to force a reorder to "take" — a plain re-sort of the array with stable keys is sufficient.
 
+What happens to a row whose key is still there depends on `childrenAs`:
+
+| | Row kept | Row re-created |
+| -- | -- | -- |
+| `childrenAs: 'state'` | always — its state is patched in place (`state.replace(item)`); keys the item gains or loses reach the row's factories | never |
+| plain rows (no `childrenAs: 'state'`) | when its definition is **equal** to the one it was built from | when its definition changed — that row alone |
+
+A plain row's definition is compared to a snapshot taken when the row was built: plain objects and arrays by value, everything else — a function, a store, an element, a class instance, and the component an `extends` names — by identity. A kept row keeps its element, node, local state and DOM state (typed input values, focus, scroll) and fires no lifecycle hook; a re-created row fires `onRemove` for the old one and `onInit` … `onRender` for the new one, removals first. `content` and named siblings declared next to the array are not rows and are never touched by a re-run.
+
+```js
+// ✅ Rows survive a re-run unless their own data changed
+children: (el, s) => s.items.map(it => ({ key: it.id, tag: 'li', text: it.label }))
+
+// ⚠️ A fresh closure per row is a new function every run: every row is re-created
+children: (el, s) => s.items.map(it => ({ key: it.id, text: it.label, onClick: () => open(it.id) }))
+// ✅ Read the row from the element instead — one shared function, rows survive
+const openRow = (e, el) => el.call('open', el.key)
+children: (el, s) => s.items.map(it => ({ key: it.id, text: it.label, onClick: openRow }))
+```
+
+For rows whose data changes often (labels, counts, flags), prefer `childrenAs: 'state'` + `childExtends`: the row is patched in place and only the props that read the changed keys re-render.
+
+A `children` function runs **once** at mount (its reactive effect's first run builds the list), and a new row is inserted into the DOM once, at its final place — a `MutationObserver` sees one `+row` per new row.
+
+Runtimes up to smbls 3.14.837 differ: a plain `children` function was rebuilt from scratch on every re-run (every row removed and created again, named siblings and `content` dropped), every `children` function ran twice at mount, every new row was inserted twice (`+row −row +row`), and a `childrenAs: 'state'` row that GAINED a key on a later update (after an update that still lacked it) never rendered it — give every item the same keys, empty ones included, on those runtimes.
+
 ### A key that equals an HTML tag name BECOMES that tag
 
 With no explicit `tag:`, the tag comes from the element's KEY (`detectTag`, `packages/element/src/cache.js`): the key is lowercased, a `_suffix` / `.suffix` is stripped, and if the rest is a known HTML tag name, that is the tag. This is what makes `Nav: {}` a `<nav>` — and it applies to DATA keys too. A row keyed by data is rendered as whatever element its data id happens to name:
