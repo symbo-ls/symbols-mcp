@@ -298,6 +298,8 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 - `-p, --port <port>` (defaults to `symbols.json.port` or 1234)
 - `--no-cache`, `--open`, `--bundler <parcel|vite|browser>`
 - `--collab` (start with realtime collab) / `--no-collab` (skip prompt, run local)
+- `--fresh` (wipe the caches first; `lock.json` and `config.json` stay)
+- Any other flag goes to the bundler (`parcel serve` / `vite serve`) with the value after it; `start`'s own flags never do.
 
 `build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`. `build` copies `public/` (or `symbols.json` `publicDir`) into the output root and never replaces a file the bundler wrote. With brender on, `build` pre-renders route `/x` to `x.html` and `/*` to `404.html`, and exits 1 when no route renders (`--no-brender` opts out).
 
