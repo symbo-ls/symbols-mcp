@@ -791,6 +791,34 @@ Where a preset and a prop disagree the ladder is unchanged: `theme` < design-sys
 - A `theme:` preset sits below every layer. A shorthand the element declares (or a `class` fragment sets) overrides each theme longhand it states, in every colour scheme: `{ extends: 'Input', border: '1px solid grayMid' }` paints grayMid, not the `field` theme's `borderColor`. Over a theme a shorter value also states what its words name: `0` or `none` alone states width and style (`border: '0'` turns off a theme's `borderWidth`/`borderStyle` line), a length states the width, one colour (`background: 'white'`) states `background-color`. A colour is never read out of fewer than three words, so `border: '1px solid'` keeps the theme's border colour, and `background: 'white'` keeps a theme's `backgroundImage`. Between layers the rule above stays as it is.
 - A pseudo or selector block key gets `!important` when the element writes the same property, or any member of its shorthand family, inline. So `':focus-visible': { outlineColor: 'accent' }` recolours a `Link` / `Focusable` ring.
 
+### Static CSS props — a longhand class beats its shorthand class
+
+Two STATIC props of one family compile to two atomic classes of equal specificity. The engine places every longhand class AFTER every shorthand class of its family (one base sheet per shorthand depth: `border` < `borderTop` < `borderTopColor`), so the longhand always wins — whatever order you wrote the keys in, and whichever element on the page used either class first. Before the release that carries this change, the winner depended on which class the page created first.
+
+```js
+export const KitField = {
+  transition: 'A defaultBezier',
+  transitionProperty: 'background-color, border-color'   // always wins: only these animate
+}
+```
+
+The families cover every standard CSS shorthand, nested ones included: `font` > `fontVariant` > `fontVariantNumeric`, `background` > `backgroundPosition` > `backgroundPositionX`, `border` > `borderBlock` > `borderBlockStart` > `borderBlockStartColor`, `animation` > `animationRange` > `animationRangeStart`, `cornerShape` > `cornerTopShape` > `cornerTopLeftShape`, `scrollMargin` > `scrollMarginBlock` > `scrollMarginBlockStart`, `whiteSpace`/`textWrap` > `textWrapMode`, and the rest of the list above. Only one-property atomic classes move; a global rule (`injectGlobal`) keeps its place. Conditional rules (`:hover`, `@media`, `@dark`, `.isX`) still beat every flat rule, shorthand or longhand.
+
+Across `extends` layers the merge rule above decides, not the class order: a consumer's three-word `border: '1px solid red'` replaces a base's `borderStyle: 'none'`. A consumer that wants to change one part of a base shorthand writes that longhand (`borderColor: 'red'`).
+
+### Textarea `autoGrow` — rows Floor, max-height Cap
+
+```js
+Composer: { tag: 'textarea', rows: 3, autoGrow: true }                 // never below 3 lines
+Note:     { tag: 'textarea', rows: 2, autoGrow: { max: '40dvh' } }     // 2 lines .. 40dvh, then scroll
+Draft:    { tag: 'textarea', rows: 1, autoGrow: (el, s) => !s.full && { max: '35dvh' } }
+```
+
+- **Floor:** an explicit `rows` is the minimum height (rows x line height + padding). With `lineHeight: 'normal'` (the default) the framework measures one line of the textarea's font. Without `rows` the floor is the content (one line); a `minHeight` prop still floors it through the cascade.
+- **Cap:** `autoGrow.max` or a `maxHeight` prop. The height stops at the cap, rounded DOWN to whole lines, and the box scrolls (`overflow-y: auto`, removed again when the content fits).
+- **Exact height:** the written `height` shows exactly the content for either `boxSizing` (border-box adds the borders, content-box drops the padding) — no 2px inner scroll.
+- **autoGrow owns `height`:** a transition that covers `height` (`transition: 'all …'` or `'height …'`) is cancelled on every measure, so the box never animates its height and always shrinks after text is deleted. Other transitions on the node (a border-color focus fade) keep running; the inline `transition` is never touched.
+- It re-measures on input, on a programmatic `value` change, on a width change, and when web fonts load. Never write `el.node.style.height` yourself.
 ---
 
 ## `attr` (HTML Attributes)
