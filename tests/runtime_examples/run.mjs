@@ -462,6 +462,19 @@ Object.assign(cases, {
   }
 })
 
+// SYNTAX "Element Methods": el.whenConnected runs once the node is in the
+// document. onRender runs on a detached node (the first render builds the
+// root outside the document), so the documented focus lands only through it.
+Object.assign(cases, {
+  async whenConnectedFocus () {
+    const [[, SearchField]] = docExports('SYNTAX.md', 'el.whenConnected(() => el.node.focus())')
+    const app = await mount({ Field: { extends: 'SearchField' } }, { components: { SearchField } })
+    const node = app.Field.node
+    eq(node.tagName, 'INPUT', 'SearchField extends Input')
+    expect(document.activeElement === node, 'the field is focused once it is in the document')
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {
