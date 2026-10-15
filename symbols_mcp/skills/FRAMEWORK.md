@@ -797,31 +797,49 @@ SSR HTML brender produces.
 
 ## 8. `@symbo.ls/brender` — SSR + hydration
 
-Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the server, then hydrates them in the browser by remapping `data-br="br-N"` keys back to live elements.
+Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the server; in the browser the app either ADOPTS that HTML (each element takes the server's node at its path) or replaces it with a fresh render.
 
 ### When brender runs
 
 - **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`, route `/x` → `x/index.html`.
-- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed. Both exit 1 when no route renders (opt out with `--no-brender`). The built page boots over the server markup and re-renders it, unless hydration is on (below).
+- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed. Both exit 1 when no route renders (opt out with `--no-brender`). Every built page is made for adoption (hydration, below) unless `symbols.json` says `"brender": { "hydrate": false }`.
 - **`smbls publish --ssr`** (or `"prerender": true`) — pre-renders the static routes at publish time into the project's `__ssr` map, served by the platform renderer (CLI.md → Publish flow).
 - **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render.
 
-### Opt-in hydration
+### The page and the client boot
 
-Default off: the client renders fresh over the server markup. Turn it on with `hydrate: true` in the project config or the create options, or from the server with `window.__BRENDER_HYDRATE__ = true`, together with the element registry `window.__BR_REGISTRY__`. `hydrate: false` keeps it off even when the server sets the flag. With both, the client adopts the server DOM: an element whose node does not match gets a fresh node, and a throw falls back to the fresh render. brender `renderPage(data, route, { adoptDom: true })` and mermaid `renderProjectHtml({ adoptDom: true })` ship the registry and the flag.
+A pre-rendered page carries NO inline script, so a strict Content-Security-Policy (`script-src 'self'`, no `'unsafe-inline'`) cannot break it — a policy blocks inline scripts, never `<meta>` tags or JSON data blocks:
+
+| Part | Where | Meaning |
+|------|-------|---------|
+| `<meta name="brender" content="hydrate\|replace">` | `<head>` | the page is pre-rendered |
+| `data-br="br-N"` | each server element node | its key |
+| `<script type="application/json" data-brender="registry">` | after the markup | element path → key; only on a page made for adoption |
+| `<script type="application/json" data-fetch-seed>` | after the markup | the anonymous GET answers the render got (`@symbo.ls/fetch`) |
+
+**Hydration (adoption).** On by default when the page carries the registry; `hydrate: false` in the project config refuses it (fresh render). The client runs its normal `create()`, but each element takes the server's node at its path: attributes and text are written again by the client, so the result is the client's own render without a second paint. A node of another tag is not adopted (that element gets a fresh one); a throw falls back to the fresh render. The adoption stays open until the first view has settled — the first route rendered (also behind a guard that waits) and no `@symbo.ls/fetch` request in flight — so the routed page and every list that renders with its first data adopt their server nodes; until then the server nodes still waiting stay on screen, in place. It closes at the latest after 3 s (`hydrate: { timeout: ms }`), or at the visitor's first click or key press; whatever no element adopted then goes. An adopted image that had already loaded fires its `load` again, once, so `onLoad` runs. `window.__BRENDER_HYDRATION__` reports `{ adopted, misses, removed }`.
+
+**Replace.** A page without the registry (`"brender": { "hydrate": false }`, `renderPage` without `adoptDom`): the server's markup and styles go and the app renders fresh. The recorded data answers are still adopted by the requests that ask for them.
+
+**The data the server used.** The page's `data-fetch-seed` answers are taken by the client call that sends exactly the recorded request (URL with its query, `Accept-Language`, no other header): no second request, and the data lands in the task the app booted in. Only anonymous GETs are recorded — a keyed backend's reads count when `fetch.reads` moves the key into the query (`reads: { query: { apikey: 'apikey' }, rpc: 'get' }`, read-only RPCs as GETs with `read: true`).
+
+Pages from older servers still work: the inline `window.__BRENDER__` flag, `window.__BR_REGISTRY__` and `window.__BRENDER_HYDRATE__` are read (that registry adopts only with `hydrate: true` or the flag); when a policy blocked such a page's flag, its `data-br` markup in the mount node is taken for the mark — one app root, never two. An smbls older than this format does not know the `<meta>`: keep `smbls` and `@symbo.ls/brender` at the same release.
+
+**In app code:** `el.context.prerendered` is `true` in an app that booted over a pre-rendered page. A gate that hides the app until its data is in (`opacity: 0` until labels, settings and fonts load) also hides the adopted page until then — let a pre-rendered first view count as ready: `isReady: (el, s) => el.context.prerendered || …`.
 
 Programmatic use:
 
 ```js
-import { renderPage, renderRoute, composeIntoShell, adoptionScripts } from '@symbo.ls/brender'   // needs smbls installed (peer)
-const { html, route, brKeyCount, shell } = await renderPage(data, '/about', { shell: builtIndexHtml, depth: 1 })
+import { renderPage, renderRoute, composeIntoShell, prerenderParts } from '@symbo.ls/brender'   // needs smbls installed (peer)
+const { html, route, brKeyCount, shell } = await renderPage(data, '/about', { shell: builtIndexHtml, depth: 1, adoptDom: true })
 // shell: a built app document to render INTO (the result then has shell: true); depth: the output file's
-// directory depth, used to rebase the shell's relative asset URLs
+// directory depth, used to rebase the shell's relative asset URLs; adoptDom: ship the registry (adoption);
+// nonce: the CSP nonce for the inline scripts an `isr` document still has
 import { createDomqlElement, prepareContext } from 'smbls/ssr'   // the same module instance as 'smbls'
 ```
 
 - `renderRoute(data, { route, prefetch })` returns `html`, `globalCSS` (`rootRule`, `resetRules`, `keyframeRules`), `css` / `classRules` (class rules only), `fetchSeed` (the server's fetch answers) and the registries. `prefetch: false` renders without the data prefetch.
-- `adoptionScripts({ brRegistry, fetchSeed })` returns the `<script>`s that hand the registry and the fetch answers to the client.
+- `prerenderParts({ brRegistry, fetchSeed, adoptDom })` returns `{ meta, blocks }`: the page's `<meta name="brender">` and its data blocks. `adoptionScripts` (inline scripts) remains for older callers — a page under a strict policy needs `prerenderParts`.
 - Server style tags carry `data-brender` (global CSS) or `data-emotion="smbls"` (class rules). The client boot removes only `style[data-emotion="smbls"]` and `style[data-brender]`: a host page's own styles stay.
 
 Brender is opt-in via `symbols.json`:
@@ -842,7 +860,7 @@ So themes work without JavaScript on the rendered HTML. `resolveAndApplyTheme` i
 ### Hydration contract (`data-br`)
 
 1. **Sequential** — `br-0`, `br-1`, … assigned in DOM tree order via depth-first traversal.
-2. **Deterministic** — same DOMQL input always produces the same key assignment; server and client don't need to exchange the registry.
+2. **Deterministic** — same DOMQL input always produces the same key assignment. The client still needs the page's registry (element path → key) to find each element's node: an element with no node in the DOM (a false `if`, a text node) has no key.
 3. **Element nodes only** — no text/comment nodes get keys.
 4. **Bidirectional** — after hydration, `element.node === domNode` and `domNode.ref === element`.
 
@@ -869,7 +887,9 @@ The server prefetch uses the project's own `config.fetch` / `config.db` through 
 
 ### Diagnose a broken hydration
 
-`hydrate.js` logs unlinked elements:
+In the browser, `window.__BRENDER_HYDRATION__` after the boot: `misses` counts elements whose server node did not match (a fresh node instead), `removed` the server nodes no element adopted. Non-zero means the client rendered something else than the server.
+
+brender's own `hydrate.js` (the `liquidate` example) logs unlinked elements:
 
 ```
 Linked:   129 elements
