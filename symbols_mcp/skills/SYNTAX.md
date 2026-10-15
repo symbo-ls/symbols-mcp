@@ -70,6 +70,8 @@ create(definition, parent, key, options)
 
 The `if` effect re-enters the full creation steps the first time it flips false → true.
 
+**Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once, but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks.
+
 ---
 
 ## REGISTRY Keys

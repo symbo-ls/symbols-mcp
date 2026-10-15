@@ -274,12 +274,15 @@ element create:
   triggerLifecycle('Complete')
   triggerLifecycle('Render')          ← user's onRender fires here
   triggerLifecycle('RenderRouter')    ← framework's onRouterRenderDefault fires here
+                                        → (first render: in the next task — see below)
                                         → defaultRouter(url, element, ...)
-                                        → element.set(pageDef, { contentElementKey: 'content' })
+                                        → element.set(pageDef, { ...context.domqlOptions, ...mountOptions, contentElementKey: 'content' })
                                         → element.content gets the matched page
 ```
 
 `initRouter(app, context)` wires `app.onRenderRouter = onRouterRenderDefault` automatically (unless the project defines its own). `app.routes = ctx.pages` is set just before element creation, so `targetEl.routes` is populated when `defaultRouter` reads it.
+
+**The first render runs as short tasks** (`firstRender` in `config.js`, on by default; `false` keeps one task, a number sets the chunk budget in ms, default `10`). The task the entry script runs in ends when `create()` is called; the design system, the shell (app root) and the first page then each start a task of their own, and the shell and the page are built in chunks. `create()` still resolves after the first page has rendered, and no `onMounted` runs before the shell and the first page are both built. An element whose children were built in a later chunk fires `onCreate` → `onRender` after its last child (so `onRender` always sees every child), in a later task; hooks keep the order of a synchronous build. Code after `create()` in `index.js` runs before the design system is prepared; `DOMContentLoaded` can fire before the shell exists; a frame can be painted between the shell and the page. A route guard that awaits keeps `create()` waiting no longer than before. The page is created with the app's `domqlOptions` (a `domqlOptions.mountYield` now reaches routed pages too), and after the first render reconciles, `if:` and navigations build in one go again. A boot over a pre-rendered (brender) page builds its shell and page in one task; a server render keeps one task.
 
 `onpopstateRouter` registers a `popstate` listener (removed by `destroy(app)`) so back/forward navigation re-runs the router — inside `customRouterElement` when one is configured, with the app-wide `router.guards`.
 
