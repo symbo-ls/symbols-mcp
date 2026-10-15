@@ -2228,6 +2228,8 @@ This also REPAIRS `role="status"` regions: a live region must exist in the DOM *
 
 **Verify it, don't assume it.** Snapshot the geometry of the SAME element references before and after the change and count how many moved; a `PerformanceObserver` on `layout-shift` confirms it independently. Comparing positions by ARRAY INDEX is invalid — an inserted node shifts every later index and reports a shift that did not happen.
 
+Audit: FA813 (opt-in, `--rule FA813`) and `audit_component` flag pattern 1 — a nested element beside siblings, gated by an `if:` that reads state (`(el, s) => …s…`, `({ state }) => …`, `….state`), and not out of the flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow built-in such as `Dropdown` or `ModalRoot`). One file cannot tell chrome from content, so a list swapped for its empty state is reported too; keep a meant one with `// frank-allow FA813`. Patterns 2 and 3 are not audited.
+
 ---
 
 ## Rule 67 — STRICT: never use a raw theme-invariant colour for a state — mirror it with `light-dark()`

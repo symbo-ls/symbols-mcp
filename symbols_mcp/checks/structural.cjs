@@ -9,6 +9,10 @@
 //            `onClick`, tag a / button) declares ':hover' but no ':active'
 //   Rule 68  a call site (a nested element, not the exported definition)
 //            of a built-in Button overrides its padding / height
+//   Rule 66  a nested element with a sibling, gated by an `if:` that reads
+//            state, and not out of the flow (its own position absolute /
+//            fixed, or an out-of-flow built-in) — `if:` adds and removes the
+//            node, so its siblings move
 //
 // One implementation serves both servers: bin/symbols-mcp.cjs requires it,
 // symbols_mcp/server.py runs it with `node structural.cjs` (code on stdin,
@@ -25,6 +29,13 @@ const PADDING_HEIGHT = new Set([
   'padding', 'paddingInline', 'paddingBlock', 'paddingTop', 'paddingRight',
   'paddingBottom', 'paddingLeft', 'paddingInlineStart', 'paddingInlineEnd',
   'paddingBlockStart', 'paddingBlockEnd', 'height', 'minHeight'
+])
+// Built-ins whose own root is `position: 'fixed'` or `'absolute'` — out of
+// the flow, so an `if:` on one moves nothing (Rule 66). default-config:
+// Dropdown, TooltipHidden, TooltipLayer; @symbo.ls/windows: ModalLayer,
+// ModalRoot; @symbo.ls/dropdown: DropdownRoot; @symbo.ls/tooltip: TooltipRoot.
+const OUT_OF_FLOW = new Set([
+  'Dropdown', 'TooltipHidden', 'TooltipLayer', 'ModalLayer', 'ModalRoot', 'DropdownRoot', 'TooltipRoot'
 ])
 // Keys that are not CSS props, for the Rule 19 count.
 const NON_CSS = new Set([
@@ -289,6 +300,71 @@ function ternaryCondition (toks, from, to) {
   return null
 }
 
+// Does an `if:` value read STATE — so it can change after the first render?
+// `(el, s) => …s…` (the second parameter used, or destructured), `({ state })
+// => …`, or any `….state` read. A gate on props or the element alone
+// (`(el) => !!el.icon`) is decided when the element is created: no shift.
+function readsState (toks, from, to) {
+  let j = from
+  if (toks[j] && toks[j].value === 'async') j++
+  if (toks[j] && toks[j].value === 'function') {
+    j++
+    if (toks[j] && toks[j].type === 'ident') j++
+  }
+  const params = []
+  if (toks[j] && toks[j].value === '(') {
+    const close = matchClose(toks, j)
+    let cur = []
+    for (let k = j + 1; k < close; k++) {
+      const tk = toks[k]
+      if (tk.type === 'punct' && OPEN[tk.value]) {
+        const c = matchClose(toks, k)
+        for (let q = k; q <= c; q++) cur.push(toks[q])
+        k = c
+        continue
+      }
+      if (tk.type === 'punct' && tk.value === ',') { params.push(cur); cur = []; continue }
+      cur.push(tk)
+    }
+    if (cur.length) params.push(cur)
+    j = close + 1
+  } else if (toks[j] && toks[j].type === 'ident' && toks[j + 1] && toks[j + 1].value === '=>') {
+    params.push([toks[j]])
+    j++
+  } else return false
+  if (toks[j] && toks[j].value === '=>') j++
+  const [first, second] = params
+  // ({ state }) => …
+  if (first && first[0] && first[0].value === '{') {
+    for (let k = 1; k < first.length; k++) {
+      if (first[k].type === 'ident' && first[k].value === 'state' && (first[k - 1].value === '{' || first[k - 1].value === ',')) return true
+    }
+  }
+  // (el, { query }) => …: the state, destructured
+  if (second && second[0] && (second[0].value === '{' || second[0].value === '[')) return true
+  const name = second && second[0] && second[0].type === 'ident' ? second[0].value : null
+  for (let k = j; k < to; k++) {
+    const tk = toks[k]
+    if (tk.type !== 'ident') continue
+    const member = toks[k - 1] && (toks[k - 1].value === '.' || toks[k - 1].value === '?.')
+    if (member) {
+      if (tk.value === 'state') return true
+    } else if (name && tk.value === name) return true
+  }
+  return false
+}
+
+// Is this element out of the flow? Its own `position` is 'absolute' / 'fixed'
+// — or not a plain string, which one file cannot judge — or it is built from
+// an out-of-flow built-in.
+function outOfFlow (toks, m, from) {
+  if ([...from].some((n) => OUT_OF_FLOW.has(n))) return true
+  const position = m.get('position')
+  if (!position) return false
+  if (position.to - position.from !== 1 || toks[position.from].type !== 'string') return true
+  return /^(absolute|fixed)$/.test(toks[position.from].value.trim().toLowerCase())
+}
+
 const isCssKey = (key) => {
   const k = String(key)
   if (!/^[a-z]/.test(k)) return false // children, ':hover', '@media', '.isX', '--x', '&…'
@@ -355,6 +431,23 @@ function checkNode (src, toks, node, ctx, out) {
         line: lineOf(src, over[0].keyTok.start),
         rule: 'Rule 68',
         message: `[Rule 68] ${ctx.label}: this ${btn} call site overrides ${over.map((e) => e.key).join(', ')} — keep the control's scale; use a variant on the primitive (its own minHeight + padding) or a design-system token (frank-audit FA812, opt-in)`
+      })
+    }
+  }
+
+  // Rule 66 — a child gated by a state-driven `if:`, in flow beside other
+  // children: `if:` adds and removes the node, so its siblings move.
+  const children = node.entries.filter((e) => e.child && isPascal(e.key))
+  if (children.length > 1) {
+    for (const e of children) {
+      const cm = entryMap(e.child)
+      const gate = cm.get('if')
+      if (!gate || !readsState(toks, gate.from, gate.to)) continue
+      if (outOfFlow(toks, cm, builtFrom(toks, e.child, String(e.key)))) continue
+      out.push({
+        line: lineOf(src, gate.keyTok.start),
+        rule: 'Rule 66',
+        message: `[Rule 66] ${ctx.label} › ${e.key}: \`if:\` adds and removes this element, so the elements beside it move when it toggles — if it is chrome (a button, a count, a status line), keep it mounted and toggle \`visibility\`, \`pointerEvents\`, \`tabindex\` and \`aria.hidden\` instead (frank-audit FA813, opt-in)`
       })
     }
   }

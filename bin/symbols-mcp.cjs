@@ -662,7 +662,7 @@ function auditCode(code, filePath) {
     }
   }
 
-  // Shape checks (Rules 19, 65, 68) — the same module the Python server runs.
+  // Shape checks (Rules 19, 65, 66, 68) — the same module the Python server runs.
   for (const f of structuralChecks(code)) {
     warnings.push({ line: f.line, severity: 'warning', message: f.message })
   }
@@ -784,7 +784,7 @@ const TOOLS = [
   },
   {
     name: 'audit_component',
-    description: 'Audit a Symbols/DOMQL file (component, page, function, …) for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Pass file_path so the checks that depend on the file\'s folder apply where it really lives; without it the code is audited as a component. Also warns on three STRICT shape rules: one condition repeated across 3+ CSS props (Rule 19 — use isX + \'.isX\'), an interactive element with \':hover\' but no \':active\' (Rule 65), a built-in Button call site overriding padding / height (Rule 68). Returns violations, warnings, and a score.',
+    description: 'Audit a Symbols/DOMQL file (component, page, function, …) for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Pass file_path so the checks that depend on the file\'s folder apply where it really lives; without it the code is audited as a component. Also warns on four STRICT shape rules: one condition repeated across 3+ CSS props (Rule 19 — use isX + \'.isX\'), an interactive element with \':hover\' but no \':active\' (Rule 65), a state-driven `if:` on an element in flow beside siblings (Rule 66 — keep it mounted, toggle visibility), a built-in Button call site overriding padding / height (Rule 68). Returns violations, warnings, and a score.',
     inputSchema: {
       type: 'object',
       properties: {

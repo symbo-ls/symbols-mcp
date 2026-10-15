@@ -536,8 +536,11 @@ handlers reference factory parameters silently breaks under frank:
     color: () => path === currentPath ? 'blue' : 'gray'
   })
 
-frank stringifies `color: () => …`, the closure over `path` is gone,
-and `path` is undefined when the handler runs — wrong color, silently.
+  export const Nav = { Home: navTab('/') }
+
+frank evaluates the module at publish and stringifies the
+`color: () => …` the call made: the closure over `path` is gone, and
+`path` is undefined when the handler runs — wrong color, silently.
 
 ## Fix
 
@@ -552,12 +555,14 @@ travels with the element through serialization:
 Bare `path` references inside the handler stay bare; frank rewrites
 them to `el.scope.path` at toJSON time.
 
-Not flagged inside a bridge's own code (`onBridgeMount` /
-`onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers):
-the option objects a library takes (toolbar handlers, key bindings,
-paste matchers) are built there at runtime, inside one serialized
-function, so their closures survive. A factory that RETURNS a bridge
-host is still flagged.
+Flagged only when a call runs while the modules load: at module scope
+(in any shipped file — frank hoists module-scope values too), or in an
+IIFE, a callback (`TABS.map((p) => navTab(p))`) or a helper run from
+there, through the same file, an import or a barrel. A factory called
+in a handler, in `onRender`, in a `functions/` export the browser runs
+(`el.call('rteBindings', Quill)` from a bridge hook) or in anything only
+such code calls runs in the browser: its closures are real, and it is
+not flagged, wherever it is declared.
 
 # FA206 — npm-import-in-handler
 
@@ -940,7 +945,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA504 — classlist-mutation
 
@@ -957,7 +965,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA505 — inner-html-write
 
@@ -972,7 +983,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA506 — set-attribute
 
@@ -987,7 +1001,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA507 — remove-attribute
 
@@ -998,7 +1015,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA508 — append-child
 
@@ -1010,7 +1030,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA509 — remove-child
 
@@ -1024,7 +1047,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA510 — insert-before
 
@@ -1035,7 +1061,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA511 — el-node-write
 
@@ -1068,7 +1097,10 @@ Not flagged inside a bridge host (default-config `Bridge`, or any
 element that declares `onBridgeMount`): the library owns the DOM in it,
 so the bridge's own code — `onBridgeMount` / `onBridgeUpdate` /
 `onBridgeDestroy` and the host's other `onXxx` handlers — works on it
-directly. The same code anywhere else is still flagged.
+directly. Nor in a `functions/` function that only that code calls
+(`el.call('name')` from a hook), or only such functions call: the
+project has no other reference to its name. The same code anywhere
+else is still flagged.
 
 # FA513 — window/document update misuse
 
@@ -1536,6 +1568,47 @@ finding, count or prescription. Name it to run it:
   smbls frank-audit --rule FA812
   audit(dir, { ruleIds: new Set(['FA812']) })   // HTTP: { ruleIds: ['FA812'] }
   eslint: rules: { 'frank/FA812': 'warn' }
+
+symbols-mcp's audit_component runs the same check; the two agree.
+
+# FA813 — if-in-flow
+
+Bad:    SearchBar: { flow: 'x', Field: { extends: 'Input' },
+          ClearBtn: { extends: 'Button', if: (el, s) => !!s.root.query, text: 'Clear' } }
+        // enters the row on the first keystroke and shoves its neighbours
+Good:   ClearBtn: {
+          extends: 'Button',
+          text: 'Clear',
+          visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
+          pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
+          tabindex: (el, s) => (s.root.query ? '0' : '-1'),
+          aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+        }
+
+An `if:` adds and removes its node, so everything beside it in the
+flow moves when it toggles — layout shift, the most-reported UI defect
+in review. Chrome (a Clear button, a result count, a status line)
+keeps its box: mounted, hidden, neither clickable nor focusable. A
+`role="status"` live region must exist before its text changes, so
+an `if:` also silences the announcement it was written for.
+
+Reported: a nested element with a sibling, an `if:` that reads state
+(`(el, s) => …s…`, `({ state }) => …`, `….state`), not out of the
+flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow
+built-in such as Dropdown or ModalRoot). One file cannot tell chrome
+from content: a list swapped for its empty state is reported too.
+Keep a meant one with `// frank-allow FA813` on the line above it; a
+read-then-dismiss panel belongs on an overlay (fixed panel + backdrop).
+
+## Opt-in
+
+FA813 is not in the default rule set: a default run reports no FA813
+finding, count or prescription. Name it to run it:
+
+  frank-audit audit <dir> --rule FA813
+  smbls frank-audit --rule FA813
+  audit(dir, { ruleIds: new Set(['FA813']) })   // HTTP: { ruleIds: ['FA813'] }
+  eslint: rules: { 'frank/FA813': 'warn' }
 
 symbols-mcp's audit_component runs the same check; the two agree.
 

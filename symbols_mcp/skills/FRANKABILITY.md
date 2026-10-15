@@ -255,17 +255,19 @@ export const Lightbox = {
 const navTab = (path) => ({
   color: () => path === currentPath ? 'blue' : 'gray'
 })
+export const Nav = { Home: navTab('/') }
 
 // ✅ Good — `path` travels with the element
 const navTab = (path) => ({
   scope: { path },
   color: () => path === currentPath ? 'blue' : 'gray'
 })
+export const Nav = { Home: navTab('/') }
 ```
 
-When frank stringifies the `color: () => ...` function, the closure over `path` is gone. Without `scope: { path }`, `path` is undefined at runtime — wrong color, no error.
+The closure is lost when the factory runs while frank LOADS the module — `export const Nav = { Home: navTab('/') }`: frank evaluates the module at publish and stringifies the `color: () => ...` the call made, the closure over `path` is gone, and without `scope: { path }` `path` is undefined at runtime — wrong color, no error.
 
-Not flagged inside a `Bridge` host's own code (`onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers): the option objects a library takes are built there at runtime, inside one serialized function, so their closures survive. A factory that RETURNS a bridge host is still flagged.
+FA205 reports a factory only when such a call exists: at module scope of a shipped file (a `functions/` file's module scope too — frank hoists it), or inside an IIFE, a callback (`TABS.map((p) => navTab(p))`) or a helper run from there, reached through the same file, an import or a barrel. A factory called in a handler, in `onRender`, in a `children` function, in a `functions/` export the browser runs (`el.call('rteBindings', Quill)`, from a bridge hook or anywhere) or in anything only such code calls runs in the browser: its closures are real, and it is not flagged.
 
 #### FA206 — NPM packages used inside handlers should be dynamic-imported
 
@@ -417,21 +419,24 @@ rules: { 'frank/FA211': 'warn' }              # eslint-plugin-frank
 
 Not FA207: that id stays the nested-helper guidance above (not audited), as FA208–FA210 stay documented ids. frank-audit has no rule FA207 — `--rule FA207` runs nothing and frank-audit reports the id as ignored.
 
-#### FA810 / FA811 / FA812 — component shape (opt-in)
+#### FA810 / FA811 / FA812 / FA813 — component shape (opt-in)
 
-Three opt-in rules check the shape of a component object, the same way `audit_component` does:
+Four opt-in rules check the shape of a component object, the same way `audit_component` does:
 
 - FA810 condition-case-block — 3+ CSS props of one element gated by the same `(el, s) => cond ? a : b` → one `isX` + `'.isX'` / `'!isX'` block (RULES.md Rule 19).
 - FA811 interactive-states — an interactive element (Link / Button family, tag `a` / `button`, or `href` / `onClick` on a definition) with `:hover` and no `:active` (Rule 65).
 - FA812 button-call-site-override — a built-in Button call site that sets `padding*`, `height` or `minHeight`; use a variant or a token (Rule 68).
+- FA813 if-in-flow — a nested element beside siblings, gated by an `if:` that reads state and not positioned out of the flow: keep it mounted and toggle `visibility`, `pointerEvents`, `tabindex` and `aria.hidden` (Rule 66). Low confidence: one file cannot tell chrome from content.
 
-Run them by name, like FA211: `--rule FA810,FA811,FA812`, `ruleIds`, or `'frank/FA810': 'warn'` in eslint-plugin-frank.
+Run them by name, like FA211: `--rule FA810,FA811,FA812,FA813`, `ruleIds`, or `'frank/FA810': 'warn'` in eslint-plugin-frank.
 
 ---
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)
 
 The DOM bans (FA503–FA510, FA512) have one sanctioned exception: a `Bridge` host (default-config `Bridge`, or any element that declares `onBridgeMount`). The library owns the DOM inside it, so DOM work in the three bridge hooks and the host's own `onXxx` handlers is not flagged; document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511) still are, and the same code anywhere else is. See COMPONENTS.md → Bridge.
+
+The sanction follows the bridge's helpers into `functions/` (one job per file, as the rules ask): a function whose EVERY reference in the project sits in bridge code — `el.call('rteSetup', Quill)` in `onBridgeMount` — or in another function sanctioned this way (transitively) is not flagged either. One reference anywhere else — a component, a page, a non-bridge handler (the host's PARENT included), `onRender`, the module scope of a function file, a `{{ key | name }}` pipe, `context.functions.name`, the name passed on as a string — and it is flagged as before. A name built at runtime (`'rte' + kind`) is the one reference the audit cannot see.
 
 #### FA513 — Never call `window.update(...)` / `document.update(...)`
 
