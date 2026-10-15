@@ -395,15 +395,17 @@ Don't reason about "the value of B" in the abstract — always ask **B in which 
 <colorName>(.<alphaDigits>)?(<+N|-N|=N>)?
 ```
 
-Verified at `packages/scratch/src/utils/color.js:180` (regex `/^([a-zA-Z]\w*)(?:\.(\d+))?(?:([+-]\d+|=\d+))?$/`).
+`colorName` starts with a letter. A hyphenated name is allowed when every segment starts with a letter (`line-highlight`, `gradient-dark-active`), so a `-` followed by digits is always the darken modifier (`gray-68`). Verified against `COLOR_TOKEN_REGEX` in `packages/scratch/src/utils/color.js`: `/^([a-zA-Z]\w*(?:-[a-zA-Z]\w*)*)(?:\.(\d+))?(?:([+-]\d+|=\d+))?$/`.
 
 | Modifier | Syntax | Example | Effect |
 |----------|--------|---------|--------|
-| Opacity | `.XX` | `'blue.7'` | 70% opacity (`0.XX` → `'.1'` = 0.1, `'.35'` = 0.35, `'.97'` = 0.97). Verified at `color.js:206` (`alpha = '0.' + alphaDigits`). |
-| Lighten | `+N` | `'gray+50'` | Lighten by N (HSL lightness, **relative**) |
-| Darken | `-N` | `'gray-68'` | Darken by N (HSL lightness, **relative**) |
-| Absolute | `=N` | `'gray=90'` | Set HSL lightness to N% (**absolute**) |
-| Combined | `.XX+N` | `'gray.85+8'` | 85% opacity + lighten by 8 (lightness) |
+| Opacity | `.XX` | `'blue.7'` | 70% opacity (`0.XX` → `'.1'` = 0.1, `'.35'` = 0.35, `'.97'` = 0.97). `parseColorToken`: `alpha = '0.' + alphaDigits`. |
+| Lighten | `+N` | `'gray+50'` | Adds N to each of the R, G and B channels (0–255), clamped at 255. **Not** HSL lightness. |
+| Darken | `-N` | `'gray-68'` | Subtracts N from each of the R, G and B channels (0–255), clamped at 0. **Not** HSL lightness. |
+| Absolute | `=N` | `'gray=90'` | Sets HSL lightness to N% (0–100). Hue and saturation stay. |
+| Combined | `.XX+N` | `'gray.85+8'` | 85% opacity, each channel +8 |
+
+`+N` / `-N` move every channel by the same amount, so N is in RGB channel units, not a lightness percentage. With `gray: '#4e4e50'` (78, 78, 80), `'gray+100'` is `rgb(178, 178, 180)` — HSL lightness +100 would be white. `'black+51'` is `rgb(51, 51, 51)`. `'#3366cc'` (51, 102, 204) `+40` is `rgb(91, 142, 244)`. A channel stops at 0 or 255, so a large N flattens a colour toward black or white. Write `=N` when you want a lightness target. Both runtime paths shift channels: `getRgbTone` → `getColorShade` (`packages/scratch/src/utils/color.js`) for a palette colour, and `rgb(from <colour> calc(r + N) calc(g + N) calc(b + N) / <alpha>)` (`packages/scratch/src/system/color.js`) for a scheme-adaptive token. `=N` maps to `hsl(from <colour> h s N%)` there.
 
 ```js
 // ✅ CORRECT — one base color, shades via modifiers
@@ -415,10 +417,10 @@ color: {
 // Use in components:
 background: 'blue'       // base
 background: 'blue.8'     // 80% opacity
-background: 'blue+20'    // lightened
-background: 'blue-30'    // darkened
-color: 'gray.5+15'       // 50% opacity + 15 lighter
-borderColor: 'gray+100'  // light gray border
+background: 'blue+20'    // each RGB channel +20 (lighter)
+background: 'blue-30'    // each RGB channel −30 (darker)
+color: 'gray.5+15'       // 50% opacity, each channel +15
+borderColor: 'gray+100'  // rgb(178, 178, 180): a light gray border
 
 // ❌ WRONG — Tailwind-style shade palette
 color: {
@@ -445,22 +447,23 @@ color: {
 
 ### Adaptive semantic colors (array syntax)
 
-Array syntax `[darkValue, lightValue]` defines a token that resolves differently per active theme. Values prefixed with `--` are **color references** in the form `'--colorName opacity tone'` (NOT CSS variables — the `--` is a parser hint).
+Array syntax `[lightValue, darkValue]` defines a token that resolves differently per active theme: the FIRST entry is the `@light` value, the second the `@dark` value (`{ '@light': val[0], '@dark': val[1] }` in `packages/scratch/src/system/color.js`; a one-entry array uses its value for both). Each entry is a color token (`'gray-168'`) or, in the legacy form, a **color reference** `'--colorName opacity tone'` (NOT a CSS variable — the `--` is a parser hint; a bare tone `N` there is absolute lightness, like `=N`).
 
 ```js
-title: ['--gray 1 -168', '--gray 1 +168'],
-//       ↑name  ↑alpha ↑tone
-// Dark: gray at full opacity, darkened by 168 (lightness)
-// Light: gray at full opacity, lightened by 168 (lightness)
+title: ['gray-168', 'gray+168'],
+//       ↑light     ↑dark
+// Light: gray with each RGB channel −168 → rgb(0, 0, 0)       (dark ink on a light page)
+// Dark:  gray with each RGB channel +168 → rgb(246, 246, 248) (light ink on a dark page)
+// Legacy spelling of the same pair: ['--gray 1 -168', '--gray 1 +168']
 ```
 
-| Token | Dark | Light | Use |
+| Token | Light (first) | Dark (second) | Use |
 |---|---|---|---|
-| `title` | `'--gray 1 -168'` | `'--gray 1 +168'` | Primary text |
-| `caption` | `'--gray 1 -68'` | `'--gray 1 +68'` | Secondary/meta |
-| `paragraph` | `'--gray 1 -42'` | `'--gray 1 +42'` | Body copy |
-| `disabled` | `'--gray 1 -26'` | `'--gray 1 +26'` | Disabled state |
-| `line` | `'--gray 1 -16'` | `'--gray 1 +16'` | Borders/dividers |
+| `title` | `'gray-168'` | `'gray+168'` | Primary text |
+| `caption` | `'gray-68'` | `'gray+68'` | Secondary/meta |
+| `paragraph` | `'gray-42'` | `'gray+42'` | Body copy |
+| `disabled` | `'gray-26'` | `'gray+26'` | Disabled state |
+| `line` | `'gray-16'` | `'gray+16'` | Borders/dividers |
 
 ### Theme-dependent named tokens
 
@@ -478,7 +481,7 @@ bgWarm:      '#f6f4f3',
 
 If a brand customizes the core color tokens (`color.black`, `color.white`, `color.neutral`, …) to tinted values, every `theme.X` block that defaults to `'black'` / `'white'` / bare `'neutral'` will resolve to the tinted variant. For surfaces this is usually wrong — a green-brand tinted "black" `#10241A` for `theme.document.@dark.background` makes the whole page take that tint instead of a true neutral.
 
-Always pair branded core tokens with explicit `theme.document` (and any other surface theme) blocks that step away from the tinted base via the modifier system (`+N` lighter, `-N` darker, `=N` absolute):
+Always pair branded core tokens with explicit `theme.document` (and any other surface theme) blocks that step away from the tinted base via the modifier system (`+N` lighter / `-N` darker — each RGB channel ±N; `=N` sets an absolute HSL lightness):
 
 ```js
 // designSystem/color.js — brand-tinted base, intentionally
@@ -1377,7 +1380,7 @@ Box: {
 const designSystemConfig = {
   color: {
     primary: '#1f6feb',
-    text:    ['#0b0b0b', '#f5f5f5'],   // [dark, light] adaptive
+    text:    ['#0b0b0b', '#f5f5f5'],   // [light, dark] adaptive — dark ink first (light scheme), light ink second (dark scheme)
     accent:  { '@light': '#ff7a18', '@dark': '#ffb347' }
   },
   gradient: {

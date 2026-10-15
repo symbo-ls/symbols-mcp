@@ -227,7 +227,7 @@ export default {
 }
 ```
 
-**Note:** Array values are `[@dark, @light]` theme pairs. Format: `'--colorName opacity tone'` where `--` is the color reference prefix, opacity is 0-1, and tone is `+N`/`-N` (relative HSL lightness) or `=N` (absolute HSL lightness %). Use semantic names (`title`, `caption`, `paragraph`, `disabled`, `line`) for text colors.
+**Note:** Array values are `[@light, @dark]` theme pairs — the first entry is the light-scheme value. Legacy format: `'--colorName opacity tone'` where `--` is the color reference prefix, opacity is 0-1, and tone is `+N`/`-N` (adds/subtracts N to/from each RGB channel, 0–255, clamped — not HSL lightness) or a bare `N` (absolute HSL lightness %). In the current token grammar the same pair is `['gray-168', 'gray+168']` (`'name.alpha+N'`, `'name=N'`): light text `rgb(0, 0, 0)`, dark text `rgb(246, 246, 248)`. Use semantic names (`title`, `caption`, `paragraph`, `disabled`, `line`) for text colors.
 
 ## theme.js
 
