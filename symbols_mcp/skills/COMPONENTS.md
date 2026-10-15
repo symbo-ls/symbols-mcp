@@ -323,15 +323,16 @@ ToggleHgroupList: {
 
 ### Dialog — modal, events, names
 
-- `modal` (a value or `(el, s) => …`): truthy → `showModal()` (top layer, inert page, Escape, focus moved in and given back); falsy → `close()`. A closed modal dialog is hidden. `modal: true` under an `if:` works too. Without `modal` the dialog renders in the flow as before, and a flat `open: true` is the native NON-modal attribute — use `modal` for a modal.
+- `modal` (a value or `(el, s) => …`): truthy → `showModal()` (top layer, inert page, Escape, focus moved in and given back); falsy → `close()`. A closed modal dialog is hidden. `modal: true` under an `if:` works too: a dialog built outside the document (an `if:` mount, the first render) opens in the insertion that connects it (`el.whenConnected`), so it is in the first paint. Without `modal` the dialog renders in the flow as before, and a flat `open: true` is the native NON-modal attribute — use `modal` for a modal.
 - Escape, Cancel, OK and the close button close it themselves: keep your state in step in `onClose`. `el.node.returnValue` is `'ok'`, `'cancel'` or `''` (Escape).
 - `onCancel` hears Escape, Cancel and the close button; `onOk` hears OK; `e.preventDefault()` keeps the dialog open. Any button inside can carry an action: `data: { dialogAction: 'ok' }`.
-- Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with English defaults.
+- Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. A name you give it yourself (`aria-label`, `aria-labelledby`, a factory too) is kept. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with English defaults.
 
 ### Dropdowns — the menu-button contract
 
 - The trigger is the dropdown parent itself when it renders a button (`extends: ['Button', 'DropdownParentFocus']`), else its first child other than the `Dropdown` panel and `Input_trigger`. Use a `Button` there: a plain text element (`Label`, `Text`) is given `role="button"` + `tabindex="0"`; a link, a field or an icon leaves the dropdown CSS-only.
-- The trigger gets `aria-expanded`, `aria-controls` and `aria-haspopup` (the panel's popup role); what you set yourself is kept. Enter / Space / click toggle, ArrowDown / ArrowUp open on the first (checked) / last item, Escape closes back to the trigger, arrows / Home / End move inside a `DropdownList`.
+- The trigger gets `aria-expanded`, `aria-controls` and `aria-haspopup` (the panel's popup role); an attribute you declare yourself stays yours — a factory too, even while it renders nothing. Enter / Space / click toggle, ArrowDown / ArrowUp open on the first (checked) / last item, Escape closes back to the trigger, arrows / Home / End move inside a `DropdownList`.
+- A `DropdownList` has a roving tab stop: exactly one row has `tabindex="0"` — the one focus last went to, else the first enabled row — and every other row `-1`.
 - The open state is `data-dropdown-open` on the parent (`"true"` open, `"false"` closed even while hovered); without it the CSS hover / focus-within reveal decides, as before.
 
 ---

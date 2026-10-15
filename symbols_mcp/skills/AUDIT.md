@@ -362,8 +362,8 @@ Capture the staging URL from output. Use that URL for Phase 3c side-by-side comp
 | `symbols.json` has no `key` | `🟢 ASK USER` for the key (or to run `smbls project link` / `smbls project create`); apply, retry | If user can't provide a key → render locally with `smbls frank to-json` + `smbls brender` and use `dist-brender/` for Phase 3c instead of staging URL |
 | `AUTH_REQUIRED` | `🟢 ASK USER` to run `smbls login` (or set `SYMBOLS_TOKEN`) | If user declines → local render fallback (same as above) |
 | `Project ${owner}/${key} not found on server` | `🟢 ASK USER` to confirm project exists / create it | Local render fallback |
-| `--env staging` env doesn't exist | Try `--env dev` or `--env preview`; if all enabled envs reject → `🟢 ASK USER` for the right env name | Local render fallback |
-| `ECONNREFUSED` / channel mismatch | Switch channel via `NODE_ENV=next` or `--next`; retry | `🟢 ASK USER` |
+| `--env staging` env doesn't exist | Try `--env development` (publish accepts only `development`, `staging`, `production`); if all enabled envs reject → `🟢 ASK USER` for the right env name | Local render fallback |
+| `ECONNREFUSED` / channel mismatch | Pin the call with `SYMBOLS_API_BASE_URL=<url>` (`NODE_ENV` does not move the machine's active channel); retry | `🟢 ASK USER` |
 | `commander unknown subcommand` | Read `smbls --help-all`, pick equivalent | `🟢 ASK USER` |
 
 **Local-render fallback (the "we still want a preview" path):**

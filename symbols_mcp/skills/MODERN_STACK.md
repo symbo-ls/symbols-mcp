@@ -612,7 +612,8 @@ smbls build                    # bundle, then pre-render every static route into
 smbls build --strict           # …and fail on pages made without their data or labels
 smbls brender                  # render all static routes
 smbls brender --out-dir build  # custom output directory
-smbls brender --no-prefetch    # skip SSR data prefetching
+smbls brender --no-prefetch    # no labels fetched first, no wait for each page's requests
+smbls brender --strict         # fail on a page made without its data or labels (same route loop as build)
 smbls brender --no-isr         # skip client SPA bundle
 smbls brender --watch          # watch & re-render
 ```
@@ -654,7 +655,7 @@ const result = await renderPage(data, '/about', { prefetch: true })
 | `renderElement(def, opts?)` | Render a single component to HTML |
 | `render(data, opts?)` | Render a full project (routing, state, designSystem) |
 | `renderPage(data, route, opts?)` | Complete HTML page with metadata, CSS, fonts |
-| `prefetchPageData(data, route)` | A page's `fetch` data OUTSIDE a render (render() does not use it — the fetch plugin loads data during the render) |
+| `prefetchPageData(data, route)` | Deprecated: a page's `fetch` data OUTSIDE a render (render() does not use it — the fetch plugin loads data during the render) |
 | `hydrate(element, opts?)` | Client-side: reconnect DOMQL tree to DOM |
 | `loadProject(path, { dir, context })` | Import a `symbols/` directory — or, with `context`, the module the build's entry boots with (its pages only) |
 | `generateSitemap(data)` | Generate sitemap.xml from routes |
@@ -699,7 +700,7 @@ A page that must never be pre-rendered can also say `prerender: false`.
 
 ### What a pre-render loads
 
-With `prefetch` (the default) the page's declarative `fetch:` runs during the render through the project's adapter (`fetch: { adapter: 'rest', url }`; the platform's `sdk` adapter is not available on a server), and the render waits for it. Labels load in the page's language. Helmet metadata is rendered into `<head>` server-side.
+The page's declarative `fetch:` runs during the render through the project's adapter (`fetch: { adapter: 'rest', url }`; the platform's `sdk` adapter is not available on a server). With `prefetch` (the default) table/RPC labels are fetched first and the render waits for the page's requests (up to 2 s); `prefetch: false` / `--no-prefetch` waits only a 50 ms quiet period. Labels load in the page's language. Helmet metadata is rendered into `<head>` server-side.
 
 Param routes (`/blog/:id`) are skipped during static generation unless `brender.paths` lists addresses for them; `renderPage(data, '/:lang/about', { pathname: '/en/about' })` renders one at an address.
 

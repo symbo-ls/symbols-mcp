@@ -59,8 +59,7 @@ Every command that hits the API accepts these. Prefer them over editing `.symbol
 | Flag | Effect |
 |---|---|
 | `--local` | Target `http://localhost:8080` (channel `local`) |
-| `--next` | Target `https://next.api.symbols.app` (channel `next`) — current default |
-| `--no-next` | Target `https://api.symbols.app` (channel `production`) |
+| `--next` / `--no-next` | Only on `smbls channels`: switch this machine's ACTIVE channel to `next` / `production`. No other command takes them — pin one call with `SYMBOLS_API_BASE_URL` |
 | `--api-base-url <url>` | Explicit URL override (login/signup) |
 | `--non-interactive` | Disable all prompts; fail rather than asking. Required for CI/MCP/agents |
 | `-y`, `--yes` | Auto-confirm "are you sure?" prompts (different from `--non-interactive`; this approves, that disables) |
@@ -310,7 +309,7 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 
 `"smblsEntry": "core"` in `symbols.json` (parcel `start` / `build`): every bare `smbls` import resolves to `smbls/core` — the framework without the platform registry, its kits and platform plugins in files loaded only when switched on. Only for an app that runs no published or fetched project code: frank-serialized functions read the registry. Default `"full"`.
 
-`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed, unless `brender.paths` lists addresses for them (`brender.context` and `brender.exclude` apply as in `build`). Exits 1 when no route renders. The page boots over the server markup; it adopts it only with opt-in hydration (FRAMEWORK.md §8).
+`brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch` (no table/RPC labels fetched first, no wait for each page's requests; the page's own `fetch` still runs during the render), `--strict` (as in `build`; also `brender.strict`), `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `smbls brender` runs the route loop `smbls build` runs: `brender.context`, `exclude`, `paths`, `strict` and `eagerImages` apply, `file:` URLs are mapped into the output (one that names no project file fails its route), and pages made without some of their data or labels are reported. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed, unless `brender.paths` lists addresses for them. Exits 1 when no route renders. Its pages carry no element registry: with the ISR client bundle the app boots over the server markup and replaces it; `build` pages are the ones made for adoption (FRAMEWORK.md §8).
 
 `deploy --provider <X>` accepts `symbols`, `cloudflare`, `vercel`, `netlify`, `github-pages`. Auto-creates the provider's config (`wrangler.jsonc`, `vercel.json`, `netlify.toml`, etc.) if missing. `--init` initializes config without deploying.
 
@@ -452,7 +451,7 @@ Errors the CLI surfaces:
 
 | Symptom | Source | Fix |
 |---|---|---|
-| `Cannot reach API server at <host>:<port>` | `bin/index.js:49-53` (ECONNREFUSED) | Wrong channel or server down. Override with `SYMBOLS_API_URL` or `--next/--no-next` |
+| `Cannot reach API server at <host>:<port>` | `bin/index.js:49-53` (ECONNREFUSED) | Wrong channel or server down. Pin the call with `SYMBOLS_API_BASE_URL=<url>`, or switch the machine's channel with `smbls channels` |
 | `Authentication required` (`code: 'AUTH_REQUIRED'`) | `helpers/authEnsure.js:272` | Need `smbls login` or `SYMBOLS_TOKEN` env var |
 | `Missing app key in symbols.json` | `helpers/symbolsConfig.js:29` | Run `smbls init` or hand-write `symbols.json` with `{ owner, key }` |
 | `Project ${owner}/${key} not found on server` (with `--non-interactive`) | `bin/publish.js:89-92` | Run `smbls project create` first OR `smbls workspace create-missing` |
@@ -488,7 +487,7 @@ Each subcommand file is registered by importing it in the `bin/<family>.js` pare
 - Don't run `smbls publish` as the first command in a fresh session without `--dry-run`. If your local config is wrong, you publish to the wrong project.
 - Don't manually `rm -rf .symbols_local/`. Use `smbls clean` (preserves credentials, removes stale snapshots/locks).
 - Don't pass auth tokens via `--token` flag in shared logs. Use `SYMBOLS_TOKEN` env var instead — it doesn't appear in `ps`/process listings.
-- Don't use `--no-next` casually. It targets `api.symbols.app` (production), and any push/publish there is real-user-visible. Default to `next` for development.
+- Don't run `smbls channels --no-next` casually. It makes `api.symbols.app` (production) the active channel of every shell on the machine, and any push/publish there is real-user-visible. Default to `next` for development.
 - Don't rely on the global `smbls` binary version matching the monorepo `@symbo.ls/cli@3.14.0` — they may drift. Use `smbls --version` to check.
 - A subcommand's own `--version <v>` option (e.g. `smbls publish --version <id>`, `smbls config --version <v>`) is a normal per-command flag, not the global `-V/--version` — Commander's positional-options handling means the two no longer collide; the subcommand's own flag reaches its `.action()` correctly as long as it appears after the subcommand name (`smbls publish --version <id>`, not `smbls --version publish <id>`).
 - Don't combine `--all` with `--env` on `smbls publish`. `--env` overrides `--all`; the combination silently uses `--env` only.

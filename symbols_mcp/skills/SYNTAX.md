@@ -70,7 +70,7 @@ create(definition, parent, key, options)
 
 The `if` effect re-enters the full creation steps the first time it flips false → true.
 
-**Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once, but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks.
+**Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once, but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
 ---
 
@@ -395,6 +395,8 @@ export const Rise = {
 - Observed when the element gets its node; unobserved on removal and once its `once` handlers ran. An `if:`-hidden element leaves the view.
 - Entries delivered together run in delivery order and share `entry.time` (count them for a stagger).
 - No IntersectionObserver (SSR / brender, jsdom) → nothing observed, nothing runs. Never hand-roll an IntersectionObserver in `onRender` for this.
+
+The smbls embed (`SymbolsEmbed`) has neither feature: `onInView` / `onLeaveView` never fire there, and `{ always: true, handler }` is not a handler (RUNNING_APPS.md → Embed Bundle).
 
 State hooks:
 
@@ -952,7 +954,7 @@ const openRow = (e, el) => el.call('open', el.key)
 children: (el, s) => s.items.map(it => ({ key: it.id, text: it.label, onClick: openRow }))
 ```
 
-For rows whose data changes often (labels, counts, flags), prefer `childrenAs: 'state'` + `childExtends`: the row is patched in place and only the props that read the changed keys re-render.
+For rows whose data changes often (labels, counts, flags), prefer `childrenAs: 'state'` + `childExtends`: the row is patched in place and only the props that read the changed keys re-render. The smbls embed has no plain-row diff: there a plain `children` factory rebuilds its rows on every re-run (RUNNING_APPS.md → Embed Bundle).
 
 A `children` function runs **once** at mount (its reactive effect's first run builds the list), and a new row is inserted into the DOM once, at its final place — a `MutationObserver` sees one `+row` per new row.
 
@@ -1152,6 +1154,7 @@ export const Chart = {
 | | `el.reset(opts?)` | Dispose + recreate from parsed definition |
 | **Content** | `el.removeContent()` | Dispose & remove `content` child |
 | **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
+| | `el.whenConnected(fn)` | Run `fn(el)` once the node is in a document — now if it is (below) |
 | | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
 | **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` (a protected built-in name resolves the element's own method; `log`/`warn`/`error`/`verbose` are override points) |
 | **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |
@@ -1163,6 +1166,16 @@ export const Chart = {
 | | `el.warn(...)` / `el.error(...)` | Logging helpers |
 | | `el.variables()` | Resolved variables |
 | | `el.getRef()` | Internal `__ref` tracking |
+
+`el.whenConnected(fn)` runs `fn(el)` now when the element's node is in a document, else in the task of the insertion that connects it: the first render builds the app root outside the document and inserts it in one step, and an `if:` re-attach connects a node later. Use it for work that needs a connected node before the first paint — `dialog.showModal()` throws on a detached one, `focus()` does nothing there — where `onMounted` (next frame, after layout) is a frame late. It never runs for an element disposed first; a callback that throws is logged and the others still run. The built-in `Dialog` opens its `modal` this way.
+
+```js
+export const SearchField = {
+  extends: 'Input',
+  // onRender runs before the node is attached: a bare el.node.focus() here does nothing
+  onRender: (el) => el.whenConnected(() => el.node.focus())
+}
+```
 
 ### Element Update Options
 
@@ -1304,7 +1317,7 @@ el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard] })
 export default { router: { guards: [authGuard] } }
 ```
 
-A guard returns `true` (go), `false` (stay) or a path (redirect), directly or as a promise. The guards run in order; the first `false` or path ends the run. A guard that answers directly is not awaited: with only such guards the page renders in the same run as the navigation, as without guards (so the first route renders inside `create()` and brender hydration adopts the page, not only the shell). A guard that returns a promise is awaited, and the guards after it run when it settles. On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
+A guard returns `true` (go), `false` (stay) or a path (redirect), directly or as a promise. The guards run in order; the first `false` or path ends the run. A guard that answers directly is not awaited: with only such guards the page renders in the same run as the navigation, as without guards (so the first route renders inside `create()` and brender hydration adopts the page, not only the shell). A guard that returns a promise is awaited, and the guards after it run when it settles. The newest navigation wins: a navigation of the same element that starts while an older one still waits on a guard takes over, and when that guard settles the older navigation ends — it renders nothing, writes no history entry and follows no redirect (a Back / Forward waiting on its guard too: the History stays with the newer navigation). A lazy group's loaded render completes its placeholder's navigation; it is not a newer one. On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
 
 ### Scroll restoration — `scrollRestoration`
 

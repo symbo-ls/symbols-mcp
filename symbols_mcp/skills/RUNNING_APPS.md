@@ -87,18 +87,20 @@ All providers run `smbls build` first, outputting to `dist/`.
 
 ### SSR with Brender
 
-Enable in `symbols.json`:
+On by default for `smbls build`; configure it in `symbols.json` (`false` turns it off, an object sets `context`, `exclude`, `paths`, `strict`, `eagerImages` — CLI.md → Dev / build / deploy):
 
 ```json
 { "brender": true, "brenderDistDir": "dist-brender" }
 ```
 
 ```bash
-smbls brender                # pre-render all static routes
+smbls build                  # bundle, then pre-render every static route into dist/
+smbls brender                # pre-render all static routes into dist-brender/
+smbls brender --strict       # fail on a page made without its data or labels
 smbls brender --watch         # watch mode
 ```
 
-Generates static HTML with `data-br` hydration keys. Client-side DOMQL reconnects to pre-rendered DOM for full interactivity.
+Generates static HTML with `data-br` hydration keys. `smbls build` pages carry the element registry: the client adopts the pre-rendered DOM instead of drawing it again (FRAMEWORK.md §8). `smbls brender` pages carry none: the client renders fresh over them.
 
 ### Sync & Collaboration
 
@@ -157,7 +159,7 @@ Run Symbols directly in the browser with a single HTML file. No npm, no bundler,
 
 Pin a version: `https://esm.sh/smbls@3.6.8`
 
-Self-hosting the ESM build (copying `smbls/dist` to your own server): keep `dist/smbls.socket-io-client.esm.js` next to `dist/smbls.esm.js`; for `smbls/core`, keep every `dist/smbls.core.*.esm.js` file next to `dist/smbls.core.esm.js` too — its kits and plugins load from them by relative path. `smbls.esm.js` loads it by relative path, and only when live sync connects (`editor.socketUrl`, `settings.socketUrl` or `editor.runtime: 'runner'`). The IIFE builds carry it inline.
+Self-hosting the ESM build (copying `smbls/dist` to your own server): keep `dist/smbls.socket-io-client.esm.js` next to `dist/smbls.esm.js`; for `smbls/core`, keep every `dist/smbls.core.*.esm.js` file next to `dist/smbls.core.esm.js` too — its kits and plugins load from them by relative path. The socket.io client file is loaded by relative path, and only when live sync connects (a transport the page may use: `editor.socketUrl`, `settings.socketUrl` or `editor.runtime: 'runner'`; on a page the platform published, only inside an editor session). The IIFE builds carry it inline.
 
 ### IIFE (Classic Script Tag)
 
