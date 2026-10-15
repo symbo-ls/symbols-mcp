@@ -536,8 +536,11 @@ handlers reference factory parameters silently breaks under frank:
     color: () => path === currentPath ? 'blue' : 'gray'
   })
 
-frank stringifies `color: () => …`, the closure over `path` is gone,
-and `path` is undefined when the handler runs — wrong color, silently.
+  export const Nav = { Home: navTab('/') }
+
+frank evaluates the module at publish and stringifies the
+`color: () => …` the call made: the closure over `path` is gone, and
+`path` is undefined when the handler runs — wrong color, silently.
 
 ## Fix
 
@@ -552,15 +555,14 @@ travels with the element through serialization:
 Bare `path` references inside the handler stay bare; frank rewrites
 them to `el.scope.path` at toJSON time.
 
-Not flagged inside a bridge's own code (`onBridgeMount` /
-`onBridgeUpdate` / `onBridgeDestroy` and the host's `onXxx` handlers):
-the option objects a library takes (toolbar handlers, key bindings,
-paste matchers) are built there at runtime, inside one serialized
-function, so their closures survive. The same holds in a `functions/`
-function that only that code calls (`el.call('rteBindings', Quill)`
-from a hook) or only such functions call: its result is handed to the
-library at runtime, never serialized on its own. A factory that RETURNS
-a bridge host is still flagged.
+Flagged only when a call runs while the modules load: at module scope
+(in any shipped file — frank hoists module-scope values too), or in an
+IIFE, a callback (`TABS.map((p) => navTab(p))`) or a helper run from
+there, through the same file, an import or a barrel. A factory called
+in a handler, in `onRender`, in a `functions/` export the browser runs
+(`el.call('rteBindings', Quill)` from a bridge hook) or in anything only
+such code calls runs in the browser: its closures are real, and it is
+not flagged, wherever it is declared.
 
 # FA206 — npm-import-in-handler
 

@@ -73,7 +73,7 @@ Editor: {
 - An `if:`-hidden host keeps its library; shown again, it does not mount twice.
 - Browsers only: a server render (brender) leaves the host empty and runs no hook; the browser mounts once the client re-creates the tree.
 - Keep DOMQL children BESIDE the host, not in it — the library may replace what is inside. A `text` on the host stops at the mount.
-- frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA205, FA503–FA510, FA512) — nor in a `functions/` helper that only that code calls (`el.call('rteSetup', Quill)` from `onBridgeMount`), or only such helpers call: keep one job per function file. The same code anywhere else is still flagged — a helper that any other code also calls included — and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511).
+- frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA503–FA510, FA512) — nor in a `functions/` helper that only that code calls (`el.call('rteSetup', Quill)` from `onBridgeMount`), or only such helpers call: keep one job per function file. The same code anywhere else is still flagged — a helper that any other code also calls included — and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511).
 
 ### TooltipLayer — tooltips for nodes that cannot hold a child
 
