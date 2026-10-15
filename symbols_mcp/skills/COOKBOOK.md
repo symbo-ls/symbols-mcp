@@ -649,22 +649,17 @@ export const DragBox = {
 
 ## 21. Lazy Image
 
-Load image on intersection using IntersectionObserver.
+Load the image the first time it comes into view (`onInView`, SYNTAX → View events).
 
 ```js
 export const LazyImage = {
   state: {
     loaded: false
   },
-  onRender: (el, s) => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) s.update({ loaded: true })
-    })
-    observer.observe(el.Img.node)
-  },
   Img: {
     src: (el, s) => (s.loaded ? 'https://picsum.photos/300/200' : ''),
-    alt: 'Lazy loaded image'
+    alt: 'Lazy loaded image',
+    onInView: { once: true, handler: (entry, el, s) => s.update({ loaded: true }) }
   }
 }
 ```

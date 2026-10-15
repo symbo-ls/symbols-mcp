@@ -83,7 +83,7 @@ props, if, show, hide, value, define, key, tag, query, parent, node,
 variables, component, context, fetch, routes, metadata,
 onInit, onCreate, onComplete, onRender, onRenderRouter, onUpdate, onBeforeUpdate,
 onStateInit, onStateCreated, onStateUpdate, stateDeps, onBeforeStateUpdate,
-onAttachNode, onFrame, onError,
+onAttachNode, onFrame, onError, onInView, onLeaveView,
 onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup, onMouseover,
 onBlur, onFocus, onScroll, onResize, … any other onXxx
@@ -112,7 +112,7 @@ Any key NOT in this list and not PascalCase is promoted as a CSS prop.
 | `extends: [A, B]` array | **LAST wins** — later entries override earlier ones on every conflicting key, like later CSS declarations. Keys only one entry declares are all kept. A component still beats what it extends. |
 | Plain objects | Deep-merged (PascalCase children deep-merge child overrides) |
 | Special keys (`childProps`, `attr`, `style`, `scope`, `data`) | Shallow merge {...base, ...override} |
-| Functions | NOT merged; element's function replaces extend's |
+| Functions | NOT merged; element's function replaces extend's — except a lifecycle handler the base marks `{ always: true, handler }`, which runs BEFORE the one that replaces it (Lifecycle events → `always`) |
 | Arrays | Concatenated where applicable; otherwise replaced |
 
 ---
@@ -233,6 +233,8 @@ Cases are defined in `cases.js` at the project root and added to `context.cases`
 
 `.isX` / `'!isX'` blocks are fully reactive — the framework wraps the `isX` condition in its own `createEffect` (both directions: applying AND reverting), so the matching block re-applies every time the state read by the condition changes, for a flag on the element's own state or on root state, whether the state key is declared up front or arrives later. Use the pattern when two or more CSS props share a single condition; it's cleaner than repeating the same condition across many prop functions.
 
+A condition that reads only the element's own props (`isQuiet: (el) => !!el.quiet`, directly or through `el.call('fn')`) re-runs on `el.update()` and never warns. In dev, a condition whose FIRST run read state WITHOUT subscribing — the `in` operator, `Object.keys` / spread / JSON, a `__` key, `s.parse()` / `keys()` / `values()` — and so tracked nothing logs ``[smbls] conditional `.isX` on X subscribed to nothing`` once: no state write will ever re-run it. The decision is made at run time (the source is never read). Declare the dependency — `isXDeps: ['key', (el, s) => s.root.openId]` is read first, unconditionally, so the subscription exists while the key is undeclared — or `isXDeps: []` to mark the condition static on purpose (no warning).
+
 **`$isX` (global cases) does not currently apply at all — do not use it.** Unlike `.isX`/`!isX`, nothing in the runtime reads a `$`-prefixed key: it is neither compiled once at create nor wired into a reactive effect, so a `$isSafari: {...}` block silently emits no CSS, ever. Express a global-case condition as an ordinary reactive prop function instead (`padding: (el, s) => isSafari(s) ? 'B' : undefined`).
 
 ```js
@@ -348,6 +350,49 @@ onRemove:      (el)            => { /* fires AFTER DOM detach + state.destroy();
 ```
 
 Every lifecycle handler takes the element FIRST.
+
+#### A base that owns a lifecycle step — `{ always: true, handler }`
+
+A merge gives every key ONE value: an element's own `onRender` replaces its base's. That default never changes. A base marks a handler `always` when every component that extends it must run it:
+
+```js
+export const Tracked = {
+  onRender: { always: true, handler: (el) => el.call('trackImpression', el.key) }
+}
+export const Card = {
+  extends: 'Tracked',
+  onRender: (el, s) => { /* runs AFTER Tracked's handler, never instead of it */ }
+}
+```
+
+- An `always` handler survives every merge that would replace it: an `extends` chain or array, `childExtends`, the key auto-extend, a nested child override, `childProps`. It runs before the handler that replaced it.
+- `always` handlers accumulate down a chain (deepest base first, an `extends` array in order); ONE plain handler — the last merged — runs after them. A plain handler between them is still replaced: `Rise { always r }` → `Card { extends: 'Rise', onRender: c }` → `{ extends: 'Card', onRender: o }` runs `r, o`.
+- `el.onRender` stays one function: calling it runs them all with the same `this` and arguments. A throwing handler does not stop the rest (the error is reported); `false` from any of them is returned (an `onBeforeUpdate` veto); an async one keeps the hook pending until it settles.
+- Composes: the lifecycle hooks (`onInit` … `onRemove`, `onUpdate`, `onStateUpdate`, `onMounted`, `onFrame`, …) and `onInView` / `onLeaveView`, each entry with its own options. Does NOT compose: DOM events (`onClick` …), the bridge hooks (`onBridgeMount` returns the one library instance). `always` there warns in dev and the plain merge applies.
+
+#### View events — `onInView` / `onLeaveView`
+
+```js
+export const Rise = {
+  data: { rise: 'wait' },
+  '[data-rise="wait"]': { opacity: '0' },
+  '[data-rise="in"]': { animationName: 'riseIn', animationDuration: 'E' },
+  onInView: {
+    always: true,       // every component that extends Rise keeps this step
+    once: true,         // first time only, then the element is no longer watched
+    threshold: 0.1,     // share of the element that must be visible, 0–1 (default 0)
+    rootMargin: '0px',  // grows/shrinks the viewport, as IntersectionObserver's
+    handler: (entry, el, s, ctx) => el.update({ data: { rise: 'in' } })
+  },
+  onLeaveView: (entry, el, s, ctx) => el.call('pausePreview', el)
+}
+```
+
+- `onInView` runs when the element crosses INTO its threshold; `onLeaveView` on the way out, never for an element that starts out of view. `entry` is the `IntersectionObserverEntry`; `this` is the element. `onInView: 'reveal'` → `el.call('reveal', entry)`.
+- ONE shared IntersectionObserver per document + threshold + `rootMargin`, created by the first element that declares one of the events, disconnected with the last. No element declares them → no observer, no cost.
+- Observed when the element gets its node; unobserved on removal and once its `once` handlers ran. An `if:`-hidden element leaves the view.
+- Entries delivered together run in delivery order and share `entry.time` (count them for a stagger).
+- No IntersectionObserver (SSR / brender, jsdom) → nothing observed, nothing runs. Never hand-roll an IntersectionObserver in `onRender` for this.
 
 State hooks:
 
@@ -1771,6 +1816,7 @@ __name, __ref, __hash, __text,
 onInit, onCreate, onComplete, onRender, onRenderRouter,
 onUpdate, onBeforeUpdate, onStateInit, onStateCreated,
 onStateUpdate, stateDeps, onBeforeStateUpdate, onAttachNode, onFrame,
+onInView, onLeaveView,
 onError, onBeforeRemove, onRemove, onDestroy, onDispose,
 onClick, onInput, onChange, onSubmit, onKeydown, onKeyup,
 onMouseover, onMouseout, onBlur, onFocus, onScroll, onResize, …

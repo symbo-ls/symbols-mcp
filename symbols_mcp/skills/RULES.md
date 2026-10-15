@@ -835,7 +835,7 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 | `XMLHttpRequest` / `navigator.sendBeacon` | declarative `fetch:` prop or `el.call` wrapping `el.getDB()` (Rule 47) |
 | raw `EventSource` / raw `WebSocket` constructors in components | wrap in a `functions/` file with cleanup (`el.scope.cleanup`); never instantiate at module top level |
 | `MutationObserver` / `ResizeObserver` from components | reactive prop functions OR scoped via `el.scope` cleanup hook |
-| `IntersectionObserver` from components | scoped via `el.scope` cleanup; preferred: a `functions/observeVisibility.js` helper invoked in `onRender` with a return-cleanup |
+| `IntersectionObserver` from components | `onInView` / `onLeaveView` on the element — `{ threshold, once, rootMargin, handler }`, one shared observer per document, unobserved on dispose (SYNTAX → View events) |
 
 **Reading is fine. Writing is not.** `el.node.scrollTop`, `el.node.value`, `el.node.selectionStart`, `el.node.focus()`, `el.node.blur()`, `el.node.select()` are acceptable. Assigning to `el.node.X` is not (Rule 39).
 
