@@ -1188,6 +1188,24 @@ app.navigate('/login', { replace: true })
 
 `replace` only chooses HOW the entry is written: `pushState: false` still writes no history at all (the popstate handler and the initial render use it), so `{ pushState: false }` renders the route but leaves the OLD URL in the address bar. `replace` ships in `@symbo.ls/router` after 3.14.601 (smbls repo commit `9f498831e`); a runtime up to smbls 3.14.805 ignores it and pushes.
 
+### Keep the page — `keepSamePage` and `render: false`
+
+By default a new pathname swaps the page, also when it matches the SAME page (a page mapped again under a language prefix: `'/texts': texts` and `'/:lang/texts': texts`). Two opt-in options change only the address and the route state:
+
+```js
+// keepSamePage: only ANOTHER page (another route value) swaps; the same page stays mounted
+el.router('/en/texts', el.getRoot(), {}, { replace: true, keepSamePage: true, scrollToTop: false })
+// app-wide (config.js); a call turns it off with keepSamePage: false, force: true still swaps
+export default { router: { keepSamePage: true } }
+
+// render: false: write the address + route state, keep the page as it is (per call only)
+el.router('/en/texts', el.getRoot(), {}, { replace: true, render: false })
+```
+
+- `keepSamePage`: the same page object under another pathname, route key or params stays mounted (its elements, their state, focus and whatever is open). The history entry, `route` / `params` / `query` and `onRouteChanged` happen as for a query-only navigation; the scroll follows the usual options. The page is not built again, so it reads what changes from the route state (`s.root.params`). No `onRouteExit`, no view transition.
+- `render: false`: the navigation mounts, scrolls, exits, transitions and loads nothing (`force` included) and fires `onRouteChanged` with `options.render === false`. Use it when the page on screen already is the page of the new address — a language switch that changed the words in place, or a one-time token (an OAuth code, an auth e-mail link) taken out of the address before the first render (the first render then renders the page as usual). Guards run: a refusal writes nothing, a redirect renders its target. The app-wide `router` options cannot set it.
+- Either way never hand-write `history.replaceState` for this (FA410).
+
 ### Custom Router Element (Persistent Layouts)
 
 ```js
@@ -1212,7 +1230,7 @@ el.router('/dashboard', el.getRoot(), {}, { guards: [authGuard] })
 export default { router: { guards: [authGuard] } }
 ```
 
-A guard returns `true` (go), `false` (stay) or a path (redirect). On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
+A guard returns `true` (go), `false` (stay) or a path (redirect), directly or as a promise. The guards run in order; the first `false` or path ends the run. A guard that answers directly is not awaited: with only such guards the page renders in the same run as the navigation, as without guards (so the first route renders inside `create()` and brender hydration adopts the page, not only the shell). A guard that returns a promise is awaited, and the guards after it run when it settles. On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
 
 ### Scroll restoration — `scrollRestoration`
 
@@ -1254,11 +1272,12 @@ export const adminLoading = {
   lazy: 'admin',
   extends: 'Page',
   minHeight: '100dvh',
-  LoadError: { if: (el, s) => s.lazyStatus === 'error', role: 'alert', text: '{{ admin.loadError | polyglot }}' }
+  LoadError: { if: (el, s) => s.lazyStatus === 'error', role: 'alert', text: '{{ admin.loadError | polyglot }}' },
+  ReloadNote: { if: (el, s) => s.lazyStatus === 'reload', role: 'alert', text: '{{ admin.reloadToLoad | polyglot }}' }
 }
 ```
 
-- A navigation runs the guards first (a refused one never downloads the group), writes the history entry and renders the placeholder; its own state carries `lazyStatus`: `'loading'`, then `'error'` if the load fails (the next navigation or `loadLazy` call retries; the failure is logged, the message is yours).
+- A navigation runs the guards first (a refused one never downloads the group), writes the history entry and renders the placeholder; its own state carries `lazyStatus`: `'loading'`, then `'error'` if the load fails (the next navigation or `loadLazy` call calls the group's loader again; the failure is logged, the message is yours), or `'reload'` when a retry cannot load: parcel (`smbls start` / `smbls build`) keeps a failed dynamic import and hands the same rejected `import()` back without a request until the page reloads. When the loader hands back the import that already failed (the same promise or the same error), the router says so in the console and shows `'reload'` instead of pretending to retry — show a reload action for it, not a retry. A later attempt whose loader hands back a new import still loads.
 - Once loaded, the group's pages, components, functions, methods and snippets are registered, each placeholder of the group is replaced in place by the group's page of the same route, and the route renders again in the SAME history entry (no new entry, no scroll, no guards). A name the app already has keeps the app's value (a dev warning; `smbls push` refuses the collision — rename it).
 - `onRouteChanged` fires twice: `options.lazy` is `{ group: 'admin', status: 'loading' }`, then `{ …, status: 'loaded' }`.
 - `await el.call('loadLazy', 'admin')` preloads (e.g. on hover of the admin link) and resolves once the group is registered; it rejects when the load fails. `el.router()` / `app.navigate()` resolve once the placeholder is on screen — call `loadLazy` first to land on the page itself.

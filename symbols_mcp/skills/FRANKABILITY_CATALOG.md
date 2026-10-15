@@ -853,10 +853,18 @@ view must stay where it is. From outside an element (boot code, a
 function called before render) use the app's `app.navigate(path,
 { replace })`, or accept `el` and call `el.router`.
 
+To move the address WITHOUT rendering the page again, pass
+`render: false`: the router writes the entry and the route state
+(`route`, `params`, `query`) and keeps the page as it is — a language
+switch that changed the words in place, or a one-time token (an OAuth
+code, an e-mail link) taken out of the address before the first render:
+        el.router(cleanUrl, el.getRoot(), {}, { replace: true, render: false })
+`keepSamePage: true` instead keeps the page only when the new address
+matches the same page, and renders another page as usual.
+
 Not flagged: `history.back()` / `go()` / `forward()` (the router follows
 popstate), reads of `history.state`, test files. A deliberate raw write
-(for example stripping an OAuth code from the address before the app
-renders) keeps `// frank-allow FA410` on or above the call.
+keeps `// frank-allow FA410` on or above the call.
 
 
 ---
