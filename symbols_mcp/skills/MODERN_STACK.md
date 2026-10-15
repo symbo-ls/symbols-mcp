@@ -603,11 +603,13 @@ document.documentElement.style.setProperty('--bg', '#000')
 
 Pre-render Symbols apps to static HTML. Brender uses linkedom (a virtual DOM) to run the same DOMQL component tree server-side, producing HTML with `data-br` hydration keys for client-side reconnection without re-rendering.
 
-> Brender pairs with the rest of the modern smbls stack. `@symbo.ls/helmet` metadata is rendered into `<head>` and `@symbo.ls/polyglot` translations are resolved per route at render time. Declarative `fetch:` data is not prefetched today: no built-in SSR adapter resolves, so the client-side fetch loads it after hydration.
+> Brender pairs with the rest of the modern smbls stack. `@symbo.ls/helmet` metadata is rendered into `<head>` and `@symbo.ls/polyglot` labels are resolved in the page's language (the root state's `lang`, which a router guard reading `/en/…` sets; else `polyglot.defaultLang`). Declarative `fetch:` data loads DURING the render, through the fetch plugin with the real element (`transform(data, el, state)`, `children` re-run on the answer); the render waits for its requests (up to 2 s). A table/RPC `polyglot.fetch` (`{ rpc }`) is fetched before the render; a FUNCTION `polyglot.fetch` (your own loader) runs inside it with the root element.
 
 ### CLI
 
 ```bash
+smbls build                    # bundle, then pre-render every static route into dist/ (see CLI.md)
+smbls build --strict           # …and fail on pages made without their data or labels
 smbls brender                  # render all static routes
 smbls brender --out-dir build  # custom output directory
 smbls brender --no-prefetch    # skip SSR data prefetching
@@ -652,9 +654,9 @@ const result = await renderPage(data, '/about', { prefetch: true })
 | `renderElement(def, opts?)` | Render a single component to HTML |
 | `render(data, opts?)` | Render a full project (routing, state, designSystem) |
 | `renderPage(data, route, opts?)` | Complete HTML page with metadata, CSS, fonts |
-| `prefetchPageData(data, route)` | SSR data prefetching through an SSR adapter — none resolves today, so it returns no data |
+| `prefetchPageData(data, route)` | A page's `fetch` data OUTSIDE a render (render() does not use it — the fetch plugin loads data during the render) |
 | `hydrate(element, opts?)` | Client-side: reconnect DOMQL tree to DOM |
-| `loadProject(path)` | Import a `symbols/` directory structure |
+| `loadProject(path, { dir, context })` | Import a `symbols/` directory — or, with `context`, the module the build's entry boots with (its pages only) |
 | `generateSitemap(data)` | Generate sitemap.xml from routes |
 
 ### Features
@@ -664,7 +666,7 @@ const result = await renderPage(data, '/about', { prefetch: true })
 | Metadata | Title, description, Open Graph, Twitter cards from declarative `metadata` objects |
 | Emotion CSS | Full CSS extraction including emotion-generated rules, CSS variables, reset, font imports |
 | Theme support | Generates `prefers-color-scheme` media queries and `[data-theme]` selectors (no JS needed) |
-| Data prefetching | Walks the page's declarative `fetch` definitions; no built-in SSR adapter resolves today, so the client loads the data after hydration |
+| Data | The page's declarative `fetch` runs during the render (fetch plugin, real element); `renderPage(...).diagnostics` lists failed requests and raw label keys |
 | ISR | Optional client bundle for hydration + SPA navigation after initial static load |
 | Sitemap | Auto-generated `sitemap.xml` from route definitions |
 
@@ -679,13 +681,27 @@ In `symbols.json`:
 }
 ```
 
-### What brender prefetches
+`brender` as an object keeps it on and configures the pre-render (`smbls build` and `smbls brender`):
 
-`--prefetch` (the default) walks the page's declarative `fetch:` definitions, but no built-in SSR adapter resolves today (the Supabase SSR path was removed with the Supabase adapter), so the HTML ships without that data and the client-side fetch loads it after hydration.
+```json
+{
+  "brender": {
+    "context": "symbols/siteContext.js",
+    "exclude": ["/admin*"],
+    "paths": { "/:lang": ["/en"], "/:lang/about": ["/en/about"] },
+    "strict": true,
+    "eagerImages": 2
+  }
+}
+```
 
-Helmet metadata is rendered into `<head>` server-side.
+A page that must never be pre-rendered can also say `prerender: false`.
 
-Param routes (`/blog/:id`) are skipped during static generation — they require runtime data.
+### What a pre-render loads
+
+With `prefetch` (the default) the page's declarative `fetch:` runs during the render through the project's adapter (`fetch: { adapter: 'rest', url }`; the platform's `sdk` adapter is not available on a server), and the render waits for it. Labels load in the page's language. Helmet metadata is rendered into `<head>` server-side.
+
+Param routes (`/blog/:id`) are skipped during static generation unless `brender.paths` lists addresses for them; `renderPage(data, '/:lang/about', { pathname: '/en/about' })` renders one at an address.
 
 ---
 
