@@ -2382,10 +2382,14 @@ error" — the throw landed in an unguarded position.
 `console.warn` (gated by `isLoudDevRuntime()` — never in production) when a
 lowercase custom prop is a 2-argument function whose second parameter isn't
 named like the state/context convention (`s` / `state` / `ctx` / `context`) —
-the shape of a stashed callback rather than a reactive factory. This is a
-heuristic (false positives/negatives are expected) and never changes the
-resolved value — it exists only to surface the trap at declaration time
-instead of at a downstream `TypeError`.
+the shape of a stashed callback rather than a reactive factory. It stays
+quiet when the second parameter name is 1–2 characters (minified code renames
+`(el, s)` to `(e,t)`, so the name carries no intent), for `is*`/`has*`
+condition props (`isOpen`, `hasItems` — functions by contract), and for
+`routerOptions`. It fires at most once per declared function, not once per
+element instance. This is a heuristic (false negatives are expected) and
+never changes the resolved value — it exists only to surface the trap at
+declaration time instead of at a downstream `TypeError`.
 
 **Files:** `smbls/packages/element/src/create.js` (`wrapCustomPropFunctions`,
 `looksLikeStashedCallback`).
