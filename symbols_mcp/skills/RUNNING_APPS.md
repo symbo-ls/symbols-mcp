@@ -194,9 +194,10 @@ For a widget embedded in someone else's page (chat widget, partner surface), `sm
 </script>
 ```
 
-The contract (locked by the smbls embed contract test, ≤ 64 KiB gzip):
+The contract (locked by the smbls embed contract test, with a gzip byte budget):
 
 - **Inside:** element creation (`mount`, `create` / `createElement`, `applyExtends`, `registerEvent`), signal state (`createStore`, `createEffect`, `createSignal`, `batch`), the design-system core (`pushConfig`, `popConfig`, `getActiveConfig`).
+- **Not inside — the element engine's optional features** (the embed builds on `@symbo.ls/element/src/lean`): `onInView` / `onLeaveView` never fire; `{ always: true, handler }` is not a handler (an extender's plain handler replaces the base's); a plain `children` factory (no `childrenAs: 'state'`) rebuilds its rows on every re-run; nodes are never adopted from a pre-rendered page; every children loop builds in one go (`mountYield`, `yieldChildren` and `holdTail` are ignored). Need one of them? Use the full bundle.
 - **Not inside:** the router, pages, the default create options, and **every plugin — the fetch plugin included**. Declarative `fetch:` does not run in the embed, and `el.getDB()` loads `@symbo.ls/fetch` as a *runtime* import:
   - without `context.fetch`, `getDB()` answers `null`;
   - with `context.fetch`, add `@symbo.ls/fetch` to the page's importmap (the runtime import then resolves) or use the full smbls bundle — otherwise `getDB()` rejects with exactly that message.
