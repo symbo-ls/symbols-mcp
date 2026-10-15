@@ -157,7 +157,7 @@ Run Symbols directly in the browser with a single HTML file. No npm, no bundler,
 
 Pin a version: `https://esm.sh/smbls@3.6.8`
 
-Self-hosting the ESM build (copying `smbls/dist` to your own server): keep `dist/smbls.socket-io-client.esm.js` next to `dist/smbls.esm.js`. `smbls.esm.js` loads it by relative path, and only when live sync connects (`editor.socketUrl`, `settings.socketUrl` or `editor.runtime: 'runner'`). The IIFE builds carry it inline.
+Self-hosting the ESM build (copying `smbls/dist` to your own server): keep `dist/smbls.socket-io-client.esm.js` next to `dist/smbls.esm.js`; for `smbls/core`, keep every `dist/smbls.core.*.esm.js` file next to `dist/smbls.core.esm.js` too — its kits and plugins load from them by relative path. `smbls.esm.js` loads it by relative path, and only when live sync connects (`editor.socketUrl`, `settings.socketUrl` or `editor.runtime: 'runner'`). The IIFE builds carry it inline.
 
 ### IIFE (Classic Script Tag)
 

@@ -301,6 +301,8 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 
 `build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--out-dir <dir>`, `--bundler`. `build` copies `public/` (or `symbols.json` `publicDir`) into the output root and never replaces a file the bundler wrote. With brender on, `build` pre-renders route `/x` to `x.html` and `/*` to `404.html`, and exits 1 when no route renders (`--no-brender` opts out).
 
+`"smblsEntry": "core"` in `symbols.json` (parcel `start` / `build`): every bare `smbls` import resolves to `smbls/core` — the framework without the platform registry, its kits and platform plugins in files loaded only when switched on. Only for an app that runs no published or fetched project code: frank-serialized functions read the registry. Default `"full"`.
+
 `brender` flags: `--out-dir <dir>` (defaults to `brenderDistDir` from symbols.json or `dist-brender`), `--no-isr`, `--no-hydrate`, `--no-prefetch`, `-w, --watch`. Route `/x` → `x/index.html`, `/*` → `404.html`. `:param` routes (`/blog/:id`) and nested `*` routes have no single URL: they are skipped and listed. Exits 1 when no route renders. The page boots over the server markup; it adopts it only with opt-in hydration (FRAMEWORK.md §8).
 
 `deploy --provider <X>` accepts `symbols`, `cloudflare`, `vercel`, `netlify`, `github-pages`. Auto-creates the provider's config (`wrangler.jsonc`, `vercel.json`, `netlify.toml`, etc.) if missing. `--init` initializes config without deploying.
