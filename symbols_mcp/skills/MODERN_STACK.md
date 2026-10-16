@@ -119,7 +119,7 @@ cache: { staleTime: '30s', gcTime: '1h', key: 'custom-key' }
 - Stale-while-revalidate: stale data served immediately, background refetch swaps it.
 - Garbage collection: unused entries cleaned after `gcTime`.
 - Deduplication: identical concurrent queries share one network request.
-- Refetch on window focus: enabled by default. Disable with `refetchOnWindowFocus: false`.
+- Refetch on window focus: enabled by default. Disable with `refetchOnWindowFocus: false`. A server render (brender) binds no focus, reconnect or `refetchInterval` refetch.
 - After a successful write, `invalidates` (a key substring, a RegExp or a predicate; `true` = the write's own `from`) makes the queries MOUNTED on matching keys refetch at once. From project code: `el.call('invalidateQueries', 'articles')` (also `removeQueries`, `getQueryData`, `setQueryData`) — never import the query client. An `rpc` fired by a click / submit, or declaring `invalidates`, is an action: never cached, runs its `invalidates`.
 - Reads retry 3 times; writes are sent once unless `retry` says otherwise.
 
@@ -701,6 +701,8 @@ A page that must never be pre-rendered can also say `prerender: false`.
 ### What a pre-render loads
 
 The page's declarative `fetch:` runs during the render through the project's adapter (`fetch: { adapter: 'rest', url }`; the platform's `sdk` adapter is not available on a server). With `prefetch` (the default) table/RPC labels are fetched first and the render waits for the page's requests (up to 2 s); `prefetch: false` / `--no-prefetch` waits only a 50 ms quiet period. Labels load in the page's language. Helmet metadata is rendered into `<head>` server-side.
+
+Each render has a query cache of its own: renders in one process — one after another or at once, of one project or of several — never share cached rows, requests in flight or invalidations, and the `el.call` cache functions (`invalidateQueries`, `getQueryData`, …) act on the render's own cache. A server render binds no window-focus, reconnect or `refetchInterval` refetch, so nothing of a page asks again after its render, and its fetch seed carries only the requests the page itself made.
 
 Param routes (`/blog/:id`) are skipped during static generation unless `brender.paths` lists addresses for them; `renderPage(data, '/:lang/about', { pathname: '/en/about' })` renders one at an address.
 

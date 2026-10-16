@@ -1515,6 +1515,7 @@ Deduplication: identical concurrent queries share one network request — and, i
 A forced refetch reaches the network even while the entry is fresh: `el.__ref.refetch()`, each `refetchInterval` tick, the browser coming back online. Each page of a paginated / infinite query has its own key (the cursor is part of it).
 `on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create (add `on: 'create'` for a first load), and not when its own rows land in state.
 Removing an element releases what fetch bound for it: interval timers, focus / online / submit / click listeners, the `stateChange` watcher, a realtime subscription.
+A server render (brender) binds no interval timer and no focus / online listener, and each render has a query cache of its own.
 
 ### Retry / Optimistic / Initial / Placeholder
 

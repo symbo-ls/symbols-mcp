@@ -444,7 +444,7 @@ fetch: [
 
 ### Cache, retry, dedupe, focus refetch — all default-on
 
-Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads and none for writes (`insert` / `update` / `upsert` / `delete` / rpc actions — a timed-out write may have been applied), `refetchOnWindowFocus: true`, `refetchOnReconnect: true`. A forced refetch (`el.__ref.refetch()`, each `refetchInterval` tick, reconnect) reaches the network even while the entry is fresh. A shared in-flight request that fails gives every element on it the error. Override per-fetch:
+Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads and none for writes (`insert` / `update` / `upsert` / `delete` / rpc actions — a timed-out write may have been applied), `refetchOnWindowFocus: true`, `refetchOnReconnect: true` (in the browser: a server render binds no focus, reconnect or `refetchInterval` refetch). A forced refetch (`el.__ref.refetch()`, each `refetchInterval` tick, reconnect) reaches the network even while the entry is fresh. A shared in-flight request that fails gives every element on it the error. Override per-fetch:
 
 ```js
 { fetch: { from: 'X', cache: false, retry: false, refetchOnWindowFocus: false } }
@@ -880,6 +880,8 @@ This means SSR HTML and client bundle must run **identical** DOMQL source. Any d
 ### SSR data — the page's `fetch` runs during the render
 
 A page's declarative `fetch` runs during the render, through the fetch plugin with the real element (`transform(data, el, state)`, `children` re-run on the answer), and the render waits for its requests (up to 2 s with `prefetch`, the default). It uses the project's own `config.fetch` (e.g. `{ adapter: 'rest', url, headers }`). The platform's `'sdk'` adapter cannot run on the server (`hasAdapter(name)` in `@symbo.ls/fetch` says whether an adapter is registered); its data loads in the browser. `renderPage(...).diagnostics` names failed requests and raw label keys.
+
+Each render has a query cache of its own. Renders in one process — one after another or at once, of one project or of several — never share cached rows, requests in flight or invalidations, and `el.call('invalidateQueries' | 'removeQueries' | 'getQueryData' | 'setQueryData', …)` acts on the cache of the render that calls it. A server render binds no window-focus, reconnect or `refetchInterval` refetch: once its markup is taken, a page's queries leave no listener, no timer and no request behind, and its `data-fetch-seed` carries only the requests the page itself made.
 
 `prefetchPageData(data, route)` (deprecated, like `injectPrefetchedState`) fetches a page's `fetch` data OUTSIDE a render; `render()` does not use it.
 
