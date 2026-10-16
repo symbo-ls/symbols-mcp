@@ -1,7 +1,7 @@
 {
-  "smbls": "3.14.828",
-  "commit": "dbeaeb309",
-  "checked": "2026-10-09",
+  "smbls": "3.14.838",
+  "commit": "27dd15dcd",
+  "checked": "2026-10-16",
   "examples": [
     "isxRootState",
     "isxInverse",
@@ -17,6 +17,9 @@
     "reactiveBaseBlocksWin",
     "tooltipLayer",
     "shorthandLonghand",
-    "focusVisibleRecolorsRing"
+    "focusVisibleRecolorsRing",
+    "alwaysLifecycle",
+    "viewEvents",
+    "whenConnectedFocus"
   ]
 }
