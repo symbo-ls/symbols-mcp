@@ -633,6 +633,10 @@ const result = await renderPage(data, '/about', { prefetch: true })
 // result.brKeyCount -> number of hydration keys
 ```
 
+**One render at a time.** A render puts its environment on the process's bare globals (`document`, `location`, `localStorage`, `window`), so `render()` — and `renderRoute()` / `renderPage()`, which call it — runs one render at a time per process. A call made while another render runs waits until that render has ended, then starts. Calls made one after another (`smbls build`, `smbls brender`) never wait; N renders started together take as long as N renders one after another.
+
+**`timeout`** (render option, default `30000` ms; `0` or `false`: no limit) is how long a render may run once its turn starts. The wait for earlier renders does not count, and neither does the process's first-render framework build. A render past it is abandoned: the call rejects with an error whose `code` is `BRENDER_RENDER_TIMEOUT` and whose message, `route` and `pathname` name the page, and the next render starts. Code of the abandoned render that resumes later can still read the bare globals of the render running then; until it has unwound, a render that runs meanwhile carries no fetch seed and `diagnostics: null`.
+
 ### How it works
 
 **Render phase (server):**
@@ -691,12 +695,13 @@ In `symbols.json`:
     "exclude": ["/admin*"],
     "paths": { "/:lang": ["/en"], "/:lang/about": ["/en/about"] },
     "strict": true,
-    "eagerImages": 2
+    "eagerImages": 2,
+    "timeout": 30000
   }
 }
 ```
 
-A page that must never be pre-rendered can also say `prerender: false`.
+`timeout` is each page's render time limit in ms (the render option above): a page past it fails with `BRENDER_RENDER_TIMEOUT`, and the next page renders. A page that must never be pre-rendered can also say `prerender: false`.
 
 ### What a pre-render loads
 
@@ -705,6 +710,8 @@ The page's declarative `fetch:` runs during the render through the project's ada
 Each render has a query cache of its own: renders in one process — one after another or at once, of one project or of several — never share cached rows, requests in flight or invalidations, and the `el.call` cache functions (`invalidateQueries`, `getQueryData`, …) act on the render's own cache. A server render binds no window-focus, reconnect or `refetchInterval` refetch, so nothing of a page asks again after its render, and its fetch seed carries only the requests the page itself made.
 
 Param routes (`/blog/:id`) are skipped during static generation unless `brender.paths` lists addresses for them; `renderPage(data, '/:lang/about', { pathname: '/en/about' })` renders one at an address.
+
+**The address's language.** A page at an address whose first segment is one of the project's languages (`/en/about` with `polyglot.languages: ['ka', 'en']`) is rendered in that language from its first request: before the app starts, the render stores the language under polyglot's `storageLangKey` (default `smbls_lang`), where polyglot reads the language to start in. So the shell's first requests (a header's menu, created before any router guard runs) are made in the page's language, and the page's fetch seed holds their answers under it. The seed is keyed by address and language: the browser adopts an answer only when it asks in the same language. For the browser to adopt those answers, a site with language-prefixed addresses starts its app in the address's language too: a pre-boot script in the page's `index.html` (it runs before the app, outside the app's components) stores the address's language under `storageLangKey`, and polyglot starts in the stored language. Without it the page still shows the right language — the router guard switches it — but the client asks for the shell's first data once more. A page with an ISR client (`renderPage` `isr`), and a page the platform renderer serves with a server render, does this itself when the project sets `storageLangKey` and the page carries labels: its start-up script stores the page's language for a visitor who has none stored yet. An address with no language segment starts as before: the stored choice, else the root state's `lang`, else `polyglot.defaultLang`.
 
 ---
 

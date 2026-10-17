@@ -690,6 +690,8 @@ The `fetch:` prop:
 
 A server that already fetched the first view's data can hand the answers to the client, so the REST adapter does not ask again. `@symbo.ls/fetch` exports `createEarlySeedScript(entries)` (entries: `{ url, lang, status, type, body }`), `earlyKey(url, lang)` and `EARLY_KEY`; brender's `fetchSeed` + `adoptionScripts` use them. The adapter adopts a seeded answer once, and only for a call with no header beyond `Accept-Language` (a signed-in call never takes it).
 
+The key is the address AND the language the request asked in. brender renders a page at `/<lang>/…` (the first segment one of the project's languages) in that language, so its seed holds the answers in that language. The client adopts them only if it starts in the same language: on a site with language-prefixed addresses, a pre-boot script stores the address's language under polyglot's `storageLangKey` before the app starts (MODERN_STACK.md → brender → The address's language).
+
 ### Polyglot — internationalised strings
 
 **All user-facing strings MUST go through polyglot.** Never hardcode text. Use the `{{ key | polyglot }}` template — values resolve from `context.polyglot.translations` (or root-level `lang.js`, NOT inside `designSystem/`).
