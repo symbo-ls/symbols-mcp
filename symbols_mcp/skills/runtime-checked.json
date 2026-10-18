@@ -1,7 +1,7 @@
 {
-  "smbls": "3.14.839",
-  "commit": "93124d166",
-  "checked": "2026-10-17",
+  "smbls": "3.14.840",
+  "commit": "7349ebe7b",
+  "checked": "2026-10-18",
   "examples": [
     "isxRootState",
     "isxInverse",
@@ -20,6 +20,10 @@
     "focusVisibleRecolorsRing",
     "alwaysLifecycle",
     "viewEvents",
-    "whenConnectedFocus"
+    "whenConnectedFocus",
+    "polyglotStartLang",
+    "dropdownDisclosure",
+    "dialogLocked",
+    "staleSeedRefresh"
   ]
 }

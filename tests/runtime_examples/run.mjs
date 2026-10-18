@@ -55,7 +55,9 @@ function docExports (file, anchor) {
   const blocks = [...text.matchAll(/```js\n([\s\S]*?)```/g)].map((m) => m[1])
   const hits = blocks.filter((b) => b.includes(anchor))
   if (hits.length !== 1) throw new Error(`${file}: ${hits.length} js blocks contain ${JSON.stringify(anchor)}`)
-  const body = hits[0].replace(/^export const (\w+) = /gm, '__d.push(["$1"]); __d[__d.length - 1][1] = ')
+  const body = hits[0]
+    .replace(/^export const (\w+) = /gm, '__d.push(["$1"]); __d[__d.length - 1][1] = ')
+    .replace(/^export default /gm, '__d.push(["default"]); __d[__d.length - 1][1] = ')
   const __d = []
   // eslint-disable-next-line no-new-func
   new Function('__d', body)(__d)
@@ -472,6 +474,156 @@ Object.assign(cases, {
     const node = app.Field.node
     eq(node.tagName, 'INPUT', 'SearchField extends Input')
     expect(document.activeElement === node, 'the field is focused once it is in the document')
+  }
+})
+
+// Round 3 (smbls 3.14.840): the start language, DropdownDisclosure, Dialog
+// locked, and the stale-seed refresh of a pre-built page.
+Object.assign(cases, {
+  // SYNTAX "The start language": /en/about starts in English over a stored
+  // 'ka'; 'fallback' lets the stored choice win; the address is never stored.
+  async polyglotStartLang () {
+    const [[, polyglot]] = docExports('SYNTAX.md', "addressLang: true,")
+    eq(polyglot.addressLang, true, 'the documented default')
+    const tree = { Hello: { text: '{{ hello | polyglot }}' } }
+    window.history.replaceState(null, '', '/en/about')
+    localStorage.setItem('smbls_lang', 'ka')
+    try {
+      const fresh = () => JSON.parse(JSON.stringify(polyglot))
+      const app = await mount(tree, { polyglot: fresh() })
+      eq(app.state.lang, 'en', 'the address wins over the stored choice')
+      eq(app.Hello.node.textContent, 'Hello', 'the first render shows the address language')
+      eq(localStorage.getItem('smbls_lang'), 'ka', 'the address language is not stored')
+      const fallback = await mount(tree, { polyglot: { ...fresh(), addressLang: 'fallback' } })
+      eq(fallback.state.lang, 'ka', "'fallback': the stored choice wins")
+      localStorage.removeItem('smbls_lang')
+      window.history.replaceState(null, '', '/')
+      const home = await mount(tree, { polyglot: fresh() })
+      eq(home.state.lang === 'ka' || home.state.lang === undefined, true, '/ with nothing stored: the default (got ' + home.state.lang + ')')
+      eq(home.Hello.node.textContent, polyglot.translations.ka.hello, '/ renders the default language')
+    } finally {
+      localStorage.removeItem('smbls_lang')
+      window.history.replaceState(null, '', '/')
+    }
+  },
+
+  // COMPONENTS "DropdownDisclosure": aria-expanded + aria-controls, no
+  // aria-haspopup, no menu role; click opens, Escape closes back to the trigger.
+  async dropdownDisclosure () {
+    const [[, AccountMenu]] = docExports('COMPONENTS.md', "extends: 'DropdownDisclosure'")
+    const app = await mount({ Menu: { extends: 'AccountMenu' } }, { components: { AccountMenu }, functions: { signOut () {} } })
+    const menu = app.Menu
+    const button = menu.Button.node
+    const panel = menu.Dropdown.node
+    eq(button.getAttribute('aria-expanded'), 'false', 'closed: aria-expanded="false"')
+    eq(button.getAttribute('aria-controls'), panel.id, 'aria-controls names the panel')
+    eq(button.getAttribute('aria-haspopup'), null, 'no aria-haspopup')
+    expect(!document.querySelector('[role="menu"], [role="menuitem"]'), 'no menu roles')
+    button.focus()
+    button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
+    await flush()
+    eq(button.getAttribute('aria-expanded'), 'true', 'click opens')
+    eq(menu.node.getAttribute('data-dropdown-open'), 'true', 'data-dropdown-open="true"')
+    const link = menu.Dropdown.Profile.node
+    eq(link.getAttribute('tabindex'), null, 'links keep the normal tab order')
+    link.focus()
+    link.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await flush()
+    eq(button.getAttribute('aria-expanded'), 'false', 'Escape in the panel closes')
+    expect(document.activeElement === button, 'focus returns to the trigger')
+  },
+
+  // COMPONENTS "Dialog — locked": no built-in cancel controls, closedby="none",
+  // the cancel event prevented; OK still renders.
+  async dialogLocked () {
+    const [[, ForcedPasswordChange]] = docExports('COMPONENTS.md', 'export const ForcedPasswordChange')
+    const app = await mount({ state: { mustChangePassword: true }, Change: { extends: 'ForcedPasswordChange' } }, {
+      components: { ForcedPasswordChange }, functions: { savePassword () {} }
+    })
+    const node = app.Change.node
+    eq(node.tagName, 'DIALOG', 'a <dialog>')
+    eq(node.getAttribute('closedby'), 'none', 'closedby="none"')
+    const buttons = [...node.querySelectorAll('button')]
+    const labels = buttons.map((b) => (b.getAttribute('aria-label') || b.textContent || '').trim().toLowerCase())
+    expect(!labels.some((l) => /close|cancel/.test(l)), 'no close button, no Cancel: ' + JSON.stringify(labels))
+    expect(labels.some((l) => /ok/.test(l)), 'OK still renders: ' + JSON.stringify(labels))
+    const cancel = new window.Event('cancel', { cancelable: true })
+    node.dispatchEvent(cancel)
+    expect(cancel.defaultPrevented, 'the cancel event is prevented')
+  },
+
+  // SYNTAX "A pre-built page's data — fetch.seed": a pre-built page whose
+  // build stamp the project's isStale rejects adopts the build's answers,
+  // then after its first view asks again — the declarative query refetches,
+  // and a changed imperative read reaches onRefresh(changes, root). A replaced
+  // page (`hydrate: false`): the server markup goes, the seed stays. Runs
+  // last: it boots over a pre-rendered page.
+  async staleSeedRefresh () {
+    const [[, config]] = docExports('SYNTAX.md', 'seed: {')
+    const early = await import(pathToFileURL(join(tree, 'plugins', 'fetch', 'early.js')).href)
+    const { brenderStampMeta } = await import(pathToFileURL(join(tree, 'packages', 'utils', 'index.js')).href)
+    const fetchConfig = { ...config.fetch, auth: false }
+    const url = (from) => fetchConfig.url + '/' + from
+    const BUILD = { posts: [{ title: 'Alpha' }], settings: { v: 1 } }
+    const FRESH = { posts: [{ title: 'Alpha' }, { title: 'Beta' }], settings: { v: 2 } }
+    const TIME = Date.now()
+    const head = document.createElement('div')
+    head.innerHTML = '<meta name="brender" content="replace">' + brenderStampMeta({ stamp: 'catalog-v1', time: TIME })
+    const metas = [...head.children]
+    metas.forEach((m) => document.head.appendChild(m))
+    const holder = document.createElement('div')
+    holder.innerHTML = '<main>SERVER</main>'
+    document.body.appendChild(holder)
+    const seed = document.createElement('div')
+    seed.innerHTML = early.createEarlySeedBlock(['posts', 'settings'].map((from) => ({ url: url(from), body: JSON.stringify(BUILD[from]) })))
+    const block = seed.firstElementChild
+    document.body.appendChild(block)
+    const realFetch = globalThis.fetch
+    const calls = []
+    globalThis.fetch = async (req) => {
+      const at = String(req)
+      calls.push(at)
+      const from = Object.keys(FRESH).find((k) => at.startsWith(url(k)))
+      return new Response(JSON.stringify(FRESH[from]), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    const quiet = { retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false }
+    try {
+      const app = await create({
+        state: { settings: null },
+        Posts: {
+          tag: 'ul',
+          state: { items: [] },
+          fetch: { from: 'posts', as: 'items', ...quiet },
+          children: (el, s) => s.items,
+          childrenAs: 'state',
+          childProps: { tag: 'li', text: (el, s) => s.title }
+        },
+        Settings: {
+          text: (el, s) => (s.root.settings ? 'v' + s.root.settings.v : ''),
+          onRender: async (el) => {
+            const db = await el.getDB()
+            const { data } = await db.select({ from: 'settings' })
+            el.state.root.update({ settings: data })
+          }
+        }
+      }, { key: 'example' + (++n), parent: holder, router: false, sync: false, globalTheme: 'auto', designSystem: DS, fetch: fetchConfig })
+      eq(JSON.stringify(app.context.prerender), JSON.stringify({ stamp: 'catalog-v1', time: TIME }), 'el.context.prerender')
+      const rows = () => [...app.Posts.node.querySelectorAll('li')].map((li) => li.textContent).join()
+      await Promise.resolve()
+      const first = rows()
+      for (let i = 0; i < 150 && !(rows() === 'Alpha,Beta' && app.state.settings && app.state.settings.v === 2); i++) {
+        await new Promise((r) => setTimeout(r, 20))
+      }
+      eq(rows(), 'Alpha,Beta', 'the declarative query refetched after the first view (first: ' + first + ')')
+      eq(app.state.settings && app.state.settings.v, 2, 'onRefresh wrote the changed read into root state')
+      eq(calls.length, 2, 'one request each, both from the refresh: ' + JSON.stringify(calls))
+      await flush()
+      eq(app.Settings.node.textContent, 'v2', 'the page shows the fresh value')
+    } finally {
+      globalThis.fetch = realFetch
+      metas.forEach((m) => m.remove())
+      block.remove()
+    }
   }
 })
 
