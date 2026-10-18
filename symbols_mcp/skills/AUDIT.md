@@ -246,7 +246,7 @@ Reading `el.node.X` is fine (focus, blur, scrollTop, selectionStart, etc.). Writ
 ### G. Frank serialization risks
 - `extends: <ImportName>` from a top-of-file import → flag (breaks after frank serialization, Rule 10)
 - Module-level `const`/`let`/`var` outside the export → flag (Rule 33)
-- A client or function in the `config.js` `fetch` config (`createClient`, …), a `db:` config key, or `adapter: 'supabase'` → flag (Rule 59 — publish strips the client, `db` is never read, the Supabase adapter no longer exists)
+- A client or function in the `config.js` `fetch` config (`createClient`, …; a self-contained `seed.isStale` / `seed.onRefresh` / `early` request function that reads only its arguments is allowed), a `db:` config key, or `adapter: 'supabase'` → flag (Rule 59 — publish strips the client, `db` is never read, the Supabase adapter no longer exists)
 
 ### H. Theme + design system coverage
 - Walk `designSystem/index.js`, build the set of registered tokens (color, theme, spacing, typography, timing, ...).
@@ -630,7 +630,7 @@ Before running `smbls publish`:
 3. **Verify design system tokens are present** — every color/spacing/typography token used in components must be defined in `designSystem/`. Missing tokens cause silent visual fallbacks in production.
 4. **Check `dependencies.js`** — any package referenced from project code must be in `dependencies.js` so mermaid can resolve it via importmap.
 5. **`config.js` flags** — `useReset`, `useVariable`, `useFontImport`, `useIconSprite`, `useSvgSprite`, `useDefaultConfig`, `useDocumentTheme` should all be `true` for normal projects.
-6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch`, no `db:` key, no `adapter: 'supabase'` (Rule 59).
+6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch` (a self-contained `seed.isStale` / `seed.onRefresh` / `early` request function is the exception), no `db:` key, no `adapter: 'supabase'` (Rule 59).
 7. **No browser-only top-level code in modules** — see SSR rules. Lazy-load packages like leaflet/mapbox via `el.call(...)` inside event handlers.
 8. **Test with `channel=production`** — `smbls deploy --channel production` (or mermaid with `BRENDER=true`) catches SSR regressions early.
 

@@ -696,12 +696,13 @@ In `symbols.json`:
     "paths": { "/:lang": ["/en"], "/:lang/about": ["/en/about"] },
     "strict": true,
     "eagerImages": 2,
-    "timeout": 30000
+    "timeout": 30000,
+    "stamp": "2026-10-19"
   }
 }
 ```
 
-`timeout` is each page's render time limit in ms (the render option above): a page past it fails with `BRENDER_RENDER_TIMEOUT`, and the next page renders. A page that must never be pre-rendered can also say `prerender: false`.
+`timeout` is each page's render time limit in ms (the render option above): a page past it fails with `BRENDER_RENDER_TIMEOUT`, and the next page renders. `stamp` names the build's data in each page's `<meta name="brender-stamp">` (default: the build time); `redirects: false` writes no `_redirects` (CLI.md → Dev / build / deploy). A page that must never be pre-rendered can also say `prerender: false`.
 
 ### What a pre-render loads
 
@@ -711,7 +712,9 @@ Each render has a query cache of its own: renders in one process — one after a
 
 Param routes (`/blog/:id`) are skipped during static generation unless `brender.paths` lists addresses for them; `renderPage(data, '/:lang/about', { pathname: '/en/about' })` renders one at an address.
 
-**The address's language.** A page at an address whose first segment is one of the project's languages (`/en/about` with `polyglot.languages: ['ka', 'en']`) is rendered in that language from its first request: before the app starts, the render stores the language under polyglot's `storageLangKey` (default `smbls_lang`), where polyglot reads the language to start in. So the shell's first requests (a header's menu, created before any router guard runs) are made in the page's language, and the page's fetch seed holds their answers under it. The seed is keyed by address and language: the browser adopts an answer only when it asks in the same language. For the browser to adopt those answers, a site with language-prefixed addresses starts its app in the address's language too: a pre-boot script in the page's `index.html` (it runs before the app, outside the app's components) stores the address's language under `storageLangKey`, and polyglot starts in the stored language. Without it the page still shows the right language — the router guard switches it — but the client asks for the shell's first data once more. A page with an ISR client (`renderPage` `isr`), and a page the platform renderer serves with a server render, does this itself when the project sets `storageLangKey` and the page carries labels: its start-up script stores the page's language for a visitor who has none stored yet. An address with no language segment starts as before: the stored choice, else the root state's `lang`, else `polyglot.defaultLang`.
+**The address's language.** A page at an address whose first segment is one of the project's languages (`/en/about` with `polyglot.languages: ['ka', 'en']`) is rendered in that language from its first request: before the app starts, the render stores the language under polyglot's `storageLangKey` (default `smbls_lang`). So the shell's first requests (a header's menu, created before any router guard runs) are made in the page's language, and the page's fetch seed holds their answers under it. The seed is keyed by address and language: the browser adopts an answer only when it asks in the same language. The browser app starts in the address's language by itself (`polyglot.addressLang`, default `true` — FRAMEWORK.md §6 → The start language), so it asks in the page's language and adopts those answers; no pre-boot script is needed. With `addressLang: 'fallback'` a visitor's stored choice wins, and with `false` the address is never read: the router guard then switches the language after the first render, and the client asks for the shell's first data once more. An address with no language segment starts as before: the stored choice, else the root state's `lang`, else `polyglot.defaultLang`.
+
+**Labels.** A render waits for the labels its own page is loading (within its `timeout`). Label loads are per app (`loadTranslations(lang, { inFlight: true })` answers the app's load in flight), so a page rendered after another in one process never gets the previous page's load.
 
 ---
 

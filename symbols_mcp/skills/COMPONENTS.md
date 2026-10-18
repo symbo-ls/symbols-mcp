@@ -73,7 +73,7 @@ Editor: {
 - An `if:`-hidden host keeps its library; shown again, it does not mount twice.
 - Browsers only: a server render (brender) leaves the host empty and runs no hook; the browser mounts once the client re-creates the tree.
 - Keep DOMQL children BESIDE the host, not in it — the library may replace what is inside. A `text` on the host stops at the mount.
-- frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA503–FA510, FA512) — nor in a `functions/` helper that only that code calls (`el.call('rteSetup', Quill)` from `onBridgeMount`), or only such helpers call: keep one job per function file. The same code anywhere else is still flagged — a helper that any other code also calls included — and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511).
+- frank-audit does not flag DOM work inside the three hooks and the host's own `onXxx` handlers (FA503–FA510, FA512) — nor in a `functions/` helper that only that code calls (`el.call('rteSetup', Quill)` from `onBridgeMount`), or only such helpers call: keep one job per function file. The same code anywhere else is still flagged — a helper that any other code also calls included — and so are document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511). Outside the bridge, DOM work on the library's own nodes reached from `el.bridge` (or the `scope` key the mount stores the instance in) is accepted too, but not a step out of its tree (`parentNode`, `closest()`): FRANKABILITY.md → Banned runtime APIs → Owned nodes.
 
 ### TooltipLayer — tooltips for nodes that cannot hold a child
 
@@ -320,12 +320,25 @@ ToggleHgroupList: {
 | `Dialog` | A `<dialog>` with `DialogHeader` (title + close) and `DialogFooter` (Cancel / OK). `modal` opens it with `showModal()` | `ConfirmDelete: { extends: 'Dialog', modal: (el, s) => s.root.confirmDelete, onOk: (e, el) => el.call('deleteFile'), onClose: (e, el, s) => s.root.update({ confirmDelete: false }), DialogHeader: { Title: { Text: { text: '{{ delete_file | polyglot }}' } } }, DialogFooter: {} }` |
 | `DropdownParent` / `DropdownParentFocus` | A dropdown the CSS opens on hover / while focus is inside, and a menu button for keyboard and screen reader | `FilterMenu: { extends: 'DropdownParent', Button: { text: '{{ filter | polyglot }}' }, Dropdown: { DropdownList: { options: [{ key: 'all', text: '{{ all | polyglot }}' }, { key: 'mine', text: '{{ mine | polyglot }}' }] } } }` |
 | `DropdownList` | A `role="menu"` list of options inside a `Dropdown` (rows `menuitemradio`, `aria-checked` = the row's `isActive`) | see `DropdownParent` |
+| `DropdownDisclosure` | A button that shows and hides a panel of LINKS and ACTIONS (site sections, an account menu, a language menu) — the WAI-ARIA disclosure pattern, no menu role | see `DropdownDisclosure` below |
 
 ### Dialog — modal, events, names
 
 - `modal` (a value or `(el, s) => …`): truthy → `showModal()` (top layer, inert page, Escape, focus moved in and given back); falsy → `close()`. A closed modal dialog is hidden. `modal: true` under an `if:` works too: a dialog built outside the document (an `if:` mount, the first render) opens in the insertion that connects it (`el.whenConnected`), so it is in the first paint. Without `modal` the dialog renders in the flow as before, and a flat `open: true` is the native NON-modal attribute — use `modal` for a modal.
 - Escape, Cancel, OK and the close button close it themselves: keep your state in step in `onClose`. `el.node.returnValue` is `'ok'`, `'cancel'` or `''` (Escape).
 - `onCancel` hears Escape, Cancel and the close button; `onOk` hears OK; `e.preventDefault()` keeps the dialog open. Any button inside can carry an action: `data: { dialogAction: 'ok' }`.
+- `locked` (a value or `(el, s) => …`, e.g. `(el, s) => s.root.mustChangePassword`) makes a dialog the person cannot dismiss — a forced password change, an invitation. Escape does nothing (the `cancel` event and the Escape key itself are prevented, and `closedby="none"` is written), a press on the backdrop does nothing, and the built-in cancel controls (the header's close button, Cancel) do not render. OK still fires `onOk`. It closes from code only: `modal` going false, or `el.node.close()`. Only a dialog that declares `locked` gets the listeners.
+
+```js
+export const ForcedPasswordChange = {
+  extends: 'Dialog',
+  modal: (el, s) => s.root.mustChangePassword,
+  locked: true,                                   // or (el, s) => s.root.mustChangePassword
+  onOk: (e, el) => el.call('savePassword'),
+  DialogHeader: { Title: { Text: { text: '{{ change_password | polyglot }}' } } },
+  DialogFooter: {}
+}
+```
 - Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. A name you give it yourself (`aria-label`, `aria-labelledby`, a factory too) is kept. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with English defaults.
 
 ### Dropdowns — the menu-button contract
@@ -334,6 +347,26 @@ ToggleHgroupList: {
 - The trigger gets `aria-expanded`, `aria-controls` and `aria-haspopup` (the panel's popup role); an attribute you declare yourself stays yours — a factory too, even while it renders nothing. Enter / Space / click toggle, ArrowDown / ArrowUp open on the first (checked) / last item, Escape closes back to the trigger, arrows / Home / End move inside a `DropdownList`.
 - A `DropdownList` has a roving tab stop: exactly one row has `tabindex="0"` — the one focus last went to, else the first enabled row — and every other row `-1`.
 - The open state is `data-dropdown-open` on the parent (`"true"` open, `"false"` closed even while hovered); without it the CSS hover / focus-within reveal decides, as before.
+
+### DropdownDisclosure — a menu of links and actions
+
+A menu whose items are links and actions is a disclosure, not a `role="menu"`: a menu role puts a screen reader into application mode for a list of links. Use `DropdownParent` / `DropdownList` for a choice among options (a filter, a sort), `DropdownDisclosure` for navigation and actions.
+
+```js
+export const AccountMenu = {
+  extends: 'DropdownDisclosure',
+  Button: { text: '{{ account | polyglot }}' },
+  Dropdown: {
+    Profile: { extends: 'Link', href: '/me', text: '{{ profile | polyglot }}' },
+    SignOut: { extends: 'Button', text: '{{ signOut | polyglot }}', onClick: (e, el) => el.call('signOut') }
+  }
+}
+```
+
+- The trigger (the parent itself when it is a button, else its first child that is not the `Dropdown` panel) gets `aria-expanded` and `aria-controls`, no `aria-haspopup`. A text trigger gets `role="button"` and `tabindex="0"`.
+- The panel's links and buttons keep the normal tab order: no menu roles, no roving tabindex, no arrow keys. Opening finishes the panel's reveal at once, so a Tab right after Enter reaches its first link.
+- Click, Enter and Space toggle. Escape (on the trigger or in the panel) closes and returns focus to the trigger. Focus moving out, or a press outside, closes it. A choice in the panel (a link — a router's in-place navigation too — or a button) closes it and returns focus to the trigger; a modified click (a new tab) keeps it open.
+- The panel shows only while it is open (`data-dropdown-open="true"`): no hover or focus-within reveal. The press-outside listener exists only while one is open.
 
 ---
 

@@ -51,6 +51,15 @@ create(app, options)
           `pushConfig`/`popConfig` so multi-app pages stay isolated.
 ```
 
+### Prepared at build time
+
+`smbls build` prepares the design system once, in its server render, and every built page preloads the result (`smbls-ds.<sha>.json`). The page's first app ADOPTS it instead of running `set()` and emitting the global CSS again; `context.designSystemSource` is `'prepared'` or `'processed'`. The result is the same config, the same rules and the same theme switching (FRAMEWORK.md §8 → The design system prepared at build time). Two design-system facts decide it:
+
+- **The `font` family stays live.** It is never prepared: its file URLs are the build machine's, so the page resolves the `font` family and its `@font-face` rules itself, on every load. A change to `font` alone does not stop the adoption.
+- **A design system that holds a function is never prepared.** A prepared design system is data. When the processed config keeps a value JSON cannot carry exactly — a function (a `class` factory such as `class: { pad: () => ({ padding: 4 }) }`, a function in a `theme` or in a family of your own), a class instance, a host object — the build prepares nothing, and every page processes its design system as before. A function is allowed; it only gives up this start-up gain, so keep tokens as data where you can.
+
+A page also processes as before when its input differs from the build's (a shared library fetched over the network that changed since, a theme the visitor stored, `?globalTheme=`).
+
 ---
 
 ## Multi-app isolation

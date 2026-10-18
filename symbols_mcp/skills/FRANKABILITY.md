@@ -434,9 +434,26 @@ Run them by name, like FA211: `--rule FA810,FA811,FA812,FA813`, `ruleIds`, or `'
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)
 
-The DOM bans (FA503–FA510, FA512) have one sanctioned exception: a `Bridge` host (default-config `Bridge`, or any element that declares `onBridgeMount`). The library owns the DOM inside it, so DOM work in the three bridge hooks and the host's own `onXxx` handlers is not flagged; document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511) still are, and the same code anywhere else is. See COMPONENTS.md → Bridge.
+The DOM bans (FA503–FA510, FA512) have two sanctioned exceptions: code that sits in a bridge (here), and nodes DOMQL never owns (Owned nodes, below). The first: a `Bridge` host (default-config `Bridge`, or any element that declares `onBridgeMount`). The library owns the DOM inside it, so DOM work in the three bridge hooks and the host's own `onXxx` handlers is not flagged; document-wide lookups (FA501 / FA502) and writes to the host node itself (FA511) still are, and the same code anywhere else is. See COMPONENTS.md → Bridge.
 
 The sanction follows the bridge's helpers into `functions/` (one job per file, as the rules ask): a function whose EVERY reference in the project sits in bridge code — `el.call('rteSetup', Quill)` in `onBridgeMount` — or in another function sanctioned this way (transitively) is not flagged either. One reference anywhere else — a component, a page, a non-bridge handler (the host's PARENT included), `onRender`, the module scope of a function file, a `{{ key | name }}` pipe, `context.functions.name`, the name passed on as a string — and it is flagged as before. A name built at runtime (`'rte' + kind`) is the one reference the audit cannot see.
+
+**Owned nodes — anywhere in the code.** FA504–FA510 and FA512 also accept DOM work on nodes DOMQL never owns, wherever the code sits (a non-bridge handler, a function called from a plain field):
+
+- a bridged library's nodes, reached from its instance — `el.bridge`, or a `scope` key that bridge code sets to the instance it constructs (`el.scope.quill = new Quill(node, …)`) and that nothing else ever sets to anything but a literal. `this.scope.quill.getModule('toolbar').container.querySelectorAll('button')` → `b.setAttribute('tabindex', …)` passes;
+- a parsed document and every node reached from it — `new DOMParser().parseFromString(...)`, `document.implementation.createHTMLDocument(...)` / `createDocument(...)`, a detached `createElement('template')`. A recursive walker over pasted HTML passes, through local functions that are only ever called with such nodes.
+
+The audit follows each value through the file's own bindings (`const` / `let` and their assignments, `for … of`, array-callback items, the parameters of local functions). Still flagged:
+
+- a live page node: a global lookup (`document.querySelector`, also FA501), `this.node` / `el.node`, the event's `e.target`, the parameter of an exported function (its caller is elsewhere);
+- a step up or sideways out of the library's tree — `parentNode`, `closest()`, `ownerDocument`, the siblings of its nodes, `getRootNode()` (a parsed document's nodes may go in any direction);
+- a `scope` key that other code also sets to a live node — it is no handle;
+- a local walker that is ALSO called with a live node;
+- every node of an origin once one of them is inserted into the live page (`appendChild`, `append`, `replaceWith`, `adoptNode`, …) — the sanction ends for that whole origin in the file — and a live node moved INTO a parsed document;
+- FA508–FA510 with a live node as an argument (each node argument must be owned too);
+- FA503 (`addEventListener`) on an owned node outside bridge code: such a listener has no destroy hook. FA501, FA502 and FA511 never accept an owned receiver.
+
+Not seen: an owned node handed to a function in another file and inserted there, and a library method that returns a live-page node. Keep such code in the bridge.
 
 #### FA513 — Never call `window.update(...)` / `document.update(...)`
 

@@ -1053,7 +1053,7 @@ onInit: (el, s, ctx) => {
 
 ## 32. The `fetch` config is plain data — no client, no function, no `db:` key, no Supabase adapter
 
-`config.js` `fetch` is published with the project, so only plain options survive: the served runtime deletes a `createClient`, and a function loses its closure. `db` is not a config key — a config under `db:` is never read, so every declarative `fetch:` silently does nothing and `getDB()` returns `null`. `@symbo.ls/fetch` has no Supabase adapter (`adapter: 'supabase'` fails after about 5 s with `Unknown db adapter: "supabase"`). See RULES.md Rule 59.
+`config.js` `fetch` is published with the project, so only plain options survive: the served runtime deletes a `createClient`, and a function loses its closure (only a self-contained function that reads its arguments alone works: `seed.isStale`, `seed.onRefresh`, `early` request lists). `db` is not a config key — a config under `db:` is never read, so every declarative `fetch:` silently does nothing and `getDB()` returns `null`. `@symbo.ls/fetch` has no Supabase adapter (`adapter: 'supabase'` fails after about 5 s with `Unknown db adapter: "supabase"`). See RULES.md Rule 59.
 
 ```js
 // ❌ Wrong — `db` is never read; a client factory is stripped on publish; there is no 'supabase' adapter

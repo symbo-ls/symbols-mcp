@@ -7,7 +7,7 @@ Reference by PascalCase string key — `extends: 'Button'`, `extends: 'IconButto
 
 For project configuration, see PROJECT_STRUCTURE.md. For library catalog + design system token defaults, see DEFAULT_PROJECT.md.
 
-The framework's own atoms (`Box`, `Text`, `Img`, `Link`, `Input`, `Bridge`, …) are in COMPONENTS.md → Built-in Atoms; the components below extend them as `smbls.X`. `Bridge` — the host for a library that owns its DOM (an editor, a map, a chart) — has no template wrapper: use `extends: 'Bridge'` (COMPONENTS.md → Bridge). The same holds for `TooltipLayer` — tooltips for every `[data-tooltip]` node inside its parent, library nodes and icon-only buttons included (COMPONENTS.md → TooltipLayer).
+The framework's own atoms (`Box`, `Text`, `Img`, `Link`, `Input`, `Bridge`, …) are in COMPONENTS.md → Built-in Atoms; the components below extend them as `smbls.X`. `Bridge` — the host for a library that owns its DOM (an editor, a map, a chart) — has no template wrapper: use `extends: 'Bridge'` (COMPONENTS.md → Bridge). The same holds for `TooltipLayer` — tooltips for every `[data-tooltip]` node inside its parent, library nodes and icon-only buttons included (COMPONENTS.md → TooltipLayer). The dialog and dropdown families are framework components too, with no template wrapper: `Dialog` (with `modal`, and `locked` for a dialog the person cannot dismiss — COMPONENTS.md → Dialog), `DropdownParent` / `DropdownList` for a choice among options, and `DropdownDisclosure` for a menu of links and actions (COMPONENTS.md → DropdownDisclosure). Before you build an account menu or a forced-choice dialog from the components below, extend these.
 
 ---
 

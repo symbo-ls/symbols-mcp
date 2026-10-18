@@ -839,7 +839,7 @@ All DOM structure, events, children, and nesting MUST be expressed through DOMQL
 
 **Reading is fine. Writing is not.** `el.node.scrollTop`, `el.node.value`, `el.node.selectionStart`, `el.node.focus()`, `el.node.blur()`, `el.node.select()` are acceptable. Assigning to `el.node.X` is not (Rule 39).
 
-**The one exception — a library that owns its DOM** (a rich-text editor, a map, a chart): mount it in a `Bridge` host (COMPONENTS.md → Bridge). DOM work inside its `onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` hooks and the host's own `onXxx` handlers works on the library's nodes; DOMQL never writes inside the host.
+**The exceptions — nodes DOMQL does not own.** A library that owns its DOM (a rich-text editor, a map, a chart): mount it in a `Bridge` host (COMPONENTS.md → Bridge). DOM work inside its `onBridgeMount` / `onBridgeUpdate` / `onBridgeDestroy` hooks and the host's own `onXxx` handlers works on the library's nodes; DOMQL never writes inside the host. The same work is accepted anywhere on the library's own nodes reached from its instance (`el.bridge`), and on a parsed document (`DOMParser`, a detached `template`) that never enters the page. Exactly what frank-audit accepts, and what it still flags: FRANKABILITY.md → Banned runtime APIs.
 
 ```js
 // ✅ declarative — full feature in DOMQL
@@ -936,6 +936,8 @@ NoResults: {
 ```
 
 State drives the UI. Children react automatically — never find DOM nodes, never loop through children, never toggle `style.display`.
+
+This is about the page's DOM. Walking a document you parsed yourself (pasted HTML through `new DOMParser().parseFromString(...)`, turned into data) is not UI traversal: frank-audit accepts it while no parsed node enters the page (FRANKABILITY.md → Banned runtime APIs).
 
 ---
 
@@ -1832,6 +1834,19 @@ fetch: {
 ```
 
 A config under `db:` is never read: declarative `fetch:` props do nothing and `getDB()` returns `null`. An adapter name nothing registers (`'supabase'`) fails after about 5 s with `Unknown db adapter: "supabase"`.
+
+**The one allowed function — self-contained.** A function the fetch plugin calls with everything it needs, and that uses only its arguments, survives publish: `fetch.seed.isStale(stamp, { time })`, `fetch.seed.onRefresh(changes, root)` (SYNTAX.md → Data Fetching → A pre-built page's data) and the `fetch.early` request lists `(params, ctx) => [...]`. No closure over a module value, no import, no project function, no client:
+
+```js
+// ✅ self-contained — reads only its arguments
+seed: {
+  isStale: (stamp, { time }) => Date.now() - time > 6 * 3600e3,
+  onRefresh: (changes, root) => changes.forEach(({ from, data }) => root.state.update({ [from]: data }))
+}
+
+// ❌ reads a module constant and an import — both are gone on the published page
+seed: { isStale: (stamp) => stamp !== CATALOG_VERSION, onRefresh: (changes) => store.apply(changes) }
+```
 
 ---
 

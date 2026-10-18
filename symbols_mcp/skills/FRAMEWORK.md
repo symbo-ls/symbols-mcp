@@ -282,7 +282,11 @@ element create:
 
 `initRouter(app, context)` wires `app.onRenderRouter = onRouterRenderDefault` automatically (unless the project defines its own). `app.routes = ctx.pages` is set just before element creation, so `targetEl.routes` is populated when `defaultRouter` reads it.
 
-**The first render runs as short tasks** (`firstRender` in `config.js`, on by default; `false` keeps one task, a number sets the chunk budget in ms, default `10`, `{ budget, progressive: true }` shows the view as it builds). The task the entry script runs in ends when `create()` is called; the design system, the shell (app root) and the first page then each start a task of their own, and the shell and the page are built in chunks. The first view is painted ONCE: the root is built outside the document and inserted when the shell and the first page are complete, so nothing on screen moves (with `progressive: true`, what follows the routed content can move as the page grows). `create()` resolves after the first view is in the document and the first page's `onRender` and `onRouteChanged` have run; no `onMounted` runs before. The app root's own `onCreate` … `onRenderRouter` run before the root is in the document (every other element's hooks always ran before their element was attached); the first page's hooks, `onRouteChanged`, the scroll and the hash target run in the document. Work that needs the node in the document before the first paint (`showModal()`, `focus()`) goes in `el.whenConnected(fn)`: it runs in the insertion that connects the node (SYNTAX.md → Element Methods). An element whose children were built in a later chunk fires `onCreate` → `onRender` after its last child; hooks keep the order of a synchronous build. Code after `create()` in `index.js` runs before the design system is prepared; `DOMContentLoaded` and `load` can fire before the app is in the document. A route guard that awaits keeps `create()` waiting no longer than before (the shell goes in, the page later — built outside the document in chunks and inserted whole). The page is created with the app's `domqlOptions` (a `domqlOptions.mountYield` now reaches routed pages too), and after the first render reconciles, `if:` and navigations build in one go again. A boot over a pre-rendered (brender) page builds its shell and page in one task over the server markup; a server render keeps one task.
+**The first render runs as short tasks** (`firstRender` in `config.js`, on by default; `false` keeps one task, a number sets the chunk budget in ms, default `10`, `{ budget, progressive: true }` shows the view as it builds). The task the entry script runs in ends when `create()` is called; the design system, the shell (app root) and the first page then each start a task of their own, and the shell and the page are built in chunks. The first view is painted ONCE: the root is built outside the document and inserted when the shell and the first page are complete, so nothing on screen moves (with `progressive: true`, what follows the routed content can move as the page grows). `create()` resolves after the first view is in the document and the first page's `onRender` and `onRouteChanged` have run; no `onMounted` runs before. The app root's own `onCreate` … `onRenderRouter` run before the root is in the document (every other element's hooks always ran before their element was attached); the first page's hooks, `onRouteChanged`, the scroll and the hash target run in the document. Work that needs the node in the document before the first paint (`showModal()`, `focus()`) goes in `el.whenConnected(fn)`: it runs in the insertion that connects the node (SYNTAX.md → Element Methods). An element whose children were built in a later chunk fires `onCreate` → `onRender` after its last child; hooks keep the order of a synchronous build. Code after `create()` in `index.js` runs before the design system is prepared; `DOMContentLoaded` and `load` can fire before the app is in the document. A route guard that awaits keeps `create()` waiting no longer than before (the shell goes in, the page later — built outside the document in chunks and inserted whole). The page is created with the app's `domqlOptions` (a `domqlOptions.mountYield` now reaches routed pages too), and after the first render reconciles, `if:` and navigations build in one go again. A server render keeps one task.
+
+**Rows go in whole** (`@symbo.ls/element` `mountWhole`, set by smbls for the first render and for the adoption of a pre-rendered page, never after). An element whose children are still being built waits outside its parent and goes in with one insertion when its last chunk is in, before its `onCreate`. So a row that reaches the live document while the first render still yields (a fetched list a state update builds as the root goes in) is never on screen with only its first children. A first render with `progressive: true` does not hold rows; a project's own `domqlOptions.mountWhole` wins. `@symbo.ls/element` exports `mountIdle()` (`true` when no deferred mount work is queued now) beside `whenMountIdle()`: a promise that settles as the queue drains can queue more work before the `whenMountIdle()` caller resumes, so re-check with `while (!mountIdle()) await whenMountIdle()`.
+
+**A pre-rendered page is adopted in the same short tasks** (§8 → Hydration). The adoption starts a task of its own; the shell and then the first page are built over the server markup in chunks of the budget (about 10 ms). The server's nodes stay on screen while each element takes its own, so nothing visible changes between tasks. A click on a server node whose element is not built yet is held (no default action, no handler) and dispatched again, once, on the same node when the adoption is done; an element already adopted handles its own events at once. `firstRender: false` adopts in one task, as before; a page that replaces the server markup (`hydrate: false`, no registry) renders in one task.
 
 `onpopstateRouter` registers a `popstate` listener (removed by `destroy(app)`) so back/forward navigation re-runs the router — inside `customRouterElement` when one is configured, with the app-wide `router.guards`.
 
@@ -535,9 +539,14 @@ fetch: {
 ```
 
 - A request is the adapter call it stands for (`method` `'select'` / `'rpc'`, `from`, `params`, `select`, `limit`, `offset`, `order`, `single`). A function form runs before the app: no imports, no project functions — only its arguments (`ctx = { path, query, lang, storage(key) }`) and browser globals.
+- The script asks in the language the app starts in (§6 → The start language): the address's (`/en/…`), else the stored choice, else `state.lang`, else `polyglot.defaultLang`. It embeds the same rule polyglot uses, so its `Accept-Language` is the app's.
 - Adopted only when it is the same request: same address, same `Accept-Language` (set `lang: false` for a call that sends none), no other headers — a signed-in call never takes the anonymous answer. Each answer is taken once; a failed one, an expired one, or one still waiting after an invalidation is not.
 - `early.query` and `early.rpc` default to `fetch.reads` (SYNTAX → Anonymous reads), which makes the call itself send the same anonymous GET; declare them once in `reads`.
 - `smbls build` (and `smbls deploy`) writes the script as `early.<hash>.js`, referenced first in `<head>` (a file, so a CSP without `'unsafe-inline'` allows it) — the optimized page included (unquoted attributes, no `<head>` tag). With `fetch.early` set and nothing added (no app script on the page, no request the script can make), the build prints `Early data requests not added: <reason>`. `smbls start` does not emit it. Without `fetch.early` nothing changes.
+
+### A pre-built page shows the data of its build — `fetch.seed`
+
+A page `smbls build` pre-rendered carries the answers its render got (§8), and the calls that take them never reach the server: its visitor sees the **build time's** data until the next build. `fetch.seed` tells a page its data is stale (`isStale`, `maxAge`, or `<html data-smbls-stale>` from the host); it then shows the build's data at once and, after the adoption, asks again for exactly what took a recorded answer. `fetch.seed: false` adopts no recorded answer. Config, example and the refresh contract: SYNTAX.md → Data Fetching → A pre-built page's data. When to use it: PATTERNS.md → Pre-built pages and fresh data.
 
 ### Auth guard
 
@@ -552,7 +561,7 @@ Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error
 ### Anti-patterns
 
 - Don't bypass adapter — `await fetch(...)` from inside DOMQL skips cache, retry, dedupe, optimistic, and the `Accept-Language` header injection. Streaming (SSE), binary downloads and multipart uploads are no exception: the REST adapter reads them through `responseType` and sends `FormData` / `Blob` bodies as they are (see Imperative).
-- Don't ship a client or a function in the `config.js` `fetch` config (RULES.md Rule 59): only plain options survive publish — the served runtime deletes `fetch.createClient`. Don't configure under `db:` (never read) or `adapter: 'supabase'` (the Supabase adapter was removed; use the REST adapter on the PostgREST endpoint, or a registered adapter).
+- Don't ship a client or a function in the `config.js` `fetch` config (RULES.md Rule 59): only plain options survive publish — the served runtime deletes `fetch.createClient`. The exceptions are self-contained functions that use only their arguments: `fetch.early` request lists and `fetch.seed.isStale` / `onRefresh`. Don't configure under `db:` (never read) or `adapter: 'supabase'` (the Supabase adapter was removed; use the REST adapter on the PostgREST endpoint, or a registered adapter).
 - Don't write to state inside a fetch's own `transform` and a parent's `onFetchComplete` for the same key — race on cache resolution. Pick one.
 
 ---
@@ -604,6 +613,16 @@ context.polyglot = {
 
 Mixed mode: ship `translations` in the bundle (UI strings) and add `fetch` (content strings) — server overrides static when loaded.
 
+### The start language
+
+The app starts in ONE language, chosen before the first render (smbls `prepareState`, polyglot's `initPolyglot` and the `fetch.early` script share the rule):
+
+1. the address's language — `/en/about` with `languages: ['ka', 'en']` starts in `en` (the first path segment, when it is one of `languages`, else of the `translations` keys; case does not matter);
+2. the stored choice (`storageLangKey`);
+3. the state's `lang`, else `defaultLang`, else `'en'`.
+
+`polyglot.addressLang` sets step 1: `true` (default) — the address wins over a stored choice; `'fallback'` — a stored choice wins, the address only replaces the default; `false` — the address is never read. The first render, its declarative fetches (`Accept-Language`), the labels and a router's language guard all see the start language, so a first visit to `/en/…` asks for and shows only English. The address's language is never stored (it is not a choice); `setLang` stores one. Example: SYNTAX.md → Polyglot → The start language.
+
 ### Using translations in components
 
 The functions registered by `polyglotFunctions` (verified at
@@ -619,7 +638,9 @@ setLang           → switch (async): persist first, wait for labels + their fon
                     the last call wins; setLang(lang, { persist: false }) stores nothing
 getPendingLang    → the language a switch is waiting for, or null (reactive — a busy state; no state key)
 getLanguages      → array of available language codes
-loadTranslations  → manually trigger remote load for a lang
+loadTranslations  → load a lang's labels — one load per lang PER APP: a second call while one is in flight gets
+                    its promise; loadTranslations(lang, { inFlight: true }) starts nothing and answers the
+                    app's load in flight, or undefined
 upsertTranslation → CMS write (optimistic + persists)
 ```
 
@@ -776,6 +797,8 @@ If you set e.g. `article:author` and rely on it client-side, the
 runtime won't emit it (it's not in META_TAGS). It WILL appear in the
 SSR HTML brender produces.
 
+**`source` is a declaration, never a tag.** A `:param` page may declare where its record lives — `metadata: { source: { collection, type, param, lang }, … }` — for a renderer that reads the record and resolves the address's head from it, then hands that head to `renderProjectHtml` as `metadata` (§8). No surface prints `source`: the server head (`generateMetaTags`) skips it, helmet's SSR head skips object values, and the browser runtime applies only the keys above.
+
 ### SSR priority order (brender)
 
 `extractMetadata(data, route)` in `plugins/helmet/index.js`:
@@ -805,9 +828,9 @@ Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the 
 ### When brender runs
 
 - **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`, route `/x` → `x/index.html`. Its pages carry no registry: with its client bundle (ISR, on by default) the app boots over the markup and replaces it.
-- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed unless `brender.paths` lists addresses for them. Both run one route loop: the `symbols.json` `brender` settings (`context`, `exclude`, `paths`, `strict`, `eagerImages`), `file:` URLs mapped into the output, and the same diagnostics — `--strict` fails on a page made without its data or labels. Both exit 1 when no route renders (opt out with `--no-brender`). Every built page is made for adoption (hydration, below) unless `symbols.json` says `"brender": { "hydrate": false }`.
+- **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed unless `brender.paths` lists addresses for them. Both run one route loop: the `symbols.json` `brender` settings (`context`, `exclude`, `paths`, `strict`, `eagerImages`, `timeout`, `stamp`), `file:` URLs mapped into the output, and the same diagnostics — `--strict` fails on a page made without its data or labels. Both exit 1 when no route renders (opt out with `--no-brender`). Every built page is made for adoption (hydration, below) unless `symbols.json` says `"brender": { "hydrate": false }`. `smbls build` also writes the prepared design system (below), `200.html` for routes without their own page and the `_redirects` rules that serve it (CLI.md → Dev / build / deploy → Routes without their own page).
 - **`smbls publish --ssr`** (or `"prerender": true`) — pre-renders the static routes at publish time into the project's `__ssr` map, served by the platform renderer (CLI.md → Publish flow).
-- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render.
+- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render. `renderProjectHtml(data, { metadata })` takes a head the CALLER resolved for this address (for example from a CMS record it read): with keys it is the page's head, over a server render's and the page's own; an empty object, an array, `null` or a string keeps the usual head. It reaches the `<head>` tags only — the boot payload, and so the client, never carries it. (Head keys and `metadata.source`: §7.)
 
 ### The page and the client boot
 
@@ -819,8 +842,10 @@ A pre-rendered page carries NO inline script, so a strict Content-Security-Polic
 | `data-br="br-N"` | each server element node | its key |
 | `<script type="application/json" data-brender="registry">` | after the markup | element path → key; only on a page made for adoption |
 | `<script type="application/json" data-fetch-seed>` | after the markup | the anonymous GET answers the render got (`@symbo.ls/fetch`) |
+| `<meta name="brender-stamp" content="<stamp>" data-time="<ms>">` | `<head>` | the build the page comes from (`brender.stamp`, else the render time) — `el.context.prerender` |
+| `<link rel="preload" as="fetch" data-smbls="design-system">` | `<head>` | `smbls build` only: the design system the build prepared (below) |
 
-**Hydration (adoption).** On by default when the page carries the registry; `hydrate: false` in the project config refuses it (fresh render). The client runs its normal `create()`, but each element takes the server's node at its path: attributes and text are written again by the client, so the result is the client's own render without a second paint. A node of another tag is not adopted (that element gets a fresh one); a throw falls back to the fresh render. The adoption stays open until the first view has settled — the first route rendered (also behind a guard that waits) and no `@symbo.ls/fetch` request in flight — so the routed page and every list that renders with its first data adopt their server nodes; until then the server nodes still waiting stay on screen, in place. It closes at the latest after 3 s (`hydrate: { timeout: ms }`), or at the visitor's first click or key press; whatever no element adopted then goes. An adopted image that had already loaded fires its `load` again, once, so `onLoad` runs. `window.__BRENDER_HYDRATION__` reports `{ adopted, misses, removed }`. The smbls embed never adopts (RUNNING_APPS.md → Embed Bundle).
+**Hydration (adoption).** On by default when the page carries the registry; `hydrate: false` in the project config refuses it (fresh render). The client runs its normal `create()`, but each element takes the server's node at its path: attributes and text are written again by the client, so the result is the client's own render without a second paint. A node of another tag is not adopted (that element gets a fresh one); a throw falls back to the fresh render. The adoption stays open until the first view has settled — the first route rendered (also behind a guard that waits) and no `@symbo.ls/fetch` request in flight — so the routed page and every list that renders with its first data adopt their server nodes; until then the server nodes still waiting stay on screen, in place. It closes at the latest after 3 s (`hydrate: { timeout: ms }`), or at the visitor's first click or key press, counted from the end of the adoption; whatever no element adopted then goes. The adoption itself runs in short tasks, and a click during it is held and dispatched again once (§4). An adopted image that had already loaded fires its `load` again, once, so `onLoad` runs. `window.__BRENDER_HYDRATION__` reports `{ adopted, misses, removed }`. The smbls embed never adopts (RUNNING_APPS.md → Embed Bundle).
 
 **Replace.** A page without the registry (`"brender": { "hydrate": false }`, `renderPage` without `adoptDom`): the server's markup and styles go and the app renders fresh. The recorded data answers are still adopted by the requests that ask for them.
 
@@ -828,7 +853,18 @@ A pre-rendered page carries NO inline script, so a strict Content-Security-Polic
 
 Pages from older servers still work: the inline `window.__BRENDER__` flag, `window.__BR_REGISTRY__` and `window.__BRENDER_HYDRATE__` are read (that registry adopts only with `hydrate: true` or the flag); when a policy blocked such a page's flag, its `data-br` markup in the mount node is taken for the mark — one app root, never two. An smbls older than this format does not know the `<meta>`: keep `smbls` and `@symbo.ls/brender` at the same release.
 
-**In app code:** `el.context.prerendered` is `true` in an app that booted over a pre-rendered page. A gate that hides the app until its data is in (`opacity: 0` until labels, settings and fonts load) also hides the adopted page until then — let a pre-rendered first view count as ready: `isReady: (el, s) => el.context.prerendered || …`.
+**The data is the build's.** A `smbls build` page shows the answers of the build time until the next build. A page flagged stale gets them at once and then, after the adoption, asks again (§5 → `fetch.seed`); on an adopted page `window.__BRENDER_HYDRATION__.refreshed` reports that refresh (`{ queries, reads, changed }`).
+
+**In app code:** `el.context.prerendered` is `true` in an app that booted over a pre-rendered page, and `el.context.prerender` is the build the page comes from, `{ stamp, time }` (the `brender-stamp` meta; `undefined` on a page without one). A gate that hides the app until its data is in (`opacity: 0` until labels, settings and fonts load) also hides the adopted page until then — let a pre-rendered first view count as ready: `isReady: (el, s) => el.context.prerendered || …`.
+
+**The design system prepared at build time.** Every server render of `smbls build` also prepares the app's design system (the processed config and the global CSS). The build writes it once as `smbls-ds.<sha>.json` next to the bundles and puts `<link rel="preload" as="fetch" data-smbls="design-system">` into every page it writes and into `200.html`. The app's first document requests the file before its first yield and ADOPTS it (the config revived, the global rules replayed) instead of processing the design system again. `context.designSystemSource` says which ran: `'prepared'` or `'processed'`. It adopts only a file prepared from the same input — a fingerprint of the design system without its `font` family, and of the options that shape processing, with the theme the page boots in. The page processes as before when:
+
+- there is no file — `smbls start`, an older build, a fetch that fails or a CSP that blocks it;
+- the fingerprint differs — a shared library fetched over the network that changed since the build, a theme the visitor stored, `?globalTheme=`;
+- the design system holds something data cannot carry — a function, a class instance, a host object: the build prepares nothing (DESIGN_SYSTEM.md → Prepared at build time);
+- the project reads a local design-system file, or the app is not the first app of its document (a second app, an iframe tile).
+
+The `font` family is never prepared: its file URLs are the build machine's, so the page resolves fonts and font faces itself. A host that writes the page itself can hand the prepared design system in as `context.preparedDesignSystem`, or inline it as a data block (`designSystemBlock(prepared)` from `@symbo.ls/utils`, selector `script[type="application/json"][data-smbls="design-system"]`; the link's selector is `link[rel="preload"][data-smbls="design-system"]`).
 
 Programmatic use:
 
@@ -879,7 +915,7 @@ This means SSR HTML and client bundle must run **identical** DOMQL source. Any d
 
 ### SSR data — the page's `fetch` runs during the render
 
-A page's declarative `fetch` runs during the render, through the fetch plugin with the real element (`transform(data, el, state)`, `children` re-run on the answer), and the render waits for its requests (up to 2 s with `prefetch`, the default). It uses the project's own `config.fetch` (e.g. `{ adapter: 'rest', url, headers }`). The platform's `'sdk'` adapter cannot run on the server (`hasAdapter(name)` in `@symbo.ls/fetch` says whether an adapter is registered); its data loads in the browser. `renderPage(...).diagnostics` names failed requests and raw label keys.
+A page's declarative `fetch` runs during the render, through the fetch plugin with the real element (`transform(data, el, state)`, `children` re-run on the answer), and the render waits for its requests (up to 2 s with `prefetch`, the default). It uses the project's own `config.fetch` (e.g. `{ adapter: 'rest', url, headers }`). The platform's `'sdk'` adapter cannot run on the server (`hasAdapter(name)` in `@symbo.ls/fetch` says whether an adapter is registered); its data loads in the browser. `renderPage(...).diagnostics` names failed requests and raw label keys. A render waits for the labels its own page is loading (polyglot `loadTranslations(lang, { inFlight: true })`), within the render's time limit; label loads are per app, so a page never gets the previous page's load.
 
 Each render has a query cache of its own. Renders in one process — one after another or at once, of one project or of several — never share cached rows, requests in flight or invalidations, and `el.call('invalidateQueries' | 'removeQueries' | 'getQueryData' | 'setQueryData', …)` acts on the cache of the render that calls it. A server render binds no window-focus, reconnect or `refetchInterval` refetch: once its markup is taken, a page's queries leave no listener, no timer and no request behind, and its `data-fetch-seed` carries only the requests the page itself made.
 
@@ -1005,17 +1041,19 @@ smbls build --no-brender        # SPA only
 
 **Lean app bundles — `smbls/core`.** The `smbls` entry is the full runtime: it registers every bundled package on `globalThis.__SMBLS_PKGS__`, which published or fetched project code (frank-serialized functions, libraries fetched with `smbls fetch --scope libs`, raw JSON handed to `create()`) reads synchronously — and that registry keeps every export alive, so a bundler can drop nothing. `smbls/core` is the same API without the registry (no `registerHostPackages`), without the Simone client and socket.io, code-split so each kit and platform plugin is a file loaded only when switched on. For a parcel build, set `"smblsEntry": "core"` in `symbols.json` (CLI.md → Dev / build / deploy): every bare `smbls` import then resolves to `smbls/core`. Never import both entries in one app (two copies of the runtime), and never use `core` for an app that runs published or fetched code — its registry reads get `{}`.
 
-On both entries the kits and platform plugins load only when the configuration switches them on; `create()` starts every load at once and awaits each before the first render: `windows` / `dropdown` / `tooltip` (on by default, `false` keeps each out), `analyze`, `shorthand`, `inspect`, `fetch` (the plugin and its REST adapter, one file), and live sync. `@symbo.ls/sync` loads only when `wantsLiveSync(ctx)` (`@symbo.ls/sync/applier`) finds a transport the page may use — a collab `socketUrl` (`editor.socketUrl` or `settings.socketUrl`) or `editor.runtime: 'runner'` — and no `sync: false`, or for its toasts (`notifications: true`). A page the platform published uses its `socketUrl` only inside an editor session (framed, or opened with `?liveSync`), so a published page outside an editor session loads no sync file. In `smbls/core` each kit is its own lazy file: an app that keeps a kit on pays one module request at boot (the kits it keeps load in parallel, after the entry has evaluated); the single-file builds carry them inline. Turn off the kits an app does not use.
+On both entries the kits and platform plugins load only when the configuration switches them on; `create()` starts every load at once and awaits each before the first render: `windows` / `dropdown` / `tooltip` (on by default, `false` keeps each out), `analyze`, `shorthand`, `inspect`, `fetch` (the plugin and its REST adapter, one file), and live sync. `@symbo.ls/sync` loads only when `wantsLiveSync(ctx)` (`@symbo.ls/sync/applier`) finds a transport the page may use — a collab `socketUrl` (`editor.socketUrl` or `settings.socketUrl`) or `editor.runtime: 'runner'` — and no `sync: false`, or for its toasts (`notifications: true`). A page the platform published uses its `socketUrl` only inside an editor session (framed, or opened with `?liveSync`), so a published page outside an editor session loads no sync file. In `smbls/core` each kit is its own lazy file: an app that keeps a kit on pays one module request at boot (the kits it keeps load in parallel, after the entry has evaluated); the single-file builds carry them inline. Turn off the kits an app does not use. `symbols.json` `"build": { "modulePreload": true }` (opt-in) makes `smbls build` preload the lazy modules the config switches on, beside the entry (CLI.md → Dev / build / deploy).
 
 ### `smbls deploy`
 
 Targets a static host:
 
 - `symbols` — push to Symbols platform
-- `cloudflare` — Cloudflare Pages (auto-creates `wrangler.jsonc` with `assets.directory: './dist'` and SPA routing)
-- `vercel` — auto-creates `vercel.json`
+- `cloudflare` — Cloudflare Pages, or Workers static assets with `--target workers` (auto-creates `wrangler.jsonc` with `assets.directory: './dist'`; on a pre-rendered build it never falls back to `index.html`, which is the home page)
+- `vercel` — auto-creates `vercel.json` (`cleanUrls`, a rewrite of every address without a file to `/200`)
 - `netlify` — auto-creates `netlify.toml`
-- `github-pages` — pushes to `gh-pages` branch
+- `github-pages` — pushes to `gh-pages` branch (no rewrites there: the workflow copies `200.html` to `404.html` when the project has no not-found page)
+
+A route without its own page (a `:param` route `brender.paths` does not list, `prerender: false`, an excluded or failed one) must get `200.html`, never another page: the rule per host is in CLI.md → Dev / build / deploy → Routes without their own page.
 
 ### Pre-publish checklist
 
@@ -1024,7 +1062,7 @@ Targets a static host:
 3. **Verify the design system tokens are present** — every color/spacing/typography token used in components must be defined in `designSystem/`. Missing tokens cause silent visual fallbacks in production.
 4. **Check `dependencies.js`** — any package referenced from project code must be in `dependencies.js` so mermaid can resolve it via importmap. Missing entries fail at runtime in deployed channels.
 5. **`config.js` flags** — `useReset`, `useVariable`, `useFontImport`, `useIconSprite`, `useSvgSprite`, `useDefaultConfig`, `useDocumentTheme` should all be `true` for normal projects. Mermaid's bundle script defaults them to `true` if missing, but explicit beats implicit.
-6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch` (the served runtime deletes `fetch.createClient`), no `db:` key, no `adapter: 'supabase'` (RULES.md Rule 59).
+6. **The `fetch` config is plain data** — no `createClient` or other function in `config.js` `fetch` (the served runtime deletes `fetch.createClient`; a self-contained `seed.isStale` / `seed.onRefresh` / `early` request function is the exception), no `db:` key, no `adapter: 'supabase'` (RULES.md Rule 59).
 7. **No browser-only top-level code in modules** — see §8 SSR rules above. If you import a leaflet/mapbox/etc. package at the top of a component file, brender will crash and fall back to client-render. Lazy-load instead.
 8. **Test with `channel=production`** — `smbls deploy --channel production` (or `mermaid` with `BRENDER=true`) catches SSR regressions early.
 

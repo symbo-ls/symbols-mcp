@@ -690,7 +690,19 @@ The `fetch:` prop:
 
 A server that already fetched the first view's data can hand the answers to the client, so the REST adapter does not ask again. `@symbo.ls/fetch` exports `createEarlySeedScript(entries)` (entries: `{ url, lang, status, type, body }`), `earlyKey(url, lang)` and `EARLY_KEY`; brender's `fetchSeed` + `adoptionScripts` use them. The adapter adopts a seeded answer once, and only for a call with no header beyond `Accept-Language` (a signed-in call never takes it).
 
-The key is the address AND the language the request asked in. brender renders a page at `/<lang>/…` (the first segment one of the project's languages) in that language, so its seed holds the answers in that language. The client adopts them only if it starts in the same language: on a site with language-prefixed addresses, a pre-boot script stores the address's language under polyglot's `storageLangKey` before the app starts (MODERN_STACK.md → brender → The address's language).
+The key is the address AND the language the request asked in. brender renders a page at `/<lang>/…` (the first segment one of the project's languages) in that language, so its seed holds the answers in that language. The client adopts them only if it starts in the same language. It does by itself: a polyglot app starts in the address's language (`polyglot.addressLang`, default `true`), so no pre-boot script is needed (FRAMEWORK.md §6 → The start language; MODERN_STACK.md → brender → The address's language).
+
+#### Pre-built pages and fresh data
+
+When to use: a site built with `smbls build` whose data changes between builds (a CMS, prices, a schedule). A pre-rendered page carries the answers of the build time, and its calls take them instead of asking the server, so without a flag a visitor sees the build's data until the next build.
+
+- Data that changes only with a deploy: nothing to do.
+- Data with a known freshness window: `fetch.seed.maxAge` in `config.js` (`'6h'`).
+- Data whose version the project can read: stamp the build with that version (`brender.stamp`, CLI.md) and compare it in `fetch.seed.isStale(stamp, { time })`; or let the host compare it and set `<html data-smbls-stale>` at the edge (a Worker reads `<meta name="brender-stamp">` without parsing the page).
+- A stale page shows the build's data at once (no flash, no empty state), then refetches what took a recorded answer after the adoption: declarative queries refresh their state themselves; imperative `getDB()` reads that changed reach `fetch.seed.onRefresh(changes, root)`, where the project writes them into its state.
+- Data that must never be shown from the build (a stock count, a seat map): `fetch.seed: false`, or keep that read signed-in (a call with `Authorization` is never recorded).
+
+Config and contract: SYNTAX.md → Data Fetching → A pre-built page's data. App code that shows the build time reads `el.context.prerender` (`{ stamp, time }`).
 
 ### Polyglot — internationalised strings
 

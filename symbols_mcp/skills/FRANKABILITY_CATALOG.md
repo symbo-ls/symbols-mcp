@@ -970,6 +970,16 @@ directly. Nor in a `functions/` function that only that code calls
 project has no other reference to its name. The same code anywhere
 else is still flagged.
 
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
+
 # FA505 — inner-html-write
 
 Bad:    el.node.innerHTML = '<b>Hi</b>'
@@ -987,6 +997,16 @@ directly. Nor in a `functions/` function that only that code calls
 (`el.call('name')` from a hook), or only such functions call: the
 project has no other reference to its name. The same code anywhere
 else is still flagged.
+
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
 
 # FA506 — set-attribute
 
@@ -1006,6 +1026,16 @@ directly. Nor in a `functions/` function that only that code calls
 project has no other reference to its name. The same code anywhere
 else is still flagged.
 
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
+
 # FA507 — remove-attribute
 
 Bad:    el.node.removeAttribute('disabled')
@@ -1019,6 +1049,16 @@ directly. Nor in a `functions/` function that only that code calls
 (`el.call('name')` from a hook), or only such functions call: the
 project has no other reference to its name. The same code anywhere
 else is still flagged.
+
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
 
 # FA508 — append-child
 
@@ -1034,6 +1074,16 @@ directly. Nor in a `functions/` function that only that code calls
 (`el.call('name')` from a hook), or only such functions call: the
 project has no other reference to its name. The same code anywhere
 else is still flagged.
+
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
 
 # FA509 — remove-child
 
@@ -1052,6 +1102,16 @@ directly. Nor in a `functions/` function that only that code calls
 project has no other reference to its name. The same code anywhere
 else is still flagged.
 
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
+
 # FA510 — insert-before
 
 Bad:    parent.node.insertBefore(newEl.node, anchor.node)
@@ -1065,6 +1125,16 @@ directly. Nor in a `functions/` function that only that code calls
 (`el.call('name')` from a hook), or only such functions call: the
 project has no other reference to its name. The same code anywhere
 else is still flagged.
+
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
 
 # FA511 — el-node-write
 
@@ -1101,6 +1171,16 @@ directly. Nor in a `functions/` function that only that code calls
 (`el.call('name')` from a hook), or only such functions call: the
 project has no other reference to its name. The same code anywhere
 else is still flagged.
+
+Nor on nodes DOMQL does not own, wherever the code sits: a bridged
+library's nodes reached from its instance (`el.bridge`, or a `scope` key
+that bridge code sets to the instance it constructs — not a step up or
+sideways out of its tree: `parentNode`, `closest()`, `ownerDocument`), and
+a parsed document (`new DOMParser().parseFromString(...)`,
+`document.implementation.createHTMLDocument(...)`, a detached
+`createElement('template')`) with every node reached from it. Inserting
+such a node into the live page (`appendChild`, `append`, `replaceWith`, …)
+ends that for every node of its origin in the file.
 
 # FA513 — window/document update misuse
 

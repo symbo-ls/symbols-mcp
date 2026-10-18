@@ -70,7 +70,7 @@ create(definition, parent, key, options)
 
 The `if` effect re-enters the full creation steps the first time it flips false → true.
 
-**Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once, but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
+**Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once (during the first render and the adoption of a pre-rendered page, smbls sets `mountWhole`: it waits outside its parent and goes in with one insertion when its last chunk is in, so a row is never on screen half built), but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
 ---
 
@@ -1580,6 +1580,41 @@ fetch: {
 - A GET answered `405` is sent again as the POST. A relative `url` (same origin) keeps RPCs as POSTs. Without `reads` nothing changes.
 - `fetch.early` takes `query` and `rpc` from `reads` when it does not set its own, so the pre-boot GET and the call's GET match.
 
+### A pre-built page's data — `fetch.seed`
+
+A page `smbls build` pre-rendered carries the data answers its render got (`data-fetch-seed`). A call that sends exactly a recorded request takes the recorded answer and never reaches the server, so the page shows the data of the **build time** until the next build. Each page names its build: `<meta name="brender-stamp" content="<stamp>" data-time="<ms>">` (`brender.stamp`, else the build time — CLI.md), read in app code as `el.context.prerender` (`{ stamp, time }`; `time` in ms or `null`). A page is **stale** when:
+
+- the host marks it: `<html data-smbls-stale>` (an edge Worker that compares the stamp with its data's last change);
+- `fetch.seed.isStale(stamp, { time })` returns true, or a promise of true. It runs once, when the REST adapter reads the page's seed;
+- its build is older than `fetch.seed.maxAge` (ms, or `'30m'`, `'6h'`).
+
+```js
+// config.js
+export default {
+  fetch: {
+    adapter: 'rest',
+    url: 'https://api.example.com',
+    seed: {
+      maxAge: '6h',                                               // a build older than 6 h is stale
+      isStale: (stamp, { time }) => stamp !== 'catalog-v2',      // or compare the build's own stamp
+      onRefresh: (changes, root) => {                            // imperative reads whose answer changed
+        for (const { from, data } of changes) {
+          if (from === 'settings') root.state.update({ settings: data })
+        }
+      }
+    }
+  }
+}
+```
+
+A stale page is adopted from the build's answers at once, as any page is. When the adoption is done (the hydration window closed; on a replaced page, when its first view settled), at idle, it asks again for exactly what took a recorded answer:
+
+- a declarative query that took one: its key is invalidated, so every mounted query on it refetches and writes its rows into state (a keyed list keeps the nodes of unchanged rows);
+- an imperative read (`getDB()` → `db.select` / `db.rpc`) that took one: its request is sent again, and the ones whose answer changed go to `onRefresh(changes, root)` — `changes` is `[{ method, from, params, data, previous }]`, `root` the app's root element;
+- recorded answers no call took are dropped.
+
+On an adopted page `window.__BRENDER_HYDRATION__.refreshed` reports it: `{ queries, reads, changed }` (a replaced page has no such report). A page that is not stale records nothing and sends nothing extra. `fetch.seed: false` adopts no recorded answer (the client asks for everything) and brender writes no seed into the page. `isStale` and `onRefresh` are published with the config: write them self-contained — only their arguments, no closure, no import (RULES.md Rule 59). When to flag a page: PATTERNS.md → Pre-built pages and fresh data.
+
 ### Response types and request bodies (REST adapter)
 
 `responseType` sets how the REST adapter reads the response body. It works on `db.select / rpc / insert / update / upsert / delete` and in a declarative `fetch:`.
@@ -1660,6 +1695,22 @@ context.functions = { ...context.functions, ...polyglotFunctions }
 context.plugins   = [polyglotPlugin, …]
 ```
 
+### The start language
+
+The app starts in one language, chosen before the first render: the address's (its first path segment, when it is one of `languages`), else the stored choice (`storageLangKey`), else `state.lang`, else `defaultLang`. `addressLang` sets the first step: `true` (default, the address wins over a stored choice), `'fallback'` (a stored choice wins), `false` (the address is never read). The address's language is not stored; `setLang` stores a choice.
+
+```js
+// context.js — /en/about starts in English, even over a stored 'ka'; / with nothing stored starts in Georgian
+export const polyglot = {
+  defaultLang: 'ka',
+  languages: ['ka', 'en'],
+  addressLang: true,            // the default; 'fallback' | false
+  translations: { ka: { hello: 'გამარჯობა' }, en: { hello: 'Hello' } }
+}
+```
+
+The first render, its declarative fetches (`Accept-Language`), the labels and a router's language guard all see it, so `/en/…` never renders in `ka` first. More: FRAMEWORK.md §6 → The start language.
+
 ### Use in components
 
 ```js
@@ -1694,7 +1745,7 @@ When `state.root.lang` changes, every declarative `fetch` request (queries and w
 | `setLang(lang, { persist? })` | Switch language (async): stores the choice at once (`persist: false` writes nothing to storage), waits while the old language stays on screen for the new labels (when not cached) and their font faces (up to `polyglot.fontWait` ms, default 3000; `false` / `0` = no wait), then switches text, `state.root.lang` and `<html lang>` (last) in one frame. The last call wins; a failed load keeps the current language |
 | `getPendingLang()` | The language a switch is waiting for, or `null` — reactive, for a busy state: `aria: { busy: (el) => (el.call('getPendingLang') ? 'true' : null) }` |
 | `getLanguages()` | Available language codes |
-| `loadTranslations(lang)` | Manually trigger remote load |
+| `loadTranslations(lang, { inFlight? })` | Load a language's labels — one load per language per app (a second call gets the load in flight); `{ inFlight: true }` starts nothing and answers the app's load in flight, or `undefined` |
 | `upsertTranslation(key, lang, value)` | CMS write (optimistic + persists) |
 
 ---
