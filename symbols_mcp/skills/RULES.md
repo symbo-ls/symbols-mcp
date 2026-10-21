@@ -1351,9 +1351,8 @@ The ONLY registered polyglot exports (verified at `plugins/polyglot/functions.js
 **Setup (`context`):**
 
 ```js
-import { polyglotPlugin } from '@symbo.ls/polyglot'
-import { polyglotFunctions } from '@symbo.ls/polyglot/functions'
-
+// No import: the runtime registers the plugin and its functions from
+// context.polyglot (FRAMEWORK.md §6). An import is stubbed under `smbls push`.
 context.polyglot = {
   defaultLang: 'en',
   languages: ['en', 'ka', 'ru'],
@@ -1365,8 +1364,6 @@ context.polyglot = {
   // OR for server-backed (CMS) translations:
   // fetch: { rpc: 'get_translations_if_changed', table: 'translations' }
 }
-context.functions = { ...context.functions, ...polyglotFunctions }
-context.plugins   = [polyglotPlugin, ...]
 ```
 
 **Usage:**
