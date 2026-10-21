@@ -672,6 +672,28 @@ Use `hide` for toggling visibility. Use `if` for removing from DOM entirely. For
 
 ---
 
+## "Removed" is `el.__ref === null`, never `!node.isConnected` (smbls 3.14.84x)
+
+The first render builds the whole view outside the document over several
+tasks and inserts the root once. In `onInit` / `onCreate` / `onRender` — and
+in any `await` continuation after them — the node is not connected yet. A
+"navigated away" guard written as `el.node && !el.node.isConnected` then
+skips forever (live P0: a lazy `/login` page stayed on its skeleton), and it
+also misses a really removed element, because dispose sets `el.node` and
+`el.__ref` to `null`.
+
+```js
+onCreate: async (el) => {
+  const page = await el.scope.loader()
+  if (!el.__ref) return                  // removed while loading
+  el.whenConnected(() => el.set(page))   // runs at the insertion; never after removal
+}
+```
+
+`el.whenConnected(fn)` alone covers both cases. Use it for `showModal()`,
+`focus()` and measuring too. `isConnected` checks stay fine in timers, RAF
+loops and event handlers that run after mount.
+
 ## Lifecycle handler errors are now plugin-routed
 
 Before: `triggerLifecycle()` in `packages/element/src/create.js` swallowed handler throws with raw `console.error('[DOMQL] Lifecycle "${key}" error:', err)`.
