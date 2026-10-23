@@ -311,6 +311,46 @@ export const Grid = {
 }
 ```
 
+#### Breakpoints that follow a container — `breakpointsFrom`
+
+Breakpoint keys (`@mobileL`, `@tabletS`, …) are window media queries. A subtree drawn narrower than the window (a page editor's canvas, a device preview, a side panel) can measure its own box instead:
+
+```js
+export const Canvas = {
+  breakpointsFrom: 'container',              // or a container name: 'canvas' | 'window'
+  width: (el, s) => s.root.previewWidth,     // a device width the editor chose
+  Page: {
+    padding: 'D',
+    '@mobileL': { padding: 'C B' },          // → @container breakpoints (max-width: 768px)
+    '@print':   { padding: '0' }             // not width-only → stays @media
+  }
+}
+```
+
+- The element that declares it becomes the size container (`container-type: inline-size`, `container-name: breakpoints`, or the name you give, or the first name of its own `containerName`). Its OWN breakpoint keys stay window queries: a container query never measures the element it is declared on. Inline-size containment means its width must not come from its content: give it a width, or let it stretch.
+- Every DESCENDANT's width-only breakpoint (`(max-width: N)`, `(min-width: N)`, `(width < N)`, joined with `and` / `or`, optionally behind `screen and`) compiles to `@container <name> (…)`. Height, orientation, aspect-ratio, print, colour-scheme and hover breakpoints, and raw `'@media …'` keys, stay media queries.
+- `breakpointsFrom: 'window'` on a nested element sends its descendants back to the window (a fixed toolbar inside the canvas). The nearest ancestor that declares it decides. A function value `(el, s, ctx) => …` works too.
+- `vw` / `vh` still measure the window: use `cqw` inside the subtree. `onMediaQueryChange` still listens to the window (`matchMedia`).
+
+#### CSS system colours and forced-colours blocks
+
+A CSS system colour (`CanvasText`, `Canvas`, `Highlight`, `HighlightText`, `ButtonText`, `ButtonFace`, …) is a valid colour value, with these rules (scratch 3.14.793):
+
+- Inside `'@media (forced-colors: active)'`, or a media key of your design system that maps to it (`media: { forcedColors: '(forced-colors: active)' }` → `'@forcedColors'`), every spelling passes (`'Highlight'` and `'highlight'`).
+- Outside such a block the spec spelling passes (`color: 'CanvasText'`, for example beside `forcedColorAdjust: 'none'`). A lowercase word that only shares the name (`'highlight'`, `'canvastext'`) is a missing palette token: it is dropped with a dev warning.
+- A palette token of the same name always wins. A system colour inside a `border` / `outline` / `boxShadow` shorthand (`'1px solid ButtonText'`) stays as written.
+
+```js
+export const FilterChip = {
+  extends: 'Button',
+  background: 'surface',
+  '@media (forced-colors: active)': {
+    color: 'ButtonText',
+    border: '1px solid ButtonText'      // the shorthand keeps the system colour as written
+  }
+}
+```
+
 ---
 
 ## Events — Flat `onXxx` Top-Level
@@ -665,6 +705,23 @@ onClick: (e, el, s) => s.cart.$add('items', 'sku-2')   // ✅ calls the store's 
 ```
 
 Prefer renaming the field (`cart.items` instead of `cart.add`) when practical — the `$` escape hatch exists for cases where the collision is unavoidable (e.g. CMS-defined field names), not as the default pattern.
+
+**The ROOT state follows the same rule** (smbls 3.14.845). The boot merge of `state.js` / `context.state` keeps every data key:
+
+- A root key named like an ELEMENT method (`log`, `call`, `warn`, `error`, `verbose`, `lookup`, `variables`, `if`, `getRoot`, …) is plain data: `state: { log: [] }` boots as `[]` and `s.log.length` works. Element methods live on the element (`el.call`, `el.log`), never on the state.
+- A root key named like a STORE method (`keys`, `values`, `update`, `rootUpdate`, `add`, …) is data too, as in a nested store: `s.keys` reads the data, `s.$keys()` / `s.$values()` / `s.$update({…})` call the method, and the store warns once per path.
+- Only the store's own links `parent` and `root` (and `__*` keys) are never data: the merge skips them with a dev warning.
+
+```js
+// symbols/state.js
+export default { log: [], keys: ['a', 'b'], count: 0 }
+
+// symbols/components/Summary.js
+export const Summary = {
+  Count: { text: (el, s) => `${s.root.log.length} events, ${s.root.keys.length} keys` },          // data
+  Button: { text: '{{ add | polyglot }}', onClick: (e, el, s) => s.root.$update({ count: s.root.count + 1 }) }  // method
+}
+```
 
 ```js
 // apply vs applyFunction
@@ -1347,6 +1404,30 @@ export default { router: { guards: [authGuard] } }
 
 A guard returns `true` (go), `false` (stay) or a path (redirect), directly or as a promise. The guards run in order; the first `false` or path ends the run. A guard that answers directly is not awaited: with only such guards the page renders in the same run as the navigation, as without guards (so the first route renders inside `create()` and brender hydration adopts the page, not only the shell). A guard that returns a promise is awaited, and the guards after it run when it settles. The newest navigation wins: a navigation of the same element that starts while an older one still waits on a guard takes over, and when that guard settles the older navigation ends — it renders nothing, writes no history entry and follows no redirect (a Back / Forward waiting on its guard too: the History stays with the newer navigation). A lazy group's loaded render completes its placeholder's navigation; it is not a newer one. On Back / Forward the browser has already moved when the guards run, so the router puts the address back: `false` keeps the page and moves the History back by the same number of entries (no entry added or lost; an entry the router did not write is rewritten with the page on screen instead); a path REPLACES the entry that was reached and renders there. A first render that a guard redirects shows the target URL, not the refused one. To tell entries apart the router adds `history.state.__smblsRouter` to the entries it writes (a copy of your state; your keys stay) — only in apps with guards or `scrollRestoration: 'restore'`.
 
+**A redirect runs its target's guards** (router 3.14.611): the redirected navigation passes through the guards again for the target address. A redirect back to an address the chain already passed, or a chain of 10, renders its target without guards and warns `[smbls/router] redirect loop`.
+
+#### Choosing a route from data — `{ route }` / `{ route, path }`
+
+The router matches an address by its shape: `/:lang` matches `/en` and `/volunteer` alike. A guard can name the route key to show:
+
+```js
+// pages: { '/:lang': home, '/:page': editorPage }
+const languageOrPage = ({ route, params, element }) => {
+  if (route !== '/:lang') return true
+  const languages = element.context.polyglot.languages || []
+  return languages.includes(params.lang) ? true : { route: '/:page' }
+}
+
+// config.js
+export default { router: { guards: [languageOrPage] } }
+```
+
+- `{ route: '<key>' }` — the address stays; the chosen route renders as if the address had matched it: `state.route` is the chosen key, and `params` are read from the address with the chosen pattern (`/volunteer` with `/:page` → `{ page: 'volunteer' }`). A promise of `{ route }` is awaited, as any guard answer.
+- `{ route, path }` — redirect to `path` AND render `route` there (`{ route: '/:page', path: '/team' }` for an old `/old/team` link). A `path` equal to the current address is a plain route choice. A string redirect matches its target by address again.
+- A key the routes do not have renders nothing, as an unrouted address (`onNotFound` runs when set). A lazy route chosen this way renders the same chosen route when its group loads.
+- Per call: `el.router('/volunteer', el.getRoot(), {}, { route: '/:page' })`. Only the call's own options count: `route` in the app's `router` options is ignored.
+- The router reads `element.routes` on each navigation, so a route added at run time matches from the next navigation on.
+
 ### Scroll restoration — `scrollRestoration`
 
 ```js
@@ -1388,14 +1469,26 @@ export const adminLoading = {
   extends: 'Page',
   minHeight: '100dvh',
   LoadError: { if: (el, s) => s.lazyStatus === 'error', role: 'alert', text: '{{ admin.loadError | polyglot }}' },
-  ReloadNote: { if: (el, s) => s.lazyStatus === 'reload', role: 'alert', text: '{{ admin.reloadToLoad | polyglot }}' }
+  ReloadNote: { if: (el, s) => s.lazyStatus === 'reload', role: 'alert', text: '{{ admin.reloadToLoad | polyglot }}' },
+  WaitNote: { if: (el, s) => s.lazyStatus === 'waiting', text: '{{ admin.signInFirst | polyglot }}' }
 }
 ```
 
-- A navigation runs the guards first (a refused one never downloads the group), writes the history entry and renders the placeholder; its own state carries `lazyStatus`: `'loading'`, then `'error'` if the load fails (the next navigation or `loadLazy` call calls the group's loader again; the failure is logged, the message is yours), or `'reload'` when a retry cannot load: parcel (`smbls start` / `smbls build`) keeps a failed dynamic import and hands the same rejected `import()` back without a request until the page reloads. When the loader hands back the import that already failed (the same promise or the same error), the router says so in the console and shows `'reload'` instead of pretending to retry — show a reload action for it, not a retry. A later attempt whose loader hands back a new import still loads.
+- A navigation runs the guards first (a refused one never downloads the group), writes the history entry and renders the placeholder; its own state carries `lazyStatus`: `'loading'`, then `'error'` if the load fails (the failure is logged, the message is yours), `'waiting'` while the group's `when` says false (below), or `'reload'` when only a page reload can load the group.
+- **A failed load loads again in the same page** (cli 3.14.811). The next navigation to a route of the group (the same URL too) or the next `loadLazy` calls the loader again, and the placeholder flips back to `'loading'`. Under smbls's parcel (`smbls start`, a parcel `smbls build`) the retried `import()` requests the chunk again under a fresh address, `<chunk>.js?smbls-retry=<n>`, only when something asks. A project `.parcelrc` that sets its own `runtimes` keeps them and loses this. The loader gets the attempt number (`admin: (attempt) => …`, `0`, `1`, …) for another bundler (vite) that must ask for a fresh address itself.
+- `'reload'`: the loader handed back the import that already failed (the same promise, or the same error object), so the router does not pretend to retry: the console says a reload is needed and `loadLazy` rejects with that error. Show a reload action for it, not a retry. A later attempt whose loader hands back a new import still loads.
+- **Wait for the app — `{ load, when }`.** A group can load only once the app is ready (a Worker that serves the chunk only with a key the app gets first):
+
+  ```js
+  lazy: {
+    admin: { load: () => import('./admin/index.js'), when: (el) => el.call('staffReady') }
+  }
+  ```
+
+  The router asks `when(el)` before each load. A promise holds the load until it resolves (`'loading'`). `false` requests nothing: the placeholder shows `lazyStatus: 'waiting'`, `loadLazy` rejects with an error whose `code` is `'LAZY_WAITING'`, and the next navigation to the group or the next `loadLazy` asks `when` again. A `when` that throws or rejects is a failure (`'error'`). `smbls push` (frank) calls `load` only; `when` is a browser gate.
 - Once loaded, the group's pages, components, functions, methods and snippets are registered, each placeholder of the group is replaced in place by the group's page of the same route, and the route renders again in the SAME history entry (no new entry, no scroll, no guards). A name the app already has keeps the app's value (a dev warning; `smbls push` refuses the collision — rename it).
 - `onRouteChanged` fires twice: `options.lazy` is `{ group: 'admin', status: 'loading' }`, then `{ …, status: 'loaded' }`.
-- `await el.call('loadLazy', 'admin')` preloads (e.g. on hover of the admin link) and resolves once the group is registered; it rejects when the load fails. `el.router()` / `app.navigate()` resolve once the placeholder is on screen — call `loadLazy` first to land on the page itself.
+- `await el.call('loadLazy', 'admin')` preloads (e.g. on hover of the admin link) and resolves once the group is registered; it rejects when the load fails (`code: 'LAZY_WAITING'` while `when` says false). `el.router()` / `app.navigate()` resolve once the placeholder is on screen — call `loadLazy` first to land on the page itself.
 - An element built before its group loaded never takes the group's component later: render group components after `loadLazy` resolves (the route's page always does).
 - Without `context.lazy`, a `lazy` key is an ordinary prop. `smbls push` publishes the COMPLETE project (frank merges every group into the canonical sections; no `lazy`, no placeholders), so the platform and served pages work as before; frank-audit treats the group folder as discovered. brender prerenders a lazy route as its placeholder.
 
@@ -1555,7 +1648,7 @@ export const saveArticle = async function saveArticle (form) {
 
 ### Early requests — `fetch.early` (REST adapter, opt-in)
 
-`config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Config and rules: FRAMEWORK.md §5 → Early requests.
+`config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Options to stand down on a page built ahead (`prerendered: 'skip'`, `<meta name="smbls-early" content="off">`), to wait for the head (`wait: 'head'`, `ctx.meta(name)`), to answer a smaller list (`slice: true`) and to run at first paint (`firstPaint(ctx)`). Config and rules: FRAMEWORK.md §5 → Early requests.
 
 ### Anonymous reads — `fetch.reads` (REST adapter, opt-in)
 
@@ -1694,7 +1787,7 @@ context.polyglot = {
 
 ### The start language
 
-The app starts in one language, chosen before the first render: the address's (its first path segment, when it is one of `languages`), else the stored choice (`storageLangKey`), else `state.lang`, else `defaultLang`. `addressLang` sets the first step: `true` (default, the address wins over a stored choice), `'fallback'` (a stored choice wins), `false` (the address is never read). The address's language is not stored; `setLang` stores a choice.
+The app starts in one language, chosen before the first render: the address's (its first path segment, when it is one of `languages`), else the stored choice (`storageLangKey`), else `state.lang`, else `defaultLang`. `addressLang` sets the first step: `true` (default, the address wins over a stored choice), `'fallback'` (a stored choice wins), `'strict'` (the address alone decides: an unprefixed address is the default language's page, whatever is stored), `false` (the address is never read). `{ mode, except: [...] }` applies `mode` everywhere except under the `except` paths, which take the default `true`. A path matches the address's first segments (`'/admin'` matches `/admin` and `/admin/x`; `:param` matches any one segment). The address's language is not stored; `setLang` stores a choice.
 
 ```js
 // context.js — /en/about starts in English, even over a stored 'ka'; / with nothing stored starts in Georgian
@@ -1702,6 +1795,7 @@ export const polyglot = {
   defaultLang: 'ka',
   languages: ['ka', 'en'],
   addressLang: true,            // the default; 'fallback' | false
+  // addressLang: { mode: 'strict', except: ['/admin'] }  — public pages follow the address, the admin keeps the stored choice
   translations: { ka: { hello: 'გამარჯობა' }, en: { hello: 'Hello' } }
 }
 ```

@@ -518,6 +518,7 @@ Button: { Icon: { name: 'search', 'aria-hidden': 'true' }, text: '{{ search | po
 - Do NOT rely on color alone for error/success states -- always combine with icon + text.
 - Use `title`, `caption`, `paragraph` semantic tokens for sufficient contrast.
 - Low opacity colors (`gray 0.3`) likely fail WCAG AA -- verify contrast ratio.
+- High-contrast mode: put the states that must stay visible (a pressed filter, a focus frame) in a `'@media (forced-colors: active)'` block with CSS system colours in spec spelling (`Highlight`, `HighlightText`, `ButtonText`, `CanvasText`). See SYNTAX.md → CSS system colours and forced-colours blocks.
 
 ---
 
@@ -837,6 +838,8 @@ NavLink: {
 }
 ```
 
+**Two routes of one shape** (`/:lang` for a language home, `/:page` for an editor page): let a guard choose the page from data with `{ route: '/:page' }` (the address stays), or `{ route, path }` to redirect and choose at once. Never parse `location` in a page to swap content. See SYNTAX.md → Router → Choosing a route from data.
+
 ---
 
 ## Design Principles
@@ -859,6 +862,16 @@ Component: {
   padding: 'A',                              // mobile base
   '@tabletS': { padding: 'B' },             // tablet
   '@screenS': { padding: 'C' },             // desktop
+}
+```
+
+**A preview narrower than the window** (a page editor's canvas, a device frame, a side panel showing a page): put `breakpointsFrom: 'container'` on the frame, give the frame a width, and use `cqw` (not `vw`) inside. The page's own `@mobileL` / `@tabletS` keys then follow the frame. Never copy media rules into raw `@container` blocks. See SYNTAX.md → Breakpoints that follow a container.
+
+```js
+DevicePreview: {
+  breakpointsFrom: 'container',
+  width: (el, s) => s.deviceWidth,   // e.g. '390px'
+  PageContent: { padding: 'D', '@mobileL': { padding: 'B' } }
 }
 ```
 

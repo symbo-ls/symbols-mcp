@@ -1095,6 +1095,8 @@ svg: {
 }
 ```
 
+**viewBox.** The `Icon` component's outer `viewBox` follows the registered icon's W × H (`0 0 W H`), not a fixed `0 0 24 24` (visual change shipped in 3.14.844, noted in default-config 3.14.790). A wide icon (a wordmark, a logo) fills its element box; a square 24-grid icon draws as before. The icon's own origin (min-x, min-y) stays on the sprite `<symbol>` / inline nested `<svg>` that draws it. To get the old 24 × 24 fit on one Icon: `Icon: { name: 'logo', viewBox: '0 0 24 24' }` (a function value works too).
+
 Default icon set: `symbols`, `logo`, arrow variants, `check`, `checkCircle`, chevron variants, `copy`, `eye`, `eyeOff`, `info`, `lock`, `minus`, `plus`, `search`, `send`, `smile`, `star`, `sun`, `moon`, `upload`, `video`, `x`, `moreHorizontal`, `moreVertical`.
 
 ### Icon usage in components — STRICT (Rule 29 / Rule 62)

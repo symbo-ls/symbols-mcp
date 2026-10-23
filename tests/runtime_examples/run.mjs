@@ -557,6 +557,80 @@ Object.assign(cases, {
   // then after its first view asks again — the declarative query refetches,
   // and a changed imperative read reaches onRefresh(changes, root). A replaced
   // page (`hydrate: false`): the server markup goes, the seed stays. Runs
+  // SYNTAX: "Breakpoints that follow a container" — a descendant's width
+  // breakpoint compiles to @container, print stays @media, the declaring
+  // element is the size container.
+  async breakpointsFromContainer () {
+    const [[, Canvas]] = docExports('SYNTAX.md', "breakpointsFrom: 'container',")
+    const app = await mount({ state: { previewWidth: '390px' }, Canvas })
+    const canvas = app.Canvas
+    const own = ownRules(canvas.node)
+    expect(/container-type:\s*inline-size/.test(own), 'Canvas is an inline-size container: ' + own)
+    expect(/container-name:\s*breakpoints/.test(own), 'Canvas container-name breakpoints: ' + own)
+    const page = ownRules(canvas.Page.node)
+    expect(/@container breakpoints \(max-width: 768px\)/.test(page), '@mobileL → @container: ' + page)
+    expect(/@media print/.test(page), '@print stays @media: ' + page)
+    expect(!/@media[^{]*max-width: 768px/.test(page), 'no window max-width query left: ' + page)
+  },
+
+  // SYNTAX: "CSS system colours and forced-colours blocks" — a system colour
+  // in a forced-colours block is emitted as written, in the shorthand too.
+  async forcedColorsSystemColor () {
+    const [[, FilterChip]] = docExports('SYNTAX.md', "'@media (forced-colors: active)': {")
+    const app = await mount({ FilterChip: { ...FilterChip, extends: undefined } })
+    const css = ownRules(app.FilterChip.node)
+    expect(/forced-colors: active/.test(css), 'forced-colors block emitted: ' + css)
+    expect(/color:\s*ButtonText/i.test(css), 'color ButtonText kept: ' + css)
+    expect(/1px solid ButtonText/i.test(css), 'border shorthand keeps ButtonText: ' + css)
+    expect(!/BUTTONTEXT/.test(css), 'no spacing var for the system colour: ' + css)
+  },
+
+  // SYNTAX: "The ROOT state follows the same rule" — root keys named like an
+  // element method (log) and a store method (keys) are data; $update is the method.
+  async rootStateMethodNamedKeys () {
+    const [[, state], [, Summary]] = docExports('SYNTAX.md', 'export default { log: [], keys:')
+    const app = await mount({ state: JSON.parse(JSON.stringify(state)), Summary })
+    eq(Array.isArray(app.state.log), true, 'root log is data')
+    eq(Array.isArray(app.state.keys), true, 'root keys is data')
+    eq(app.Summary.Count.node.textContent, '0 events, 2 keys', 'Count text')
+    app.Summary.Button.node.dispatchEvent(new window.Event('click', { bubbles: true }))
+    await flush()
+    eq(app.state.count, 1, 's.root.$update wrote count')
+  },
+
+  // SYNTAX: "Choosing a route from data" — the guard shows /:page for an
+  // address /:lang matched; the address stays; a per-call { route } chooses too.
+  async routeChoiceGuard () {
+    const [[, config]] = docExports('SYNTAX.md', 'const languageOrPage')
+    const wait = () => new Promise((r) => setTimeout(r, 60))
+    const holder = document.createElement('div')
+    document.body.appendChild(holder)
+    history.pushState(null, '', '/volunteer')
+    try {
+      const pages = {
+        '/': { text: 'root' },
+        '/:lang': { H: { text: 'home' } },
+        '/:page': { H: { text: (el, s) => 'page ' + s.root.route } }
+      }
+      const app = await create({}, {
+        key: 'example' + (++n), parent: holder, sync: false, globalTheme: 'auto', designSystem: DS, pages,
+        polyglot: { defaultLang: 'en', languages: ['en', 'ka'], translations: { en: {}, ka: {} } },
+        router: config.router
+      })
+      await wait()
+      eq(location.pathname, '/volunteer', 'the address stays')
+      eq(holder.textContent, 'page /:page', 'the guard chose /:page (state.route is the chosen key)')
+      app.router('/en', app)
+      await wait()
+      eq(holder.textContent, 'home', '/en is a language home')
+      app.router('/volunteer', app, {}, { route: '/:page' })
+      await wait()
+      eq(holder.textContent, 'page /:page', 'a per-call { route } chooses')
+    } finally {
+      history.replaceState(null, '', '/')
+    }
+  },
+
   // last: it boots over a pre-rendered page.
   async staleSeedRefresh () {
     const [[, config]] = docExports('SYNTAX.md', 'seed: {')

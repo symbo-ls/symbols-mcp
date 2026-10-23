@@ -798,7 +798,7 @@ Brand:   { tag: 'svg', children: [...] }
 
 **Icon prop:** Use `icon: 'iconName'` (or `name: 'iconName'`). Do NOT use `iconName:`, `iconSrc:`, or `props: { name: ... }`.
 
-**Icon SVG dimensions:** All SVGs in `designSystem/icons` MUST have `width="24" height="24"` matching `viewBox="0 0 24 24"`. The `Icon` component scales display via design system tokens (e.g. `width: 'A'`).
+**Icon SVG dimensions:** Give every SVG in `designSystem/icons` a `viewBox` (the 24 × 24 grid, `viewBox="0 0 24 24"`, is the common case, not a rule). The `Icon` component takes its outer `viewBox` from the registered icon's W × H (`0 0 W H`, default-config 3.14.790), so a wide icon (a wordmark, a logo) fills its element box; the registered origin stays on the inner drawing. Size the display with design-system tokens (e.g. `boxSize: 'A'`). `viewBox: '0 0 24 24'` on one Icon restores the old 24 × 24 fit: `Icon: { name: 'logo', viewBox: '0 0 24 24' }`.
 
 `Svg` is ONLY for decorative/structural SVG backgrounds or illustrations that are NOT icons.
 

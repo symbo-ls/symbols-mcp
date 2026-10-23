@@ -1,7 +1,7 @@
 {
-  "smbls": "3.14.840",
-  "commit": "7349ebe7b",
-  "checked": "2026-10-18",
+  "smbls": "3.14.846",
+  "commit": "265fd9ca2",
+  "checked": "2026-10-23",
   "examples": [
     "isxRootState",
     "isxInverse",
@@ -24,6 +24,10 @@
     "polyglotStartLang",
     "dropdownDisclosure",
     "dialogLocked",
+    "breakpointsFromContainer",
+    "forcedColorsSystemColor",
+    "rootStateMethodNamedKeys",
+    "routeChoiceGuard",
     "staleSeedRefresh"
   ]
 }
