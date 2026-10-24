@@ -48,6 +48,15 @@ API URL resolution order (`helpers/config.js` `loadCliConfig`; `push` and `publi
 
 - `SYMBOLS_PROJECT_KEY`, `SYMBOLS_PROJECT_ID`, `SYMBOLS_BRANCH`, `SYMBOLS_OWNER` — per-process project pin
 
+**Project identity is OWNER + KEY** (`helpers/projectIdentity.js`; the CLI release after 3.14.812). A key is unique per owner only — `fly` is dfli/fly, keepz/fly and vault/fly — and the server's bare-key routes answer with the first match of ANY owner, so no command resolves the tree's project by its key alone. In order:
+
+1. `--project <id>` / `SYMBOLS_PROJECT_ID` names the record outright;
+2. else `.symbols_local/lock.json`'s `projectId`, only while the lock is stamped with this tree's `key`, `owner` and `apiBase`;
+3. else `GET /core/projects/key/<owner>/<key>` — and the record must name that owner and key;
+4. else a cached id (an unstamped lock's, `.symbols_local/config.json`'s) only when its record, read by id, shows this owner and key.
+
+A `symbols.json` with a key but no `owner` is refused, never guessed. `push`, `publish`, `sync` and `fetch` refuse a record that names another owner. A bare key typed as an argument (`smbls project delete fly`) resolves only when it is the ONE project with that exact key your token can see.
+
 Credentials live in `~/.smblsrc` (one profile per API base URL), via `CredentialManager` (`helpers/credentialManager.js`); not in `.symbols_local/`. Wipe with `smbls logout`. `smbls whoami` shows the active channel.
 
 ---
@@ -484,6 +493,9 @@ Errors the CLI surfaces:
 | `Authentication required` (`code: 'AUTH_REQUIRED'`) | `helpers/authEnsure.js:272` | Need `smbls login` or `SYMBOLS_TOKEN` env var |
 | `Missing app key in symbols.json` | `helpers/symbolsConfig.js:29` | Run `smbls init` or hand-write `symbols.json` with `{ owner, key }` |
 | `Project ${owner}/${key} not found on server` (with `--non-interactive`) | `bin/publish.js:89-92` | Run `smbls project create` first OR `smbls workspace create-missing` |
+| `symbols.json names the key 'x' but no "owner"` | `helpers/projectIdentity.js` (`missingOwnerMessage`) | Add `"owner": "<org or user slug>"` to `symbols.json`, or name the record with `--project <id>` / `SYMBOLS_PROJECT_ID` |
+| `… answered owner/key with the project 'other/key' — refusing` / `Identity mismatch` | `helpers/projectIdentity.js` (`identityMismatch`), `helpers/pushSync.js` | The server answered for another owner: nothing was written. Check `owner`/`key` in `symbols.json` against the platform record |
+| `Bare key 'x' matches projects under MULTIPLE owners — refusing to guess.` | `bin/project/shared.js` | Use the `<owner>/<key>` form or a project id |
 | Empty `inquirer` prompt that hangs | Missing required input + no `--non-interactive` | Always pass `--non-interactive` for scripted runs |
 
 Ctrl+C / ESC during interactive prompts gracefully exits (handled at `bin/index.js:46-48`).
