@@ -211,7 +211,7 @@ export const prepareSharedLibs = (context) => {
 
 **The app ALWAYS wins.** Shared libraries only fill in missing keys (`!(k in context[key])`). designSystem uses `deepDefaults` which fills nested gaps while preserving all local values.
 
-The loop above is the core, simplified. The real merge is `mergeSharedLibraries` in `@symbo.ls/utils` (`smbls/packages/utils/sharedLibraries.js`): it also merges `system/default` — the base library — LAST, whatever its position in the array, and ranks the default font family claim the same way (see [Order of Precedence](#order-of-precedence)).
+The loop above is the core, simplified. The real merge is `mergeSharedLibraries` in `@symbo.ls/utils` (`smbls/packages/utils/sharedLibraries.js`): it also merges `system/default` — the base library — LAST, whatever its position in the array, and ranks the default font family claim the same way (see [Order of Precedence](#order-of-precedence)). And it merges a library's `polyglot.translations` language by language and key by key, like `designSystem`, not by the missing second-level keys of the loop above (see [Polyglot translations](#polyglot-translations)).
 
 ### deepMerge Behavior
 
@@ -266,7 +266,7 @@ Framework defaults  (@symbo.ls/default-config design system; UIKit atoms in prep
 
 **Do not rely on the order between two linked libraries that define the same name.** Locally it is the `sharedLibraries.js` array order. On a published site it is the order the platform serves the project's libraries — today the libraries' creation order, each followed by the libraries it links itself — not the order you linked them. Define a shared name in one library only, or in the app.
 
-A live edit (livesync re-init) re-merges the libraries with the same ranking.
+A live edit (livesync re-init) re-merges the libraries with the same ranking — the design system, and the translations (a live-sync snapshot or op hands the page the project's own `polyglot`, so the libraries' translations are merged into it again).
 
 After all merges, `prepareComponents` applies:
 
@@ -295,10 +295,39 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 | pages / routes | |
 | state | |
 | designSystem (deep defaults) | |
+| polyglot.translations (per language, key by key — see [Polyglot translations](#polyglot-translations)) | |
+| polyglot — every other key (`defaultLang`, `languages`, `storageLangKey`, `fetch`, …) | |
 | files | |
 | dependencies | |
 | dependenciesOnDemand | |
 | utils, cases, plugins | |
+
+### Polyglot translations
+
+**A library's strings reach the app.** A library component that renders `{{ key | polyglot }}` shows the library's string in every app that links it — also in an app that declares translations of its own. The library's `polyglot.translations` fill the app's language by language and key by key (nested namespaces too), the same rule as `designSystem`:
+
+```js
+// library: polyglot.translations
+{ en: { kitHello: 'Hello from the kit', shared: 'Kit text', nav: { plan: 'Plan' } },
+  ka: { kitHello: 'გამარჯობა კიტიდან', shared: 'კიტის ტექსტი', nav: { plan: 'გეგმა' } } }
+
+// app: polyglot = { defaultLang: 'en', languages: ['en', 'ka'], translations: … }
+{ en: { heroTitle: 'Build anything', shared: 'App text', nav: { pricing: 'Pricing' } },
+  ka: { heroTitle: 'ააწყვე ყველაფერი', shared: 'აპის ტექსტი', nav: { pricing: 'ფასები' } } }
+
+// merged: the app keeps every key it has, the library fills the rest
+// en: { heroTitle: 'Build anything', shared: 'App text', kitHello: 'Hello from the kit',
+//       nav: { pricing: 'Pricing', plan: 'Plan' } }   (ka the same way)
+```
+
+- **The app wins per key**, in every language. Between libraries the [order of precedence](#order-of-precedence) holds: an earlier library outranks a later one, `system/default` fills last.
+- **The languages are the app's.** A library fills the languages the app's translations hold, and a language the app declares in `languages` but has no map for. A language the app neither holds nor declares is never added — without a `languages` list the app's languages are the keys of its translations, so a library must not add one.
+- **Server labels stay the app's.** An app with `polyglot.fetch` (labels loaded from a server) keeps its static translations as they are: `translate()` reads the static maps before the server labels, so a library key would beat the app's own server label of the same name. (With no translations of its own, such an app takes the library's, as before.)
+- **A flat dotted library key never shadows the app's nested value.** `translate()` looks a key up as written first, then by its dot path, so a library's `'nav.pricing'` does not land where the app answers `nav.pricing` through `nav: { pricing }`.
+- **An app with no `polyglot`, or a `polyglot` without `translations`,** takes the library's whole, as before. The rest of `polyglot` (`defaultLang`, `languages`, `storageLangKey`, `fetch`) fills only the keys the app has not set. When both sides have `translations` and either one is not a plain object (a function), nothing merges.
+- **Ignore paths hold at every depth:** `ignoreList: ['polyglot/translations/ka']` (one language), `'polyglot/translations/en/heroTitle'` (one key), `'polyglot/translations'` (none), on the consumer side or in the library's own `sharedLibIgnore`.
+- **The library object is never written.** Every map the app takes from a library is a copy, so a later library, `upsertTranslation` and a live edit write into the app's copy — two apps on one page never see each other's keys.
+- **Boot seeding treats the merged map like the app's own.** The active language's keys are seeded into the root state (`prepareState`); a key the app or a library declares in `state` keeps its declared value, and one `[polyglot]` warning names every colliding key. Read library strings with `{{ key | polyglot }}`, never as a bare `{{ key }}` or `s.root.key`.
 
 ### Methods named like built-in element methods
 
@@ -458,6 +487,7 @@ prepareContext() {
 8. **Built-in element methods are protected; the logging hooks are override points** — a library `methods` entry named like a protected built-in (`getRoot`, `getRootState`, `update`, …) is refused and the built-in wins (dev warning names it); a library's `log` / `warn` / `error` / `verbose` merge and win as before. The app's OWN `methods` win over both (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
 9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). It matches imports to libraries by owner and key, not exact path, so it survives the `dir: "."` path-resolution edge case and keeps same-key libraries of two owners apart.
 10. **`sharedLibraries.js` has a canonical shape** — the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
+11. **A library's strings reach the app** — `polyglot.translations` merge per language and key by key, the app's key wins; never copy a library's strings into the app's own translations (see [Polyglot translations](#polyglot-translations)).
 
 ---
 
@@ -471,7 +501,8 @@ prepareContext() {
 | overwriteShallow | `smbls/packages/utils/object.js` | 431-439 |
 | METHODS_EXL | `smbls/packages/utils/keys.js` | 147-152 |
 | Library merge + precedence (base library last, default-font ranking) | `smbls/packages/utils/sharedLibraries.js` | `mergeSharedLibraries` |
-| Livesync re-init merge (same ranking) | `smbls/plugins/sync/applier.js` | `buildReinitDesignSystem` |
+| Translations merge (per language, key by key) | `smbls/packages/utils/sharedLibraries.js` | `mergeLibraryTranslations`, `mergeSharedLibraryTranslations` |
+| Livesync re-init merge (same ranking) | `smbls/plugins/sync/applier.js` | `buildReinitDesignSystem`, `reapplyLibraryTranslations` |
 | Key normalization | `smbls/packages/cli/helpers/libraryKeyUtils.js` | — |
 | Config normalization (with `link`/`mode`) | `smbls/packages/cli/helpers/symbolsConfig.js` | `normalizeSharedLibrariesConfig` |
 | FS scaffolding (skips `mode:linked`) | `smbls/packages/cli/bin/fs.js` | `scaffoldSharedLibraries` |
