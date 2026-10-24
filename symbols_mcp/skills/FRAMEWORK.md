@@ -1349,6 +1349,26 @@ Source: `smbls/packages/smbls/src/createDomql.js:40-46`.
 
 Apps in the same browser realm (e.g. canvas editor + preview iframe mounted on the same page) get unique stable identifiers from this derivation, which drives atomic-CSS prefix isolation and design-system config lookup.
 
+### Live sync — collab socket identity needs an owner (`@symbo.ls/sync`)
+
+The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when a page wants live sync) opens a socket only when it can name the project. The collab server resolves a handshake by `projectId` first (unique, wins outright — `owner` is then optional, carried along if known), then by `owner` + `projectKey` — a bare key alone is the legacy 1-seg route and is not unique across owners (dev: `default`, `survey`, `web3`; production: `symbols`).
+
+`editor.projectId` (mermaid injects the served record's `_id`) is read straight off. With no `projectId`, `owner` is required and comes from, first match wins (`plugins/sync/identity.js`):
+
+1. `editor.projectKey` — paired ONLY with `editor.owner` (never with `ctx.owner` / `symbolsConfig.owner`, even when those are set).
+2. `ctx.key` + `ctx.owner` — the served project data: mermaid fills `owner` from the appkey, the runner fills it from `symbols.json`.
+3. `symbolsConfig.key` + `symbolsConfig.owner`, when that key is the one in use — `prepareContext`'s `<owner>--<key>` composite (see "context.key derivation" above) maps back to this pair.
+
+**No `projectId` and no owner anywhere → fails closed.** No service-token request, no socket — one `console.error` naming the fix: set `owner` in `symbols.json` (or `context.owner` / `editor.owner`), or pass `editor.projectId`.
+
+**A key shared by more than one owner → the server answers `ambiguous_key`.** The client logs one `console.error` naming every candidate as `owner/key`, then disconnects — it never retries the same ambiguous join.
+
+Set the owner once, in `symbols.json`:
+
+```json
+{ "owner": "acme", "key": "default" }
+```
+
 ### `import * as` getter-only namespaces — Parcel fallback
 
 `prepareContext` in `createDomql.js` rehydrates function-strings back to real functions after frank serializes a project. When the bucket (`functions`, `methods`, `snippets`) is an ESM-namespace-shaped object with getter-only own properties, `Object.assign(value, destringified)` throws a `TypeError`. The framework now catches that error and assigns the destringified clone to the key instead:

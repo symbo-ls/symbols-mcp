@@ -166,6 +166,8 @@ Every command that SENDS the local project — `push`, `sync`, `collab` and `git
 
 **A package `dependencies.js` declares need not be installed for push.** frank stubs a declared runtime package that `node_modules` lacks and publishes its `import('<pkg>')` for the browser to load through the importmap (e.g. `await import('quill')` in a handler). A package nothing declares still fails to resolve (`package.json` dependencies never reach the platform's importmap), and a value computed from such a stub while the project loads fails the build (`FRANK_UNINSTALLED_DEPENDENCY_VALUE`).
 
+`smbls collab` already refuses to start without a verified project id (run `smbls push` or `smbls sync` first to stamp `lock.json`). Its websocket handshake then names the project by `projectId` **and** `owner` (from `symbols.json`'s `owner` field) as a backstop — never a bare key, which is not unique across owners. If the server still answers `error { code: 'ambiguous_key', candidates }` (a key shared by more than one owner), the CLI prints the candidates once, as `owner/key`, and disconnects — it does not retry the same ambiguous join. Fix: add `"owner"` to `symbols.json`.
+
 ### Project management (server-side)
 
 ```

@@ -840,6 +840,25 @@ NavLink: {
 
 **Two routes of one shape** (`/:lang` for a language home, `/:page` for an editor page): let a guard choose the page from data with `{ route: '/:page' }` (the address stays), or `{ route, path }` to redirect and choose at once. Never parse `location` in a page to swap content. See SYNTAX.md → Router → Choosing a route from data.
 
+### Freestyler — AI page generation (`projectKey: 'owner/key'`)
+
+When to use: wiring `@symbo.ls/freestyler`'s runtime AI page generator into an app.
+
+```js
+import { Freestyle, configureFreestyler } from '@symbo.ls/freestyler'
+
+configureFreestyler({
+  claudeKey: 'sk-ant-...',
+  projectKey: 'acme/storefront',   // 'owner/key' — never a bare key
+  contextPath: '/freestyler.md'
+})
+
+// In a page:
+FreestyleAi: { ...Freestyle }
+```
+
+`projectKey` must be `'owner/key'`. A bare key (`'storefront'`) is not unique across owners, so the MCP context fetch refuses it and `generatePage` falls back to the local (`contextPath`) context instead of the richer platform one — the AI still generates pages, just without the design-system/component context from Symbols MCP.
+
 ---
 
 ## Design Principles
