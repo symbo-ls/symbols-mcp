@@ -312,12 +312,28 @@ function requireAuth(token, apiKey) {
   return null
 }
 
+// A bare key the API finds under more than one owner answers 409
+// `ambiguous_key` with the owner/key pairs the caller may address. Say so and
+// list them — the assistant names one (`owner/key`) and calls again. The API
+// never picks one, and neither does this server.
+function ambiguousKeyMessage(project, result) {
+  if (!result || result.error !== 'ambiguous_key') return null
+  const names = (Array.isArray(result.candidates) ? result.candidates : [])
+    .filter(c => c && c.owner && c.key)
+    .map(c => `${c.owner}/${c.key}`)
+  return names.length
+    ? `Project key '${project}' names more than one project: ${names.join(', ')}. Pass the owner too, e.g. '${names[0]}'.`
+    : `Project key '${project}' names more than one project. Pass it as 'owner/key'.`
+}
+
 async function resolveProjectId(project, token, apiKey) {
   if (!project) return { id: '', error: 'Project identifier is required.' }
   const isKey = project.startsWith('pr_') || !/^[0-9a-f]+$/.test(project)
   if (isKey) {
     const result = await apiRequest('GET', `/core/projects/key/${project}`, { token, apiKey })
     if (result.success) return { id: result.data?._id || '', error: null }
+    const ambiguous = ambiguousKeyMessage(project, result)
+    if (ambiguous) return { id: '', error: ambiguous }
     return { id: '', error: `Project '${project}' not found: ${result.error || 'unknown error'}` }
   }
   return { id: project, error: null }
@@ -1093,7 +1109,7 @@ async function handleTool(name, args) {
       lines.push(`\n---\n\nFull data:\n\`\`\`json\n${JSON.stringify(data, null, 2).slice(0, 8000)}\n\`\`\``)
       return lines.join('\n')
     }
-    return `Failed to get project data: ${result.error || 'Unknown error'}`
+    return ambiguousKeyMessage(project, result) || `Failed to get project data: ${result.error || 'Unknown error'}`
   }
 
   // save_to_project

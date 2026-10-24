@@ -2675,6 +2675,28 @@ def _build_push_source(project: str) -> dict:
     return src
 
 
+def _ambiguous_key_message(project: str, result: dict) -> str | None:
+    """The answer to a bare key the API finds under more than one owner.
+
+    The by-key routes answer such a key 409 `ambiguous_key` with the owner/key
+    pairs the caller may address, and never pick one. Say so and list them —
+    the assistant names one (`owner/key`) and calls again. None for any other
+    result."""
+    if not isinstance(result, dict) or result.get("error") != "ambiguous_key":
+        return None
+    names = [
+        f"{c['owner']}/{c['key']}"
+        for c in (result.get("candidates") or [])
+        if isinstance(c, dict) and c.get("owner") and c.get("key")
+    ]
+    if names:
+        return (
+            f"Project key '{project}' names more than one project: {', '.join(names)}. "
+            f"Pass the owner too, e.g. '{names[0]}'."
+        )
+    return f"Project key '{project}' names more than one project. Pass it as 'owner/key'."
+
+
 async def _resolve_project_id(project: str, token: str = "", api_key: str = "") -> tuple[str, str | None]:
     """Resolve a project key (pr_xxxx) or ID to (project_id, error).
 
@@ -2689,6 +2711,9 @@ async def _resolve_project_id(project: str, token: str = "", api_key: str = "") 
         if result.get("success"):
             data = result.get("data", {})
             return data.get("_id", ""), None
+        ambiguous = _ambiguous_key_message(project, result)
+        if ambiguous:
+            return "", ambiguous
         return "", f"Project '{project}' not found: {result.get('error', 'unknown error')}"
     return project, None
 
@@ -2867,6 +2892,9 @@ async def get_project(
         lines.append(f"\n---\n\nFull data:\n```json\n{json.dumps(data, indent=2, default=str)[:8000]}\n```")
         return "\n".join(lines)
     else:
+        ambiguous = _ambiguous_key_message(project, result)
+        if ambiguous:
+            return ambiguous
         error = result.get("error", "Unknown error")
         return f"Failed to get project data: {error}"
 
