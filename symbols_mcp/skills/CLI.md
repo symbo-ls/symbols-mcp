@@ -57,6 +57,8 @@ API URL resolution order (`helpers/config.js` `loadCliConfig`; `push` and `publi
 
 A `symbols.json` with a key but no `owner` is refused, never guessed. `push`, `publish`, `sync` and `fetch` refuse a record that names another owner. A bare key typed as an argument (`smbls project delete fly`) resolves only when it is the ONE project with that exact key your token can see.
 
+**In a project tree, identity fails closed (cli 3.14.816).** In a tree whose `symbols.json` has an `owner` and a `key`, every command resolves only that owner's project. An exported `SYMBOLS_PROJECT_ID` or a `--project` that names another project stops the command. Run such a command outside the tree. An owner route that answers with another owner's record is refused.
+
 Credentials live in `~/.smblsrc` (one profile per API base URL), via `CredentialManager` (`helpers/credentialManager.js`); not in `.symbols_local/`. Wipe with `smbls logout`. `smbls whoami` shows the active channel.
 
 ---
@@ -266,6 +268,8 @@ smbls assets prune                            Soft-delete server assets missing 
 smbls assets sync                             Scan local <distDir>/assets/ + upload new/changed
 ```
 
+`smbls files upload` keeps the case of each file key in `files/index.js` (cli 3.14.815): the import path is the name on disk, so case-sensitive hosts resolve it. It refuses a key that differs from an existing key only by case, before the upload.
+
 ### Integrations & marketplace
 
 ```
@@ -340,7 +344,7 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 
 #### `symbols.json` `build` — size options of a production build (opt-in)
 
-Options of a production parcel `smbls build` (cli 3.14.813 / 3.14.814, smbls 3.14.847 / 3.14.848). Each is off unless set. With none set, the bundle is the same as before they existed.
+Options of a production parcel `smbls build` (cli 3.14.813 / 3.14.814, smbls 3.14.847 / 3.14.848; `treeShakeFeatures.drop` and the exact feature triggers: cli 3.14.817, smbls 3.14.849). Each is off unless set. With none set, the bundle is the same as before they existed.
 
 | Option | Value | What it does |
 |---|---|---|
@@ -348,9 +352,17 @@ Options of a production parcel `smbls build` (cli 3.14.813 / 3.14.814, smbls 3.1
 | `treeShakeIcons` | `true` \| `{ "keep": [...] }` | The same for the default icon set |
 | `treeShakeLibraries` | `true` | For a project with no shared library (no `sharedLibraries.js` entry, no `symbols.json` `sharedLibraries`): no shared-library machinery in the bundle |
 | `lazyServerUtils` | `true` | The server-only utils `generateMetaTags`, `getPageMetadata`, `getImportMapScript`, `polyglotStartupScript`, `objectToString`, `deepStringifyFunctions` load on demand from their own file. Called in the browser (`el.call(...)`), each returns a **Promise** of its value — `await` it |
-| `treeShakeFeatures` | `true` \| `{ "keep": [...] }` | Drops the optional framework features the project never names (names below) |
+| `treeShakeFeatures` | `true` \| `{ "keep": [...], "drop": [...] }` | Drops the optional framework features the project never names (names below). `drop` forces a feature out |
 
-`treeShakeFeatures` feature names (use these in `keep`): `autoGrow`, `inertOutside`, `bridge` (`onBridgeMount` hooks), `viewEvents` (`onInView` / `onLeaveView`), `lazyRoutes` (lazy route groups, `loadLazy`), `viewTransition` (`designSystem.viewTransition`), `liveSync` (live sync / notifications), `prerender` (the boot over a pre-rendered page; always kept when the build pre-renders, i.e. `brender` is not `false`), `safeInk` (`getSafeInk` / `getSafeInkInfo`).
+`treeShakeFeatures` feature names (use these in `keep` and `drop`): `autoGrow`, `inertOutside`, `bridge` (`onBridgeMount` hooks), `viewEvents` (`onInView` / `onLeaveView`), `lazyRoutes` (lazy route groups, `loadLazy`), `viewTransition` (`designSystem.viewTransition`), `liveSync` (live sync / notifications), `prerender` (the boot over a pre-rendered page; always kept when the build pre-renders, i.e. `brender` is not `false`), `safeInk` (`getSafeInk` / `getSafeInkInfo`).
+
+**What keeps a feature.** The framework itself uses it, a default component the build keeps uses it, `keep` lists it, or the app source names one of its triggers. Each trigger is the setting that switches the feature on, not a bare word:
+
+- `liveSync` — `socketUrl` as a key or member (`editor.socketUrl`, `settings.socketUrl`), `notifications: true`, `verbose: true`, or the runner (`'runner'`). A member named `editor` (a text-editor instance at `scope.editor`) does not keep it. `livesync` / `liveSync` alone does not keep it. `notifications` / `verbose` with another value, or a read (`state.notifications`), does not keep it.
+- `lazyRoutes` — `lazy` as an object key or an assigned member with a non-literal value (`lazy: { … }`, `ctx.lazy = groups`), or `loadLazy`. `React.lazy(`, `z.lazy(`, `lazy: true`, `lazy: 'admin'`, `loading: 'lazy'` and a read of `ctx.lazy` do not keep it.
+- The other features keep their trigger names: `autoGrow`, `inertOutside`, `onBridgeMount`, `onInView` / `onLeaveView`, `viewTransition`, `getSafeInk` / `getSafeInkInfo`; `prerender` by the build option `brender`.
+
+**`drop` — force a feature out.** When the app spells a trigger for something else (the scan cannot tell), list the feature in `drop`. The build refuses the drop, with a warning, when the framework itself uses the feature or `keep` also lists it; it keeps the feature then. Otherwise `drop` wins over the scan, a kept default component and a build option. An unknown name in `keep` or `drop` gets a warning. A dropped feature that the app asks for at runtime logs its one `console.error`, as below.
 
 **Loud errors, never silent.** A left-out name that the app still asks for at runtime (a key that came from a database or a fetched payload) logs one `console.error` that names the key and the option, in production too; a dropped component renders as an empty element. Example: `[smbls] "autoGrow" is not in this build: symbols.json build.treeShakeFeatures left it out … Add "autoGrow" to build.treeShakeFeatures.keep.` A shared library that reaches the runtime in a `treeShakeLibraries` build is not merged and is reported the same way. Put every data-driven key (a component, icon or feature named only in DB records) in `keep`.
 
@@ -363,7 +375,7 @@ Options of a production parcel `smbls build` (cli 3.14.813 / 3.14.814, smbls 3.1
     "treeShakeIcons": true,
     "treeShakeLibraries": true,
     "lazyServerUtils": true,
-    "treeShakeFeatures": { "keep": ["viewEvents"] }
+    "treeShakeFeatures": { "keep": ["viewEvents"], "drop": ["liveSync"] }
   }
 }
 ```
