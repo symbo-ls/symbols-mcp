@@ -291,6 +291,8 @@ smbls frank to-fs <jsonPath> [outDir]         Materialize JSON → symbols/ dire
 
 Flags: `to-json` accepts `-o, --output <path>`, `--no-stringify`, `-v, --verbose`. `to-fs` accepts `--overwrite`. `to-json` inlines `new URL('<path>', import.meta.url)` project files as `data:` URLs (no upload).
 
+**Function text is the author's** (frank 3.14.804). `to-json` and `smbls push` serialize each function as the text in its source file (comments, quotes, spacing, names), not esbuild's re-print. A fetched tree pushes back byte for byte: `smbls fetch` → `smbls push` no longer renames bindings (`getLightboxSrc2` → `getLightboxSrc23`) or drops comments. The first push after the upgrade changes the text of most functions once (same programs, author's formatting). When esbuild changed the function beyond formatting (an import read through the bundle, `define`, a folded constant, lowered syntax) the bundle text stays. `toJSON(dir, { authoredSource: false })` or `SMBLS_FRANK_BUNDLE_FUNCTION_TEXT=1` gives the old text; `FRANK_DEBUG_AUTHORED_SOURCE=1` names each function that keeps the bundle text, and why.
+
 ### Dev / build / deploy
 
 ```
@@ -314,14 +316,57 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 
 - **`200.html`** is the bundler's own document, kept before `/` overwrites `index.html`. Serve `200.html` for client-side routes — never `index.html`, which is now the home page with the home page's canonical and og tags (see Routes without their own page, below).
 - **`_redirects`** in the output: each route without its own page → `/200`, status 200 (read by Cloudflare Workers static assets, Cloudflare Pages and Netlify). The project's own rules from `public/_redirects` stay first; a rebuild replaces only the build's block; `brender.redirects: false` writes none.
-- **`smbls-ds.<sha>.json`**: the design system the pre-render prepared, written once next to the bundles, with a `<link rel="preload" as="fetch" data-smbls="design-system">` in every pre-rendered page. Client-rendered pages (`200.html`, the `index.html` of a build without a pre-render) get only `<meta name="smbls-design-system" content="…">`: the boot requests it at low priority after the app script and never waits for it (`build.prepareDesignSystem: false` leaves that reference out). The app adopts it instead of processing its design system (FRAMEWORK.md §8 → The design system prepared at build time). A design system that holds a function gets no file.
+- **`smbls-ds.<sha>.json`**: the design system the pre-render prepared, written once next to the bundles, with a `<link rel="preload" as="fetch" data-smbls="design-system">` in every pre-rendered page. Client-rendered pages (`200.html`, the `index.html` of a build without a pre-render) get only `<meta name="smbls-design-system" content="…">`: the boot requests it at low priority after the app script and never waits for it (`build.prepareDesignSystem: false` leaves that reference out; `false` means `{ shell: false }`). `build.prepareDesignSystem: { pages: false }` (opt-in, cli 3.14.814) also leaves the preload out of the pre-rendered pages: their client then prepares the design system itself (210 KB raw / 35 KB brotli less per first visit on a measured app). Both together: `{ "shell": false, "pages": false }`. The app adopts it instead of processing its design system (FRAMEWORK.md §8 → The design system prepared at build time). A design system that holds a function gets no file.
 - **Build-time data.** Every page carries the data answers of the build time until the next build, and one stamp per build: `<meta name="brender-stamp" content="<stamp>" data-time="<ms>">`. The stamp is `symbols.json` `brender.stamp` (a string or a number), else `config.js` `brender.stamp` — a value, or a function `({ time, data }) => stamp` run once per build (it may be async: the data's own version) — else the build time. A stamp function that throws fails the build. How a page learns its data is stale: SYNTAX.md → Data Fetching → A pre-built page's data.
 - **Assets.** A `file:` URL in a page (`new URL('…', import.meta.url)`, evaluated on the build machine) is mapped to the file the bundler emitted from the same source, or copied into the output under a content hash. A `file:` URL that names no project file fails the build.
 - **`--strict`** (or `symbols.json` `brender.strict`) fails the build when a page was made with failed data or label requests, or shows raw label keys. Without it those pages are listed as warnings.
 - **`symbols.json` `brender` as an object** (still on): `context` — the module the build's entry boots with (e.g. `symbols/siteContext.js`), so its pages are the ones pre-rendered; `exclude` — page keys to leave out (`"/admin*"` matches every key that starts with `/admin`); `paths` — addresses for routes with parameters (`{ "/:lang/about": ["/en/about"] }` → `en/about.html`); `strict`; `eagerImages` (default 2: later images get `loading="lazy"` unless they set `loading`); `timeout` — each page's render time limit in ms (default 30000; `0`: none): pages render one at a time, and a page past its limit fails with `BRENDER_RENDER_TIMEOUT` while the next page renders; `stamp` — the build's data stamp (above); `redirects: false` — no `_redirects` block. A page with `prerender: false` is never pre-rendered.
+- **Built `<html data-theme>`** (brender 3.14.670). When `globalTheme` is a fixed theme (`light`, `dark` or a named scheme), every built page carries `<html data-theme="<theme>">`, so first paint uses the project theme and not the OS scheme. `auto`, `system` or unset write nothing: the `prefers-color-scheme` fallback rules apply until boot, as before. A config with its own `themeRoot` writes nothing. Both schemes' CSS stay in the page for a later `changeGlobalTheme()`.
+- **Page weight** (brender 3.14.671 / cli 3.14.814). `smbls build` trims what a built page carries before boot (the client adds the rest when it boots). On by default, each with an off switch in `symbols.json` `brender`:
+  - the inline icon sprite holds only the icons the page uses — `"spriteIcons": "all"` keeps every icon;
+  - the atomic CSS holds only the rules of classes in the page's markup — `"cssClasses": "all"` keeps every rule;
+  - the element-path registry ships as a tree when the client smbls can read it — `"registryFormat": "paths"` keeps the flat paths format.
+
+  Opt-in: `"cssVariables": "page"` keeps only the CSS variables the page's own CSS and markup read. Not safe when a stylesheet the page links (`public/` CSS, a CDN file) reads design-system variables before boot: the trim does not see that stylesheet. Default `"all"`.
+
+  ```json
+  { "brender": { "cssVariables": "page" }, "build": { "prepareDesignSystem": { "pages": false } } }
+  ```
 - **`symbols.json` `build`**: `"compileHints"` (on unless `false`) puts `//# allFunctionsCalledOnLoad` as the first line of each local module script the page loads at start (the app script, a project's own early script) and shifts its source map by one line: Chrome 136+ then compiles the bundle's functions while the script streams in, not on the main thread at first call. Measured on a built empty app (headless Chrome, medians of 9): first task 51.7 → 26.6 ms at 1x CPU, 270 → 135 ms at 4x. Lazily loaded files stay as the bundler wrote them; with `false` the output is byte-identical to the bundler's. `"modulePreload": true` (off by default) adds a `<link rel="modulepreload">` after the page's import map for every `smbls/core` lazy module `config.js` switches on (fetch when `fetch` is set; the windows, dropdown and tooltip kits unless `false`; `shorthand`, `analyze`, `inspect` when set). It is opt-in because no measurement shows a gain yet: the kits started at about 10 ms instead of about 90 ms, but the A/B ran on a machine under heavy load, never on a throttled phone profile. With it off the built page is byte-identical.
 
-**Production build, dev diagnostics.** A parcel `smbls build` (production mode) strips the framework's dev-only warnings from the app bundle; `smbls start` keeps them (FRAMEWORK.md §10 → `smbls build`).
+**Production build, dev diagnostics.** A parcel `smbls build` (production mode) strips the framework's dev-only warnings (author mistakes, e.g. an unknown design-system token) from the app bundle; since cli 3.14.813 that covers 62 more warnings, all behind `globalThis.__SMBLS_DEV_DIAGNOSTICS_OFF__`. `smbls start` keeps every warning. Parcel only: a Vite build keeps them all. Errors that report a runtime failure stay in every build (FRAMEWORK.md §10 → `smbls build`).
+
+#### `symbols.json` `build` — size options of a production build (opt-in)
+
+Options of a production parcel `smbls build` (cli 3.14.813 / 3.14.814, smbls 3.14.847 / 3.14.848). Each is off unless set. With none set, the bundle is the same as before they existed.
+
+| Option | Value | What it does |
+|---|---|---|
+| `treeShakeComponents` | `true` \| `{ "keep": [...] }` | Keeps only the default components (`@symbo.ls/default-config`) the app names, what they name in turn, and `keep` |
+| `treeShakeIcons` | `true` \| `{ "keep": [...] }` | The same for the default icon set |
+| `treeShakeLibraries` | `true` | For a project with no shared library (no `sharedLibraries.js` entry, no `symbols.json` `sharedLibraries`): no shared-library machinery in the bundle |
+| `lazyServerUtils` | `true` | The server-only utils `generateMetaTags`, `getPageMetadata`, `getImportMapScript`, `polyglotStartupScript`, `objectToString`, `deepStringifyFunctions` load on demand from their own file. Called in the browser (`el.call(...)`), each returns a **Promise** of its value — `await` it |
+| `treeShakeFeatures` | `true` \| `{ "keep": [...] }` | Drops the optional framework features the project never names (names below) |
+
+`treeShakeFeatures` feature names (use these in `keep`): `autoGrow`, `inertOutside`, `bridge` (`onBridgeMount` hooks), `viewEvents` (`onInView` / `onLeaveView`), `lazyRoutes` (lazy route groups, `loadLazy`), `viewTransition` (`designSystem.viewTransition`), `liveSync` (live sync / notifications), `prerender` (the boot over a pre-rendered page; always kept when the build pre-renders, i.e. `brender` is not `false`), `safeInk` (`getSafeInk` / `getSafeInkInfo`).
+
+**Loud errors, never silent.** A left-out name that the app still asks for at runtime (a key that came from a database or a fetched payload) logs one `console.error` that names the key and the option, in production too; a dropped component renders as an empty element. Example: `[smbls] "autoGrow" is not in this build: symbols.json build.treeShakeFeatures left it out … Add "autoGrow" to build.treeShakeFeatures.keep.` A shared library that reaches the runtime in a `treeShakeLibraries` build is not merged and is reported the same way. Put every data-driven key (a component, icon or feature named only in DB records) in `keep`.
+
+**What the scan reads.** All tree-shake options share one name scan (cli 3.14.814). It reads only what the app bundle can reach: the source files of the symbols dir (`symbols.json` `dir`) without tests (`__tests__/`, `*.test.*`, `*.spec.*`), the entry document (`symbols.json` `entry`, and its script/link references), `symbols.json`, and every module, shared library and package those import, transitively. It never reads `scripts/`, `tests/`, tool configs (`eslint.config.js`, …), worker files or other files outside the app source, so those cannot keep a component alive or change the build output. The scan over-includes on purpose: a name in a comment or string keeps its component. A shared library fetched at runtime with no import (`sharedLibrary('owner/key')`) turns tree shaking off for that build, with a warning.
+
+```json
+{
+  "build": {
+    "treeShakeComponents": { "keep": ["Dialog"] },
+    "treeShakeIcons": true,
+    "treeShakeLibraries": true,
+    "lazyServerUtils": true,
+    "treeShakeFeatures": { "keep": ["viewEvents"] }
+  }
+}
+```
+
+Verify a tree-shaken build in a browser: open each page and read the console for `[smbls]` errors that name a `build.*` option.
 
 **Lazy groups under parcel.** `smbls start` and a parcel `smbls build` run parcel with smbls's own JS runtime: after a failed lazy-group load, the next `import()` of that chunk requests it again as `<chunk>.js?smbls-retry=<n>`, only when the app asks (SYNTAX.md → Router → Lazy routes). A project `.parcelrc` that sets its own `runtimes` keeps them and loses this.
 
