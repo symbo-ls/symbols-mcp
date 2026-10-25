@@ -488,6 +488,7 @@ smbls publish --ssr                        # also pre-render every static route 
 
 - Static routes only. Pages render WITHOUT fetched data: a page that fetches shows its loading state until the client loads the data.
 - Each route keeps its own icons: the sprite with the symbols its markup uses, AFTER its content, and no shared sprite (not released yet; it needs the `@symbo.ls/brender` release that exports the page trims). The page's text paints before its icons; an icon keeps its box until its symbol arrives, and the client adds every other icon of the design system when it boots. With an older brender, or a sprite that holds an element other than a symbol, every route shares one full sprite in front of its body, as before.
+- Each route is served with the CSS its first view needs (not deployed yet): the atomic rules its markup can match and the CSS variables its CSS and markup read. The client adds the rest as it boots. Every variable stays when the page can load a stylesheet the platform cannot read: a `<link rel="stylesheet">` in the project's `index.html` or in the page, or an `@import`.
 - Limits: 512 KB per route (its icons included), 16 MB for all routes ('/' first, then the page order), 120 s. A route whose render does not finish within 20 s is abandoned and skipped, and the next route renders at once.
 - `--dry-run` writes the map to `.symbols_local/ssr-cache.json` and pushes nothing.
 - A later content push without a fresh pre-render drops the stored map; the site falls back to the client render until the next `smbls publish --ssr`.
