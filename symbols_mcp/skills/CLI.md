@@ -484,10 +484,11 @@ smbls publish --dry-run                    # print planned operations without ex
 smbls publish --ssr                        # also pre-render every static route for the platform renderer
 ```
 
-**Publish-time pre-render (`--ssr`).** Off by default. `smbls publish --ssr`, or `"prerender": true` in `symbols.json`, pre-renders every static route after the push and stores the result as the project's `__ssr` map, which the platform renderer serves. `--no-ssr` wins over the config, and `brender: false` keeps it off.
+**Publish-time pre-render (`--ssr`).** Off by default. `smbls publish --ssr`, or `"prerender": true` in `symbols.json`, pre-renders every static route after the push and stores the result on the platform for the version it pushed: one row per route, outside the project content. The platform renderer serves it. `--no-ssr` wins over the config, and `brender: false` keeps it off.
 
 - Static routes only. Pages render WITHOUT fetched data: a page that fetches shows its loading state until the client loads the data.
-- Limits: 512 KB per route, 2 MB for the whole map, 120 s. A route whose render does not finish within 20 s is abandoned and skipped, and the next route renders at once.
+- Each route keeps its own icons: the sprite with the symbols its markup uses, AFTER its content, and no shared sprite (`@symbo.ls/cli` after 3.14.822 with `@symbo.ls/brender` after 3.14.673). The page's text paints before its icons; an icon keeps its box until its symbol arrives, and the client adds every other icon of the design system when it boots. With an older brender, or a sprite that holds an element other than a symbol, every route shares one full sprite in front of its body, as before.
+- Limits: 512 KB per route (its icons included), 16 MB for all routes ('/' first, then the page order), 120 s. A route whose render does not finish within 20 s is abandoned and skipped, and the next route renders at once.
 - `--dry-run` writes the map to `.symbols_local/ssr-cache.json` and pushes nothing.
 - A later content push without a fresh pre-render drops the stored map; the site falls back to the client render until the next `smbls publish --ssr`.
 
