@@ -149,7 +149,7 @@ or `null` for orphans). This is **load-bearing** for some fixes:
 | **FA303** (hsl-color) | hsl→hex conversion, then same as FA301 |
 | **FA304** (raw-px-rem) | `replaceTokenValue` with closest spacing token from project's actual generated scale (8% tolerance, skips 1px borders + complex `calc()`) |
 | **FA701** (hardcoded text) | `replaceTokenValue` wrapping in polyglot template, with quote-style detection from source |
-| **FA801** (page must extend Page) | `setObjectProperty` with kebab→camelCase componentName |
+| **FA801** (page must extend Page) | `setObjectProperty` with kebab→camelCase componentName — only when the page's `extends` names no defined component; over a linked library's or the project's own component there is no op (it would drop that component; extend Page in the base's chain instead) |
 | **FA806** (auto-extend wrapper) | `renameObjectKey` with line-based disambiguation |
 
 For these rules, the agent's job is **acceptance, not construction**. Forwarding `proposedOps` verbatim is the correct call ~95% of the time.

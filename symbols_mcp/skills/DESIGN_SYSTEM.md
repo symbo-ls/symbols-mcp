@@ -1097,6 +1097,8 @@ svg: {
 
 **viewBox.** The `Icon` component's outer `viewBox` follows the registered icon's W × H (`0 0 W H`), not a fixed `0 0 24 24` (visual change shipped in 3.14.844, noted in default-config 3.14.790). A wide icon (a wordmark, a logo) fills its element box; a square 24-grid icon draws as before. The icon's own origin (min-x, min-y) stays on the sprite `<symbol>` / inline nested `<svg>` that draws it. To get the old 24 × 24 fit on one Icon: `Icon: { name: 'logo', viewBox: '0 0 24 24' }` (a function value works too).
 
+**Fit: contain, never stretch.** The fit is SVG's default `xMidYMid meet` (CSS `contain`) at both levels — the outer viewport and the sprite `<use>` / nested `<svg>`. An icon keeps its OWN proportions in a box of any aspect: it fills the box along one axis and is centred along the other, never distorted; nothing sets `preserveAspectRatio`. A wide mark (a 1.72 : 1 wordmark) paints at its own aspect in a 120 × 40, 40 × 120 or 60 × 60 box alike, with or without a `viewBox` pin. What changed in 3.14.844 is only its SIZE in a box wider than the icon (contain fit instead of a square as tall as the box). **To draw a wide mark smaller, size the box, not the viewBox:** `Icon: { name: 'wordmark', height: 'B', width: 'auto' }`. Pinning `viewBox: '0 0 24 24'` on a non-square icon does not fix a distortion (there is none); it only shrinks the drawing.
+
 Default icon set: `symbols`, `logo`, arrow variants, `check`, `checkCircle`, chevron variants, `copy`, `eye`, `eyeOff`, `info`, `lock`, `minus`, `plus`, `search`, `send`, `smile`, `star`, `sun`, `moon`, `upload`, `video`, `x`, `moreHorizontal`, `moreVertical`.
 
 ### Icon usage in components — STRICT (Rule 29 / Rule 62)

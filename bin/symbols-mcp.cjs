@@ -242,25 +242,182 @@ function loadAgentInstructions(args = {}) {
   return rulesCoreBundle()
 }
 
-function searchDocs(query, maxResults = 3) {
-  const keywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2)
-  if (!keywords.length) keywords.push(query.toLowerCase())
+// Ranked section search — a port of symbols_mcp/docs_search.py (keep the two
+// in step; tests/test_search_docs.py runs both on the same queries). Every
+// skill file is split at its headings; sections are scored with BM25 (a term
+// in every file weighs little), identifier-like terms (camelCase,
+// dotted.path, snake_case, $x) weigh 3x and must be present (else x0.25), a
+// term in the heading path counts again, the score is multiplied by the
+// square of the weighted share of the query the section covers, and the
+// whole query as a phrase is a bonus. At most two sections per file.
+const DOCS_HEADING = /^(#{1,4})\s+(.*\S)\s*$/
+const DOCS_FENCE = /^\s*(```|~~~)/
+const DOCS_WORD = /[a-z0-9_$]+/g
+const DOCS_STOP = new Set(`a an the and or of to in on at by for with from into as is are be been was were it its
+this that these those how what when where which who why do does did can could should
+would will i me my we our you your use using used get set via vs not no yes about`.split(/\s+/))
+const DOCS_W = { identifier: 3, word: 1, part: 0.6, heading: 1.5, missing: 0.25, phrase: 1.5, perFile: 2, k1: 1.2, b: 0.75 }
 
-  const results = []
-  for (const fname of fs.readdirSync(SKILLS_DIR)) {
-    if (!fname.endsWith('.md')) continue
-    const content = fs.readFileSync(path.join(SKILLS_DIR, fname), 'utf8')
-    if (!keywords.some(kw => content.toLowerCase().includes(kw))) continue
-    const lines = content.split('\n')
-    for (let i = 0; i < lines.length; i++) {
-      if (keywords.some(kw => lines[i].toLowerCase().includes(kw))) {
-        results.push({ file: fname, snippet: lines.slice(Math.max(0, i - 2), Math.min(lines.length, i + 20)).join('\n') })
-        break
+const docsIsIdentifier = (token) => /[a-z][A-Z]/.test(token) || /\w[._$]\w/.test(token) || token.startsWith('$')
+
+function docsParseQuery (query) {
+  const terms = []
+  const seen = new Set()
+  for (const raw of String(query || '').split(/[\s,;]+/)) {
+    let token = raw.replace(/^[`'"()[\]{}<>?!:;,]+|[`'"()[\]{}<>?!:;,]+$/g, '')
+    token = token.replace(/(\(\)|=.*)$/, '')
+    if (!token) continue
+    const lower = token.toLowerCase()
+    if (seen.has(lower)) continue
+    if (docsIsIdentifier(token)) {
+      const parts = lower.split(/[._$]+/).filter(p => p.length > 1 && p !== lower)
+      terms.push({ text: lower, weight: DOCS_W.identifier, identifier: true, parts })
+    } else {
+      if (DOCS_STOP.has(lower) || lower.length < 2) continue
+      terms.push({ text: lower, weight: DOCS_W.word, identifier: false, parts: [] })
+    }
+    seen.add(lower)
+  }
+  return terms
+}
+
+function docsSection (file, heading, line, lines) {
+  const text = lines.join('\n').toLowerCase()
+  return { file, heading, line, lines, text, headingText: heading.toLowerCase(), length: Math.max(1, (text.match(DOCS_WORD) || []).length) }
+}
+
+function docsSplitSections (name, content) {
+  const sections = []
+  let pathParts = []
+  let current = []
+  let start = 1
+  let heading = name
+  let inFence = false
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (DOCS_FENCE.test(line)) inFence = !inFence
+    const m = inFence ? null : DOCS_HEADING.exec(line)
+    if (m) {
+      if (current.some(l => l.trim())) sections.push(docsSection(name, heading, start, current))
+      const level = m[1].length
+      const title = m[2].trim()
+      const pad = Math.max(0, level - 1 - pathParts.length)
+      pathParts = pathParts.slice(0, level - 1).concat(new Array(pad).fill(''), [title])
+      heading = pathParts.filter(Boolean).join(' > ')
+      current = [line]
+      start = i + 1
+    } else {
+      current.push(line)
+    }
+  }
+  if (current.some(l => l.trim())) sections.push(docsSection(name, heading, start, current))
+  return sections
+}
+
+const docsEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function docsCount (term, identifier, text) {
+  if (identifier) return text.split(term).length - 1
+  return (text.match(new RegExp('(?<![a-z0-9_])' + docsEscape(term), 'g')) || []).length
+}
+
+let docsIndexCache = null
+function docsIndex () {
+  const files = fs.readdirSync(SKILLS_DIR).filter(f => f.endsWith('.md')).sort()
+  const signature = files.map(f => { const st = fs.statSync(path.join(SKILLS_DIR, f)); return `${f}:${st.mtimeMs}:${st.size}` }).join('|')
+  if (docsIndexCache && docsIndexCache.signature === signature) return docsIndexCache
+  const sections = []
+  for (const f of files) sections.push(...docsSplitSections(f, fs.readFileSync(path.join(SKILLS_DIR, f), 'utf8')))
+  const avg = sections.length ? sections.reduce((a, s) => a + s.length, 0) / sections.length : 1
+  docsIndexCache = { signature, sections, avg }
+  return docsIndexCache
+}
+
+function docsSnippet (section, terms, size = 22) {
+  const lines = section.lines
+  let best = 0
+  let bestHits = -1
+  for (let i = 0; i < lines.length; i++) {
+    const low = lines[i].toLowerCase()
+    const hits = terms.reduce((a, t) => a + (docsCount(t.text, t.identifier, low) ? t.weight : 0), 0)
+    if (hits > bestHits) { best = i; bestHits = hits }
+  }
+  const start = Math.max(0, best - 3)
+  let window = lines.slice(start, start + size)
+  if (start > 0) window = [lines[0], '…'].concat(window)
+  return window.join('\n').replace(/^\n+|\n+$/g, '')
+}
+
+function searchDocsRanked (query, maxResults = 3) {
+  const { sections, avg } = docsIndex()
+  const terms = docsParseQuery(query)
+  if (!terms.length) return []
+  const n = sections.length
+  const df = new Map()
+  const counts = sections.map(s => {
+    const c = new Map()
+    for (const t of terms) {
+      const k = docsCount(t.text, t.identifier, s.text)
+      if (k) c.set(t.text, k)
+      for (const p of t.parts) {
+        const pk = docsCount(p, false, s.text)
+        if (pk) c.set('part:' + p, pk)
       }
     }
-    if (results.length >= maxResults) break
+    for (const key of c.keys()) df.set(key, (df.get(key) || 0) + 1)
+    return c
+  })
+  const idf = (key) => { const d = df.get(key) || 0; return Math.log(1 + (n - d + 0.5) / (d + 0.5)) }
+  const hasIdentifiers = terms.some(t => t.identifier)
+  const phrase = terms.length > 1 ? terms.map(t => t.text).join(' ') : null
+  const total = terms.reduce((a, t) => a + t.weight * idf(t.text), 0) || 1
+  const scored = []
+  sections.forEach((s, idx) => {
+    const c = counts[idx]
+    if (!c.size) return
+    const norm = DOCS_W.k1 * (1 - DOCS_W.b + DOCS_W.b * s.length / avg)
+    let score = 0
+    let covered = 0
+    let missingIdentifier = false
+    for (const t of terms) {
+      const tf = c.get(t.text) || 0
+      const weight = t.weight * idf(t.text)
+      if (tf) {
+        score += weight * tf * (DOCS_W.k1 + 1) / (tf + norm)
+        covered += weight
+        if (s.headingText.includes(t.text)) score += weight * DOCS_W.heading
+        continue
+      }
+      if (t.parts.length && t.parts.every(p => c.get('part:' + p))) {
+        const partTf = Math.min(...t.parts.map(p => c.get('part:' + p)))
+        score += DOCS_W.part * weight * partTf * (DOCS_W.k1 + 1) / (partTf + norm)
+        covered += DOCS_W.part * weight
+        continue
+      }
+      if (t.identifier) missingIdentifier = true
+    }
+    if (score <= 0) return
+    score *= (covered / total) ** 2
+    if (missingIdentifier && hasIdentifiers) score *= DOCS_W.missing
+    if (phrase && s.text.includes(phrase)) score *= DOCS_W.phrase
+    scored.push([score, s])
+  })
+  scored.sort((a, b) => (b[0] - a[0]) || (a[1].file < b[1].file ? -1 : a[1].file > b[1].file ? 1 : 0) || (a[1].line - b[1].line))
+  const limit = Math.max(1, Math.min(parseInt(maxResults, 10) || 3, 5))
+  const out = []
+  const perFile = new Map()
+  for (const [score, s] of scored) {
+    if ((perFile.get(s.file) || 0) >= DOCS_W.perFile) continue
+    perFile.set(s.file, (perFile.get(s.file) || 0) + 1)
+    out.push({ file: s.file, section: s.heading, line: s.line, score: Math.round(score * 1000) / 1000, snippet: docsSnippet(s, terms) })
+    if (out.length >= limit) break
   }
-  return results.length ? JSON.stringify(results, null, 2) : `No results found for '${query}'`
+  return out
+}
+
+function searchDocs (query, maxResults = 3) {
+  const results = searchDocsRanked(query, maxResults)
+  return results.length ? JSON.stringify(results, null, 2) : `No results found for '${query}'. Try a different search term.`
 }
 
 // ---------------------------------------------------------------------------
@@ -715,7 +872,7 @@ const TOOLS = [
   },
   {
     name: 'search_symbols_docs',
-    description: 'Search the Symbols documentation knowledge base for relevant information including CLI commands, SDK services, syntax, components, and more.',
+    description: 'Search the Symbols documentation knowledge base for relevant information including CLI commands, SDK services, syntax, components, and more. Ranked by section: option names (camelCase, dotted.paths, snake_case) weigh most and must be present, headings count again; at most two sections per file. Each result: file, section, line, score, snippet.',
     inputSchema: {
       type: 'object',
       properties: {

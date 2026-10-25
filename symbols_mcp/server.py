@@ -16,6 +16,8 @@ from importlib.metadata import version as _pkg_version, PackageNotFoundError
 import httpx
 from mcp.server.fastmcp import FastMCP, Context
 
+from .docs_search import DocsIndex
+
 # ---------------------------------------------------------------------------
 # frank-audit subprocess bridge
 # ---------------------------------------------------------------------------
@@ -263,6 +265,7 @@ mcp._mcp_server.version = PACKAGE_VERSION
 # Helpers
 # ---------------------------------------------------------------------------
 SKILLS_PATH = Path(SKILLS_DIR)
+_DOCS_INDEX = DocsIndex(SKILLS_PATH)
 
 
 def _read_skill(filename: str) -> str:
@@ -1246,34 +1249,22 @@ async def search_symbols_docs(
 ) -> str:
     """Search the Symbols documentation knowledge base for relevant information.
 
+    Ranked by section: every skill file is split at its headings, and the
+    sections that hold the most of the query — option names (`camelCase`,
+    `dotted.paths`, `snake_case`) weigh most and must be present, headings
+    count again, words found in every file weigh little — come back first,
+    at most two per file. Each result: file, section heading path, line,
+    score, snippet.
+
     Args:
-        query: Natural language search query about Symbols/DOMQL.
+        query: Natural language search query about Symbols/DOMQL. Name the
+            option exactly (`prepareDesignSystem`, `fetch.early`) for the
+            best match.
         max_results: Maximum number of results to return (1-5).
     """
-    keywords = [w for w in re.split(r"\s+", query.lower()) if len(w) > 2]
-    if not keywords:
-        keywords = [query.lower()]
-
-    results = []
-    for fname in SKILLS_PATH.glob("*.md"):
-        content = fname.read_text(encoding="utf-8")
-        content_lower = content.lower()
-        if not any(kw in content_lower for kw in keywords):
-            continue
-        lines = content.split("\n")
-        for i, line in enumerate(lines):
-            line_lower = line.lower()
-            if any(kw in line_lower for kw in keywords):
-                start = max(0, i - 2)
-                end = min(len(lines), i + 20)
-                snippet = "\n".join(lines[start:end])
-                results.append({"file": fname.name, "snippet": snippet})
-                break
-        if len(results) >= max_results:
-            break
-
+    results = _DOCS_INDEX.search(query, max_results)
     if results:
-        return json.dumps(results[:max_results], indent=2)
+        return json.dumps(results, indent=2, ensure_ascii=False)
     return f"No results found for '{query}'. Try a different search term."
 
 

@@ -40,7 +40,9 @@ Frank only walks: `components/`, `snippets/`, `pages/`, `functions/`, `methods/`
 
 If a file is generic-utility-shaped, put it in `functions/` (default) or `methods/` (if it needs `this`-binding).
 
-A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
+A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`, or the `{ load, when }` form `lazy: { admin: { load: () => import('./admin/index.js'), when } }` — frank-audit 3.14.782; only `load` names the group entry, an `import()` inside `when` names none; a group or `load` that names a top-level const resolves through it) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
+
+The pre-boot module (`config.js` `fetch: { early: { script: './early.js' } }`, FRAMEWORK.md §5 → Early requests) is not an orphan either (frank-audit after 3.14.782). `smbls build` bundles it, and every file it imports, into the page's `early.<hash>.js`, which runs before the app: frank never ships it. frank-audit finds the declaration statically (a string literal, or a top-level const holding one), follows the module's relative imports, and gives those files the slot `preBoot`. There the app-only rules stay silent — DOM APIs (FA5xx), `window.fetch` (FA402), `document.head` writes (FA405), window assignments (FA409), FA006 — because the code runs before DOMQL, the router or any element exist. The rules that hold for any public file still report: FA905 (a hardcoded deploy value) and FA906 (a hardcoded secret). A canonical-folder file the module imports (`functions/x.js`) ships in the app too, so it keeps its slot and every rule. Keep the pre-boot module small and self-contained; app logic stays in the app.
 
 #### FA007 — `components/index.js` uses `export *`, never `export * as`
 
@@ -169,11 +171,12 @@ Form:   { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit'
 ```
 
 `on` is a documented key of the fetch plugin (`'create'` | `'click'` |
-`'submit'` | `'stateChange'`) and the plugin binds the listener itself. An
-`onSubmit: fn` there does NOT run the declarative mutation, so the audit skips
-an `on` string that sits directly on a fetch config — object form,
-`fetch: [ ... ]` array form and `fetch: (el, s) => ({ ... })` function form
-alike. Any other `on` string still reports.
+`'submit'` | `'stateChange'`, or a list of them: `on: ['create', 'stateChange']`)
+and the plugin binds the listener itself. An `onSubmit: fn` there does NOT run
+the declarative mutation, so the audit skips an `on` string or list that sits
+directly on a fetch config — object form, `fetch: [ ... ]` array form and
+`fetch: (el, s) => ({ ... })` function form alike. Any other `on` string or list
+still reports.
 
 ---
 
@@ -489,6 +492,28 @@ window.__myProjectInit?.()
 initFunction()
 ```
 
+### Secrets (FA906) — never in any project file
+
+#### FA906 — Never hardcode a secret
+
+Everything in a project is public sooner or later: `smbls push` publishes it, `smbls build` bundles it into files every visitor downloads (the pre-boot `fetch.early.script` module included), and the repository keeps every version. frank-audit (after 3.14.782) reports a likely secret in **every** project file — JS and the other text files (JSON, HTML, Markdown, YAML, …), pre-boot code, orphans, `files/` manifests and comments; not dotfiles such as `.env`, where a local secret belongs:
+
+- known key formats — AWS access key ids (`AKIA…`), GitHub tokens (`ghp_…`, `gho_…`, `github_pat_…`), live Stripe / Symbols secret keys (`sk_live_…`, `rk_live_…`), Slack (`xox…`), Google API keys (`AIza…`), npm (`npm_…`), Supabase secret keys (`sb_secret_…`) and `service_role` JWTs, SendGrid, Anthropic and OpenAI keys, PEM private key blocks — confidence high;
+- a password in a URL (`scheme://user:password@host`; a local host or a placeholder does not hit) — high;
+- a string of at least 20 characters with at least 3.5 bits of entropy per character, assigned to a secret-shaped name (`secret`, `token`, `password`, `apiKey`, `privateKey`, `clientSecret`, `Authorization: 'Bearer …'`) — medium. A name about the secret (`tokenLabel`, `passwordField`, `tokenStorageKey`) does not hit; in test code only the known formats report.
+
+Public by design, never a hit: a Supabase anon key (JWT role `anon`) and publishable key (`sb_publishable_…`), a Stripe publishable key (`pk_live_…` / `pk_test_…`), a Firebase web config `apiKey` (beside `authDomain` / `projectId` / `appId`), a Symbols project key (`pr_…`), a Mapbox public token (`pk.eyJ…`), a Cloudflare Web Analytics beacon token. A finding never prints the value: the first 4 characters and the length (`AKIA…, 20 chars`).
+
+```js
+// ❌ Never — published with the project, bundled for every visitor
+export default { fetch: { adapter: 'rest', url, headers: { apikey: '<a service_role key>' } } }
+
+// ✅ The browser carries only a public key; the secret stays on the server
+export default { fetch: { adapter: 'rest', url, headers: { apikey: '<the publishable / anon key>' } } }
+```
+
+What to do: rotate the key at its provider (it is compromised once pushed, even if the line goes), then keep it server-side — a server secret or a deploy-time variable the server reads. `config.js` is published: never a place for a secret. A value that is public by design and still hits: `// frank-allow FA906` on the line. Never auto-fixed.
+
 ---
 
 ## Frank's automatic rewrites (informational — you can rely on these)
@@ -608,6 +633,9 @@ hand-writing a Symbols project file, verify ALL of:
     files** — inline private helpers with `_` prefix. (FA208)
 13. ✅ **Bypass-mode / mock-auth handlers guard `el.node` and
     `s.parent`/`s.root`**. (FA210)
+14. ✅ **No secret in any file** — no API key, token, private key or
+    password; only public keys (anon / publishable) reach the browser.
+    (FA906)
 
 ---
 
@@ -623,6 +651,7 @@ hand-writing a Symbols project file, verify ALL of:
 8. **No `window.update(...)`, `document.update(...)`, or `window.__projectInit = ...` bridges** (FA513, FA514).
 9. **`dependencies.js` contains only runtime dynamic-import targets** (FA209).
 10. **`globalScope.js` does not cross-import from peer modules** (FA208).
-11. **Run `smbls frank-audit`** to see findings. Run `smbls frank-audit --fix` to apply safe auto-fixes; the fixer verifies against `frank.toJSON` after every risky change and rolls back regressions. Run with `--strict` if you want CI to fail on high-confidence critical findings.
+11. **No secret in any project file** — keys and tokens live server-side; rotate one that was pushed (FA906).
+12. **Run `smbls frank-audit`** to see findings. Run `smbls frank-audit --fix` to apply safe auto-fixes; the fixer verifies against `frank.toJSON` after every risky change and rolls back regressions. Run with `--strict` if you want CI to fail on high-confidence critical findings.
 
 If your project ships and a handler renders the wrong value in prod but the right value locally, the cause is almost always a frankability rule violation in this list. Frank's bundle-time fixer recovers many of these automatically — frank-audit is the source-level pass that prevents the bug from being committed in the first place.

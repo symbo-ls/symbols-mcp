@@ -70,6 +70,15 @@ create(definition, parent, key, options)
 
 The `if` effect re-enters the full creation steps the first time it flips false → true.
 
+**When the app's first view is in — `afterFirstView`** (smbls after 3.14.857). A create option (`config.js`, `context.js`, or `create(App, { afterFirstView })`), called once per app as the root's `onCreate` is, `(app, state, context)`: a task after the first view is in — after `create()` rendered it (on a pre-rendered page: after the adoption) and after the first navigation settled (a route behind an awaited guard renders later). Work that must not compete with the first view goes there: a page view, a beacon, warming the next route. Never poll `window.__BRENDER_HYDRATION__` or loop on `requestAnimationFrame` to learn that a built page was taken over. A hook that throws or rejects is reported, never rethrown; a server render (brender) never runs it. It runs at the moment `fetch.early`'s own `afterFirstView` hook runs (FRAMEWORK.md §5 → Early requests).
+
+```js
+// config.js
+export default {
+  afterFirstView: (app, state, context) => { app.call('pageView') }
+}
+```
+
 **Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once (during the first render and the adoption of a pre-rendered page, smbls sets `mountWhole`: it waits outside its parent and goes in with one insertion when its last chunk is in, so a row is never on screen half built), but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
 ---
@@ -330,7 +339,9 @@ export const Canvas = {
 - The element that declares it becomes the size container (`container-type: inline-size`, `container-name: breakpoints`, or the name you give, or the first name of its own `containerName`). Its OWN breakpoint keys stay window queries: a container query never measures the element it is declared on. Inline-size containment means its width must not come from its content: give it a width, or let it stretch.
 - Every DESCENDANT's width-only breakpoint (`(max-width: N)`, `(min-width: N)`, `(width < N)`, joined with `and` / `or`, optionally behind `screen and`) compiles to `@container <name> (…)`. Height, orientation, aspect-ratio, print, colour-scheme and hover breakpoints, and raw `'@media …'` keys, stay media queries.
 - `breakpointsFrom: 'window'` on a nested element sends its descendants back to the window (a fixed toolbar inside the canvas). The nearest ancestor that declares it decides. A function value `(el, s, ctx) => …` works too.
-- `vw` / `vh` still measure the window: use `cqw` inside the subtree. `onMediaQueryChange` still listens to the window (`matchMedia`).
+- **`vw` follows the container** (smbls 3.14.857 / element 3.14.817). Inside a `breakpointsFrom` container, `vw` lengths measure the container, not the window: write `vw` as you would for a full-window page (no `cqw` needed). The container's class gives its children `--smbls-cvw: 1cqi` (a registered `<length>` custom property, initial value `1vw`, so it inherits as px and a nested card container does not re-measure it) and re-declares every design-system token with a `vw` length (and each token that refers to one) in `--smbls-cvw`. A descendant's own `vw` / `svw` / `lvw` / `dvw` values (static and reactive props, case blocks, `style` blocks, inline writes) are written as `calc(N * var(--smbls-cvw))`. `breakpointsFrom: 'window'` inside a container gives its subtree the window's `vw` again. Apps without a container emit the same CSS as before.
+- `vh` still measures the window, and `onMediaQueryChange` still listens to the window (`matchMedia`).
+- **`containerVw` is an optional element feature.** The lean engine (the smbls embed) leaves it out. `build.treeShakeFeatures` drops it from a production build whose source never names `breakpointsFrom` (feature `containerVw`, trigger `breakpointsFrom`).
 
 #### CSS system colours and forced-colours blocks
 
@@ -1580,6 +1591,9 @@ The connection config is the `fetch` key of `config.js` (the runtime resolves it
 { fetch: { from: 'articles',
           params: (el, s) => ({ title: { ilike: '%' + s.query + '%' } }),
           on: 'stateChange' } }
+{ fetch: { from: 'articles', as: 'rows',                                  // a list of triggers: load on create,
+          params: (el, s) => ({ kind: s.kind }),                          // then again when s.kind changes —
+          on: ['create', 'stateChange'] } }                               // one config, one params
 
 // enabled
 { fetch: { from: 'profile', enabled: (el, s) => !!s.userId } }
@@ -1606,7 +1620,8 @@ Stale-while-revalidate: stale data served immediately, background refetch swaps 
 Garbage collection: unused entries cleaned after `gcTime`.
 Deduplication: identical concurrent queries share one network request — and, if it fails, every element on it gets the error (`onFetchError`), not empty rows.
 A forced refetch reaches the network even while the entry is fresh: `el.__ref.refetch()`, each `refetchInterval` tick, the browser coming back online. Each page of a paginated / infinite query has its own key (the cursor is part of it).
-`on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create (add `on: 'create'` for a first load), and not when its own rows land in state.
+`on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create, and not when its own rows land in state.
+**`on` as a list** (fetch after 3.14.671): `on: ['create', 'stateChange']` is ONE config that loads on create and runs again when its inputs change — write it instead of two configs with the same `params` (one `'create'`, one `'stateChange'`). Each trigger in the list does what it does alone. With `'create'` in the list the config is a create-time query: it mounts its cache entry, refetches on focus / reconnect / `refetchInterval`, is refetched by an invalidation, and takes a seeded or early answer. `'stateChange'` then compares against the values the create run asked with. `'submit'` or `'click'` in the list make an `rpc` an action. A list of one is that trigger; an empty list is `'create'`; a trigger named twice counts once. (Before this release a list named no trigger and the config never ran.)
 Removing an element releases what fetch bound for it: interval timers, focus / online / submit / click listeners, the `stateChange` watcher, a realtime subscription.
 A server render (brender) binds no interval timer and no focus / online listener, and each render has a query cache of its own.
 
@@ -1648,7 +1663,7 @@ export const saveArticle = async function saveArticle (form) {
 
 ### Early requests — `fetch.early` (REST adapter, opt-in)
 
-`config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Options to stand down on a page built ahead (`prerendered: 'skip'`, `<meta name="smbls-early" content="off">`), to wait for the head (`wait: 'head'`, `ctx.meta(name)`), to answer a smaller list (`slice: true`) and to run at first paint (`firstPaint(ctx)`). Config and rules: FRAMEWORK.md §5 → Early requests.
+`config.js` `fetch.early` lists the first view's GETs per route (`always`, `routes: { '/blog/:id': (params, ctx) => [...] }`); `smbls build` / `smbls deploy` emit `early.<hash>.js`, which sends them while the HTML parses, and the REST adapter ADOPTS each answer for the first call that asks for exactly that request (same address, language and headers; once; not failed, expired or invalidated). `smbls start` does not emit it. Options to stand down on a page built ahead (`prerendered: 'skip'`, `<meta name="smbls-early" content="off">`), to wait for the head (`wait: 'head'`, `ctx.meta(name)`), to answer a smaller list (`slice: true`, an rpc's `slice: 'p_limit'`), to show an answer at an element's init (`adopt: 'init'`; a smaller answer is a first part — read `isFetching` in the view, not in `transform`), to name the start language (`startLang(ctx)`), to run at first paint (`firstPaint(ctx)`) and once the first view is in (`firstView(ctx)`), and to bundle the project's own pre-boot module into the same file (`script: './early.js'`). Config and rules: FRAMEWORK.md §5 → Early requests.
 
 ### Anonymous reads — `fetch.reads` (REST adapter, opt-in)
 
@@ -1707,6 +1722,8 @@ A stale page is adopted from the build's answers at once, as any page is. When t
 - recorded answers no call took are dropped.
 
 On an adopted page `window.__BRENDER_HYDRATION__.refreshed` reports it: `{ queries, reads, changed }` (a replaced page has no such report). A page that is not stale records nothing and sends nothing extra. `fetch.seed: false` adopts no recorded answer (the client asks for everything) and brender writes no seed into the page. `isStale` and `onRefresh` are published with the config: write them self-contained — only their arguments, no closure, no import (RULES.md Rule 59). When to flag a page: PATTERNS.md → Pre-built pages and fresh data.
+
+**Parts whose query runs later** (fetch 3.14.671 / smbls 3.14.857). A render also records which of its queries each element ran, also one that ran after the element's create (on a state change, once its `enabled` turned true): `fetchRunsOf(context)` from `@symbo.ls/fetch` → `{ [element path]: [index in its fetch list, …] }`. The page carries that record as the seed block's last item, `{"r":{…}}`. In the browser such an element takes those queries' recorded answers at its init, whatever its trigger and `enabled` say then: a part that asks for its data later (`on: 'stateChange'`, `enabled: (el, s) => s.below`) is taken over as the page shows it, with no loading look and no request. An element that never ran a query in the render never takes another element's answer. A page without the record (an older build) works as before. Build side: `createEarlySeedBlock(entries, runs)`. The element path is `elementPath(el)`, now exported by `@symbo.ls/utils` (still by `@symbo.ls/element`).
 
 ### Response types and request bodies (REST adapter)
 
@@ -1787,7 +1804,7 @@ context.polyglot = {
 
 ### The start language
 
-The app starts in one language, chosen before the first render: the address's (its first path segment, when it is one of `languages`), else the stored choice (`storageLangKey`), else `state.lang`, else `defaultLang`. `addressLang` sets the first step: `true` (default, the address wins over a stored choice), `'fallback'` (a stored choice wins), `'strict'` (the address alone decides: an unprefixed address is the default language's page, whatever is stored), `false` (the address is never read). `{ mode, except: [...] }` applies `mode` everywhere except under the `except` paths, which take the default `true`. A path matches the address's first segments (`'/admin'` matches `/admin` and `/admin/x`; `:param` matches any one segment). The address's language is not stored; `setLang` stores a choice.
+The app starts in one language, chosen before the first render: the language a `fetch.early.startLang(ctx)` pre-boot hook chose for this page load (in every mode, `'strict'` too), else the address's (its first path segment, when it is one of `languages`), else the stored choice (`storageLangKey`), else `state.lang`, else `defaultLang` — a code, or a function `(polyglot) => code` called each time it is asked. `addressLang` sets the first step: `true` (default, the address wins over a stored choice), `'fallback'` (a stored choice wins), `'strict'` (the address alone decides: an unprefixed address is the default language's page, whatever is stored), `false` (the address is never read). `{ mode, except: [...] }` applies `mode` everywhere except under the `except` paths, which take the default `true`. A path matches the address's first segments (`'/admin'` matches `/admin` and `/admin/x`; `:param` matches any one segment). The address's language is not stored; `setLang` stores a choice.
 
 ```js
 // context.js — /en/about starts in English, even over a stored 'ka'; / with nothing stored starts in Georgian
@@ -1801,6 +1818,20 @@ export const polyglot = {
 ```
 
 The first render, its declarative fetches (`Accept-Language`), the labels and a router's language guard all see it, so `/en/…` never renders in `ka` first. More: FRAMEWORK.md §6 → The start language.
+
+### Warming the other languages — `prefetch`
+
+A first switch to a language with no copy waits for its labels and the font faces they need. `polyglot.prefetch: true` (or `'idle'`; polyglot after 3.14.611 — FRAMEWORK.md §6) gets both ahead, once per app: after the active language's labels, once the page has loaded and the browser is idle (2 s at most), each other language in `languages` loads through `loadTranslations` (a project's own `loadTranslations` included) into the root state and storage, one at a time, and the faces its letters need in the body's font load. Static labels warm their faces only. Nothing for a reader whose browser asks to save data (`navigator.connection.saveData`); a server render never prefetches. Do not hand-write a loop over the languages on the window's `load` for this.
+
+```js
+// context.js — the other languages' labels and faces load at idle, so a first switch is instant
+export const polyglot = {
+  defaultLang: 'ka',
+  languages: ['ka', 'en'],
+  fetch: { rpc: 'get_translations_if_changed' },
+  prefetch: true
+}
+```
 
 ### Use in components
 

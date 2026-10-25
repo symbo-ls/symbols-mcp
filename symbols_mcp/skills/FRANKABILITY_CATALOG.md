@@ -62,10 +62,17 @@ Files in any other folder (utils/, lib/, helpers/, services/, ...) are
 silently dropped from the published JSON. The local dev server still
 sees them via normal JS imports — local works, prod is missing the code.
 
-A lazy group's folder (context.js `lazy: { admin: () => import('./admin/index.js') }`)
+A lazy group's folder (context.js `lazy: { admin: () => import('./admin/index.js') }`,
+or `lazy: { admin: { load: () => import('./admin/index.js'), when } }`)
 is discovered: its entry module and its components/, pages/, functions/,
 methods/ and snippets/ ship — frank merges them into the canonical
 sections. Any other file in it is an orphan of that group.
+
+The pre-boot module config.js names in `fetch: { early: { script: './early.js' } }`,
+and every file it imports, is not an orphan either: `smbls build` bundles
+it into the page's early script, which runs before the app. Those files
+are slot `preBoot`; only the rules that hold for any public file report
+there (FA905), not the app-only ones (DOM APIs, window.fetch, FA006).
 
 ## Fix
 
@@ -323,11 +330,12 @@ CARVE-OUT — a `fetch` config trigger is NOT this rule:
   { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit' } }
 
 `on` is a documented key of the fetch plugin ('create' | 'click' |
-'submit' | 'stateChange'); the plugin binds the listener itself. An
+'submit' | 'stateChange', or a list of them:
+`on: ['create', 'stateChange']`); the plugin binds the listener itself. An
 `onSubmit: fn` there does NOT run the declarative mutation, so an `on`
-string that sits directly on a fetch config is skipped — in the object
-form, in the `fetch: [ ... ]` array form, and in the function form
-`fetch: (el, s) => ({ ... })`. Any other `on` string still reports.
+string or list that sits directly on a fetch config is skipped — in the
+object form, in the `fetch: [ ... ]` array form, and in the function form
+`fetch: (el, s) => ({ ... })`. Any other `on` string or list still reports.
 
 # FA108 — style-wrapping-flat
 
@@ -1457,6 +1465,17 @@ or through a layout that itself extends Page:
   // components/AppLayout.js: { extends: 'Page', ... }
   // pages/Dashboard.js: { extends: 'AppLayout', ... }   ✓
 
+The layout may come from a linked shared library (sharedLibraries.js,
+symbols.json `sharedLibraries` link/destDir): names resolve built-ins,
+then the libraries, then the project, as DOMQL resolves them.
+
+  // a kit's components/SyRoutePage.js: { extends: 'Page', ... }
+  // pages/sy.js: { extends: 'SyRoutePage' }   ✓
+
+The proposed fix sets extends: 'Page' only when the page's extends names
+no defined component. Over a defined one it would drop that component;
+fix such a page by making its base (or the base's chain) extend Page.
+
 Without this chain the page misses Page-only behavior (route mounting,
 metadata pickup, default body class) and fails to register with the
 router as a navigable surface.
@@ -1826,4 +1845,69 @@ still surface, at low confidence.
 
 Never auto-fixed — replacing an id or host needs the deployer-side
 counterpart to exist first.
+
+# FA906 — hardcoded-secret
+
+A project file holds what looks like a credential. Everything in a
+Symbols project is public sooner or later: `smbls push` publishes it,
+`smbls build` bundles it into files every visitor downloads (the
+pre-boot `fetch.early.script` module included), and the repository
+keeps every version. A secret written into any of it is leaked once
+it is pushed.
+
+Scanned: every file of the project — JS and the other text files
+(JSON, HTML, Markdown, YAML, …), pre-boot code, orphans, the `files/`
+manifests and comments. Not scanned: dotfiles such as `.env` (the
+place a local secret belongs, kept out of the repository). Test code
+(`__tests__/`, `*.test.js`, `*.spec.js`) holds fake tokens on purpose:
+there only a known key format reports, not the entropy check.
+
+## What hits
+
+  - known key formats: AWS access key ids (`AKIA…`), GitHub tokens
+    (`ghp_…`, `gho_…`, `github_pat_…`), live Stripe / Symbols secret
+    keys (`sk_live_…`, `rk_live_…`), Slack tokens (`xox…`), Google
+    API keys (`AIza…`), npm tokens (`npm_…`), Supabase secret keys
+    (`sb_secret_…`) and `service_role` JWTs, SendGrid, Anthropic and
+    OpenAI keys, PEM private key blocks (`BEGIN … PRIVATE KEY`) —
+    confidence high;
+  - a password in a URL (`scheme://user:password@host`) — high; a
+    local host and a placeholder password do not hit;
+  - a string of at least 20 characters with at least 3.5 bits of
+    entropy per character (letters and digits) assigned to a
+    secret-shaped name: `secret`, `token`, `password`, `apiKey`,
+    `privateKey`, `clientSecret`, `Authorization` (`Bearer …`) — medium.
+    A name about the secret rather than holding it (`tokenLabel`,
+    `passwordField`, `tokenStorageKey`) does not hit.
+
+## Public by design — never a hit
+
+A Supabase anon key (a JWT with role `anon`) and a Supabase
+publishable key (`sb_publishable_…`), a Stripe publishable key
+(`pk_live_…`, `pk_test_…`), a Firebase web config `apiKey` (an
+`AIza…` key beside `authDomain` / `projectId` / `appId`), a Symbols
+project key (`pr_…`), a Mapbox public token (`pk.eyJ…`), a Cloudflare
+Web Analytics beacon token (32 hex beside `cf-beacon`). These keys are
+meant for the browser; the backend protects the data (row-level
+security, Firebase rules, key restrictions). Nor does a JWT-shaped
+value whose signature is shorter than any real one (a fixture).
+
+## Redaction
+
+A finding never carries the value: it shows the first 4 characters and
+the length (`AKIA…, 20 chars`) and the lines.
+
+## What to do
+
+  1. Rotate the credential at its provider — it is compromised once
+     pushed, even if the line is removed.
+  2. Keep it server-side: a server secret, or a deploy-time variable
+     the server reads. Browser code reaches the backend through the
+     SDK or a declarative `fetch` with a public key, never with a
+     secret one. `config.js` is published — not a place for secrets.
+  3. A value that is public by design and still hits:
+     `// frank-allow FA906` on the line (in a text file:
+     `frank-allow FA906` on the line or the line above).
+
+Never auto-fixed: only the owner can rotate a key.
 

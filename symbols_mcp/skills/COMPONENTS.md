@@ -17,7 +17,7 @@ All components are plain objects. Props are **flat on the element** — no `prop
 | `Radio` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Radio: { name: 'opt', value: 'a' }` |
 | `Checkbox` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Checkbox: { name: 'agree', checked: true }` |
 | `Svg` | `<svg>` | `html` (inline SVG markup), `width`, `height`, `viewBox`, `fill`, `stroke`. For non-icon SVGs only (decorative/structural). Use `Icon` for icons. | `Svg: { html: '<path d="..." />', viewBox: '0 0 24 24', width: '22', height: '22' }` |
-| `Icon` | `<svg>` | `name` (sprite symbol id), `size`/`boxSize`, `color`, `viewBox` (default: the registered icon's `0 0 W H`; `'0 0 24 24'` restores the old square fit) | `Icon: { name: 'chevronRight', boxSize: 'A' }` |
+| `Icon` | `<svg>` | `name` (sprite symbol id), `size`/`boxSize`, `color`, `viewBox` (default: the registered icon's `0 0 W H`; `'0 0 24 24'` restores the old square fit). The fit is contain (`xMidYMid meet`): the icon keeps its proportions in any box; size the box, not the viewBox | `Icon: { name: 'chevronRight', boxSize: 'A' }` |
 | `IconText` | `<div>` | `icon`, `text`, `gap`, `align`, `color` | `IconText: { icon: 'search', text: '{{ search | polyglot }}', gap: 'Z' }` |
 | `Button` | `<button>` | `text`, `icon`, `type`, `disabled`, `theme`, `padding`, `round`, `onClick`, `onSubmit` | `Button: { text: '{{ save | polyglot }}', theme: 'primary', type: 'submit' }` |
 | `Img` | `<img>` | `src`, `alt`, `loading`, `width`, `height`, `boxSize`, `objectFit` | `Img: { src: '/logo.png', alt: '{{ logo_alt | polyglot }}', boxSize: 'B' }` |
