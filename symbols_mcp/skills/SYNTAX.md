@@ -70,6 +70,15 @@ create(definition, parent, key, options)
 
 The `if` effect re-enters the full creation steps the first time it flips false → true.
 
+**When the app's first view is in — `afterFirstView`** (smbls after 3.14.857). A create option (`config.js`, `context.js`, or `create(App, { afterFirstView })`), called once per app as the root's `onCreate` is, `(app, state, context)`: a task after the first view is in — after `create()` rendered it (on a pre-rendered page: after the adoption) and after the first navigation settled (a route behind an awaited guard renders later). Work that must not compete with the first view goes there: a page view, a beacon, warming the next route. Never poll `window.__BRENDER_HYDRATION__` or loop on `requestAnimationFrame` to learn that a built page was taken over. A hook that throws or rejects is reported, never rethrown; a server render (brender) never runs it. It runs at the moment `fetch.early`'s own `afterFirstView` hook runs (FRAMEWORK.md §5 → Early requests).
+
+```js
+// config.js
+export default {
+  afterFirstView: (app, state, context) => { app.call('pageView') }
+}
+```
+
 **Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once (during the first render and the adoption of a pre-rendered page, smbls sets `mountWhole`: it waits outside its parent and goes in with one insertion when its last chunk is in, so a row is never on screen half built), but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
 ---
@@ -1582,6 +1591,9 @@ The connection config is the `fetch` key of `config.js` (the runtime resolves it
 { fetch: { from: 'articles',
           params: (el, s) => ({ title: { ilike: '%' + s.query + '%' } }),
           on: 'stateChange' } }
+{ fetch: { from: 'articles', as: 'rows',                                  // a list of triggers: load on create,
+          params: (el, s) => ({ kind: s.kind }),                          // then again when s.kind changes —
+          on: ['create', 'stateChange'] } }                               // one config, one params
 
 // enabled
 { fetch: { from: 'profile', enabled: (el, s) => !!s.userId } }
@@ -1608,7 +1620,8 @@ Stale-while-revalidate: stale data served immediately, background refetch swaps 
 Garbage collection: unused entries cleaned after `gcTime`.
 Deduplication: identical concurrent queries share one network request — and, if it fails, every element on it gets the error (`onFetchError`), not empty rows.
 A forced refetch reaches the network even while the entry is fresh: `el.__ref.refetch()`, each `refetchInterval` tick, the browser coming back online. Each page of a paginated / infinite query has its own key (the cursor is part of it).
-`on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create (add `on: 'create'` for a first load), and not when its own rows land in state.
+`on: 'stateChange'` runs the query when the values its `params`, `enabled`, `skip` and `page` resolve to change — not on create, and not when its own rows land in state.
+**`on` as a list** (fetch after 3.14.671): `on: ['create', 'stateChange']` is ONE config that loads on create and runs again when its inputs change — write it instead of two configs with the same `params` (one `'create'`, one `'stateChange'`). Each trigger in the list does what it does alone. With `'create'` in the list the config is a create-time query: it mounts its cache entry, refetches on focus / reconnect / `refetchInterval`, is refetched by an invalidation, and takes a seeded or early answer. `'stateChange'` then compares against the values the create run asked with. `'submit'` or `'click'` in the list make an `rpc` an action. A list of one is that trigger; an empty list is `'create'`; a trigger named twice counts once. (Before this release a list named no trigger and the config never ran.)
 Removing an element releases what fetch bound for it: interval timers, focus / online / submit / click listeners, the `stateChange` watcher, a realtime subscription.
 A server render (brender) binds no interval timer and no focus / online listener, and each render has a query cache of its own.
 
@@ -1805,6 +1818,20 @@ export const polyglot = {
 ```
 
 The first render, its declarative fetches (`Accept-Language`), the labels and a router's language guard all see it, so `/en/…` never renders in `ka` first. More: FRAMEWORK.md §6 → The start language.
+
+### Warming the other languages — `prefetch`
+
+A first switch to a language with no copy waits for its labels and the font faces they need. `polyglot.prefetch: true` (or `'idle'`; polyglot after 3.14.611 — FRAMEWORK.md §6) gets both ahead, once per app: after the active language's labels, once the page has loaded and the browser is idle (2 s at most), each other language in `languages` loads through `loadTranslations` (a project's own `loadTranslations` included) into the root state and storage, one at a time, and the faces its letters need in the body's font load. Static labels warm their faces only. Nothing for a reader whose browser asks to save data (`navigator.connection.saveData`); a server render never prefetches. Do not hand-write a loop over the languages on the window's `load` for this.
+
+```js
+// context.js — the other languages' labels and faces load at idle, so a first switch is instant
+export const polyglot = {
+  defaultLang: 'ka',
+  languages: ['ka', 'en'],
+  fetch: { rpc: 'get_translations_if_changed' },
+  prefetch: true
+}
+```
 
 ### Use in components
 

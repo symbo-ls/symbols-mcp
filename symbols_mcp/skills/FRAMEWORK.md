@@ -463,7 +463,17 @@ Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads
 
 ### Triggers
 
-`on: 'create'` (default) | `'click'` | `'submit'` | `'stateChange'`. For `'stateChange'`, `params: (el, s) => ({ q: s.query })` re-fetches when what `params` / `enabled` / `skip` / `page` resolve to changes — not on create (add `on: 'create'` for a first load), not when its own rows land. Removing the element releases its timers, listeners, watcher and subscription.
+`on: 'create'` (default) | `'click'` | `'submit'` | `'stateChange'` — or a list of them. For `'stateChange'`, `params: (el, s) => ({ q: s.query })` re-fetches when what `params` / `enabled` / `skip` / `page` resolve to changes — not on create, not when its own rows land. Removing the element releases its timers, listeners, watcher and subscription.
+
+**A list of triggers** (fetch after 3.14.671): `on: ['create', 'stateChange']` is one config, one `params`, that loads on create and runs again when its inputs change — a list page that follows its filter needs no second config. Each trigger in the list does what it does alone; with `'create'` in it the config keeps everything a create-time query has (cache entry, focus / reconnect / interval refetch, invalidation, seeded and early answers). `'submit'` / `'click'` in a list make an `rpc` an action. A list of one is that trigger, an empty list is `'create'`, a repeated trigger counts once.
+
+```js
+export const ArticleList = {
+  state: { kind: 'texts', rows: [] },
+  fetch: { from: 'articles', params: (el, s) => ({ kind: s.kind }), on: ['create', 'stateChange'], as: 'rows', cache: '5m' },
+  text: (el, s) => s.rows.map((row) => row.title).join(', ')
+}
+```
 
 ### Optimistic updates + cache invalidation
 
@@ -573,7 +583,7 @@ early: {
 - **A first part's status is for the view, not for `transform`.** While the full answer is on its way the element is fetching (`el.__ref.__fetchStatus.isFetching`). `transform` runs for the first part AND for the full answer and cannot tell them apart. Keep "more rows" logic (a "Show more", a filter bar) in the view, behind `isFetching`, never in `transform`.
 - **`startLang(ctx)`** — names the language the first view is in, for a project whose languages are data or whose addresses decide the language its own way. The requests ask in it, `ctx.lang` is it, and the script stores it as polyglot's choice (`polyglot.storageLangKey`) before the app starts, so the app starts in it too. Runs at once on every page the script is on. `null` / `''` keeps the built-in rule and stores nothing. A request's `lang: '<code>'` asks in a language of its own (`lang: false`: none).
 - **`firstView(ctx)`** — runs once the first view is in, for work that must not compete with it (a beacon, page views): after smbls reports its first view (on a page built ahead: after the takeover), the page has loaded and painted its first content, at the next idle moment (2 s at most). A background tab counts paint 5 s after load; an app that never reports is not waited for past 20 s after load.
-- **`script: './early.js'`** — bundles the project's own pre-boot module (relative to the project's source directory; it may import what it likes) into the same `early.<hash>.js`: one request instead of two. The module runs first, on every page, before the requests. Its exported hooks `startLang`, `firstPaint`, `firstView`, `afterFirstView` are the script's, with the module's closure. A hook declared in `fetch.early` AND exported stops the script's build (`Early data requests skipped: … declared twice`). Remove the module's own `<script>` from the page. The module is pre-boot code, not app code: it runs before DOMQL exists, so browser globals are fine there, and it never ships through frank.
+- **`script: './early.js'`** — bundles the project's own pre-boot module (relative to the project's source directory; it may import what it likes) into the same `early.<hash>.js`: one request instead of two. The module runs first, on every page, before the requests. Its exported hooks `startLang`, `firstPaint`, `firstView`, `afterFirstView` are the script's, with the module's closure. A hook declared in `fetch.early` AND exported stops the script's build (`Early data requests skipped: … declared twice`). Remove the module's own `<script>` from the page. The module is pre-boot code, not app code: it runs before DOMQL exists, so browser globals are fine there, and it never ships through frank. frank-audit (after 3.14.782) reads `fetch.early.script` from `config.js` and audits the module and every file it imports as pre-boot code (slot `preBoot`): the app-only rules (DOM APIs, `addEventListener`, `window.fetch`, window assignments, FA006 orphan) do not report there; FA905 (hardcoded deploy values) still does. A file in a canonical folder that the module imports (`functions/x.js`) ships in the app too and keeps every rule.
 
 ```js
 // config.js
@@ -633,6 +643,7 @@ context.polyglot = {
   storageLangKey: 'myapp_lang',     // localStorage key for active lang
   storagePrefix: 'myapp_t_',        // localStorage prefix for translations
   fontWait: 3000,                   // ms setLang waits for the new labels' font faces (default); false = no wait
+  prefetch: true,                   // warm the other languages' labels + faces at idle (default false)
   translations: {
     en: { hello: 'Hello' },
     ka: { hello: 'გამარჯობა' },
@@ -655,6 +666,10 @@ context.polyglot = {
 ```
 
 Mixed mode: ship `translations` in the bundle (UI strings) and add `fetch` (content strings) — server overrides static when loaded.
+
+### Warming the other languages — `prefetch`
+
+`polyglot.prefetch: true` (or `'idle'`; polyglot after 3.14.611) makes a first `setLang` to another language instant: once per app, after the active language's labels, when the page has loaded and the browser is idle (`requestIdleCallback`, 2 s at most; a task later where there is none), each other language in `languages` loads through `loadTranslations` — the project's own, when it has one — one at a time, into the root state and storage (so the switch applies the stored copy at once), and then the font faces its letters need load in the body's font (`document.fonts`). Static labels warm their faces only. Skipped when the browser asks to save data (`navigator.connection.saveData`) and in a realm without a window; a server render (brender) switches it off for its renders. Replaces a project's own "load every other language on `load`" function.
 
 ### The start language
 
@@ -915,6 +930,8 @@ Pages from older servers still work: the inline `window.__BRENDER__` flag, `wind
 
 **The data is the build's.** A `smbls build` page shows the answers of the build time until the next build. A page flagged stale gets them at once and then, after the adoption, asks again (§5 → `fetch.seed`); on an adopted page `window.__BRENDER_HYDRATION__.refreshed` reports that refresh (`{ queries, reads, changed }`).
 
+**When the first view is in — `afterFirstView`** (smbls after 3.14.857). The create option `afterFirstView: (app, state, context) => {}` (config.js, context.js or `create(App, { afterFirstView })`) runs once per app, a task after the first view is in: after `create()` rendered it or adopted the pre-rendered page, after the first navigation settled — the moment `fetch.early`'s `afterFirstView` hook runs. Use it for work that must wait for the takeover (a page view, a beacon, revealing a below-the-fold part); never poll `window.__BRENDER_HYDRATION__` or loop on `requestAnimationFrame` for it. A hook that throws or rejects is reported, never rethrown. brender never runs it in a server render.
+
 **In app code:** `el.context.prerendered` is `true` in an app that booted over a pre-rendered page, and `el.context.prerender` is the build the page comes from, `{ stamp, time }` (the `brender-stamp` meta; `undefined` on a page without one). A gate that hides the app until its data is in (`opacity: 0` until labels, settings and fonts load) also hides the adopted page until then — let a pre-rendered first view count as ready: `isReady: (el, s) => el.context.prerendered || …`.
 
 **The design system prepared at build time.** Every server render of `smbls build` also prepares the app's design system (the processed config and the global CSS). The build writes it once as `smbls-ds.<sha>.json` next to the bundles and puts `<link rel="preload" as="fetch" data-smbls="design-system">` into every page it pre-renders (their boot waits for it). The app's first document requests the file before its first yield and ADOPTS it (the config revived, the global rules replayed) instead of processing the design system again. `context.designSystemSource` says which ran: `'prepared'` or `'processed'`. It adopts only a file prepared from the same input — a fingerprint of the design system without its `font` family, and of the options that shape processing, with the theme the page boots in. **A page the client renders** (the app shell `200.html`, the `index.html` of a build without a pre-render) gets no preload, only a reference: `<meta name="smbls-design-system" content="smbls-ds.<sha>.json" data-smbls="design-system">` (smbls 3.14.845). The boot requests the file at low priority when it runs (after the app script is in) and never waits for the download: the app adopts the file when its answer is in by the time the design system is prepared, else processes the design system itself. Both give the same CSS, so nothing repaints; a later visit finds the file in the HTTP cache. `symbols.json` `build.prepareDesignSystem: false` (= `{ shell: false }`) leaves the reference out of the client-rendered pages (pre-rendered pages keep their preload). `build.prepareDesignSystem: { pages: false }` (opt-in, cli 3.14.814) leaves the preload out of the pre-rendered pages too; their client processes the design system itself. The page processes as before when:
@@ -984,7 +1001,7 @@ A page's declarative `fetch` runs during the render, through the fetch plugin wi
 
 Each render has a query cache of its own. Renders in one process — one after another or at once, of one project or of several — never share cached rows, requests in flight or invalidations, and `el.call('invalidateQueries' | 'removeQueries' | 'getQueryData' | 'setQueryData', …)` acts on the cache of the render that calls it. A server render binds no window-focus, reconnect or `refetchInterval` refetch: once its markup is taken, a page's queries leave no listener, no timer and no request behind, and its `data-fetch-seed` carries only the requests the page itself made.
 
-`prefetchPageData(data, route)` (deprecated, like `injectPrefetchedState`) fetches a page's `fetch` data OUTSIDE a render; `render()` does not use it.
+`prefetchPageData(data, route)` (deprecated, like `injectPrefetchedState`) fetches a page's `fetch` data OUTSIDE a render; `render()` does not use it. It takes the configs that run on create: no `on`, `on: 'create'`, or a list that names `'create'` (or is empty), as the fetch plugin reads `on`.
 
 ### Diagnose a broken hydration
 

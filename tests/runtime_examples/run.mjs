@@ -701,6 +701,76 @@ Object.assign(cases, {
   }
 })
 
+// The fetch trigger list, the afterFirstView create option and polyglot's
+// prefetch (smbls after 3.14.857 / fetch after 3.14.671 / polyglot after
+// 3.14.611): the documented blocks, on a mock adapter, no network.
+Object.assign(cases, {
+  // FRAMEWORK §5 "A list of triggers": one config loads on create and runs
+  // again when the state its params read changes — not for its own rows.
+  async fetchTriggerList () {
+    const [[, ArticleList]] = docExports('FRAMEWORK.md', "on: ['create', 'stateChange']")
+    const asked = []
+    const select = async ({ params }) => { asked.push(params.kind); return { data: [{ title: params.kind + '-1' }] } }
+    const app = await mount({ ArticleList }, { fetch: { name: 'mock', auth: false, select } })
+    for (let i = 0; i < 50 && app.ArticleList.node.textContent !== 'texts-1'; i++) await flush()
+    eq(app.ArticleList.node.textContent, 'texts-1', 'loaded on create')
+    eq(asked.join(), 'texts', 'one request on create')
+    app.ArticleList.state.update({ kind: 'vlog' })
+    for (let i = 0; i < 50 && app.ArticleList.node.textContent !== 'vlog-1'; i++) await flush()
+    eq(app.ArticleList.node.textContent, 'vlog-1', 'ran again when s.kind changed')
+    await flush()
+    eq(asked.join(), 'texts,vlog', 'no request for its own rows')
+  },
+
+  // SYNTAX "When the app's first view is in — afterFirstView": runs once, a
+  // task after the first view, with (app, state, context).
+  async afterFirstViewOption () {
+    const [[, config]] = docExports('SYNTAX.md', 'afterFirstView: (app, state, context) =>')
+    const views = []
+    let seen = null
+    const app = await mount({ Hello: { text: 'hi' } }, {
+      afterFirstView: (a, s, ctx) => { seen = [a, s, ctx]; return config.afterFirstView(a, s, ctx) },
+      functions: { pageView () { views.push(this.Hello && this.Hello.node.textContent) } }
+    })
+    for (let i = 0; i < 20 && !views.length; i++) await flush()
+    eq(views.length, 1, 'ran once')
+    eq(views[0], 'hi', 'after the first view is in')
+    expect(seen[0] === app && seen[1] === app.state && seen[2] === app.context, '(app, state, context)')
+    await flush()
+    eq(views.length, 1, 'never again')
+  },
+
+  // SYNTAX "Warming the other languages — prefetch": at idle the other
+  // language's labels load and are stored; the active language stays.
+  async polyglotPrefetch () {
+    const [[, polyglot]] = docExports('SYNTAX.md', 'prefetch: true')
+    const LABELS = { ka: { hello: 'გამარჯობა' }, en: { hello: 'Hello' } }
+    const asked = []
+    const rpc = async ({ from, params }) => {
+      asked.push(from + ':' + params.p_lang)
+      return { data: { changed: true, version: 1, translations: LABELS[params.p_lang] } }
+    }
+    const stored = (lang) => localStorage.getItem((polyglot.storagePrefix || 'smbls_t_') + lang)
+    localStorage.removeItem('smbls_lang')
+    try {
+      const app = await mount({ Hello: { text: '{{ hello | polyglot }}' } }, {
+        polyglot: JSON.parse(JSON.stringify(polyglot)),
+        fetch: { name: 'mock', auth: false, rpc, select: async () => ({ data: [] }) }
+      })
+      for (let i = 0; i < 100 && !stored('en'); i++) await new Promise((r) => setTimeout(r, 10))
+      expect(stored('en'), 'the other language is stored after idle: ' + JSON.stringify(asked))
+      eq(asked[0], 'get_translations_if_changed:ka', 'the active language first')
+      expect(asked.includes('get_translations_if_changed:en'), 'then the other one')
+      eq(app.Hello.node.textContent, 'გამარჯობა', 'the screen stays in the active language')
+    } finally {
+      for (const lang of ['ka', 'en']) {
+        localStorage.removeItem('smbls_t_' + lang)
+        localStorage.removeItem('smbls_tv_' + lang)
+      }
+    }
+  }
+})
+
 const results = []
 for (const [name, fn] of Object.entries(cases)) {
   try {

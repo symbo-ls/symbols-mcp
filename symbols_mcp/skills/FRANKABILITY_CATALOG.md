@@ -68,6 +68,12 @@ is discovered: its entry module and its components/, pages/, functions/,
 methods/ and snippets/ ship — frank merges them into the canonical
 sections. Any other file in it is an orphan of that group.
 
+The pre-boot module config.js names in `fetch: { early: { script: './early.js' } }`,
+and every file it imports, is not an orphan either: `smbls build` bundles
+it into the page's early script, which runs before the app. Those files
+are slot `preBoot`; only the rules that hold for any public file report
+there (FA905), not the app-only ones (DOM APIs, window.fetch, FA006).
+
 ## Fix
 
 Sub-folder orphans are auto-moved to `functions/` (a lazy group's own
@@ -324,11 +330,12 @@ CARVE-OUT — a `fetch` config trigger is NOT this rule:
   { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit' } }
 
 `on` is a documented key of the fetch plugin ('create' | 'click' |
-'submit' | 'stateChange'); the plugin binds the listener itself. An
+'submit' | 'stateChange', or a list of them:
+`on: ['create', 'stateChange']`); the plugin binds the listener itself. An
 `onSubmit: fn` there does NOT run the declarative mutation, so an `on`
-string that sits directly on a fetch config is skipped — in the object
-form, in the `fetch: [ ... ]` array form, and in the function form
-`fetch: (el, s) => ({ ... })`. Any other `on` string still reports.
+string or list that sits directly on a fetch config is skipped — in the
+object form, in the `fetch: [ ... ]` array form, and in the function form
+`fetch: (el, s) => ({ ... })`. Any other `on` string or list still reports.
 
 # FA108 — style-wrapping-flat
 

@@ -42,6 +42,8 @@ If a file is generic-utility-shaped, put it in `functions/` (default) or `method
 
 A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`, or the `{ load, when }` form `lazy: { admin: { load: () => import('./admin/index.js'), when } }` — frank-audit 3.14.782; only `load` names the group entry, an `import()` inside `when` names none; a group or `load` that names a top-level const resolves through it) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
 
+The pre-boot module (`config.js` `fetch: { early: { script: './early.js' } }`, FRAMEWORK.md §5 → Early requests) is not an orphan either (frank-audit after 3.14.782). `smbls build` bundles it, and every file it imports, into the page's `early.<hash>.js`, which runs before the app: frank never ships it. frank-audit finds the declaration statically (a string literal, or a top-level const holding one), follows the module's relative imports, and gives those files the slot `preBoot`. There the app-only rules stay silent — DOM APIs (FA5xx), `window.fetch` (FA402), `document.head` writes (FA405), window assignments (FA409), FA006 — because the code runs before DOMQL, the router or any element exist. The rules that hold for any public file still report: FA905 (a hardcoded deploy value). A canonical-folder file the module imports (`functions/x.js`) ships in the app too, so it keeps its slot and every rule. Keep the pre-boot module small and self-contained; app logic stays in the app.
+
 #### FA007 — `components/index.js` uses `export *`, never `export * as`
 
 ```js
@@ -169,11 +171,12 @@ Form:   { tag: 'form', fetch: { method: 'insert', from: 'contacts', on: 'submit'
 ```
 
 `on` is a documented key of the fetch plugin (`'create'` | `'click'` |
-`'submit'` | `'stateChange'`) and the plugin binds the listener itself. An
-`onSubmit: fn` there does NOT run the declarative mutation, so the audit skips
-an `on` string that sits directly on a fetch config — object form,
-`fetch: [ ... ]` array form and `fetch: (el, s) => ({ ... })` function form
-alike. Any other `on` string still reports.
+`'submit'` | `'stateChange'`, or a list of them: `on: ['create', 'stateChange']`)
+and the plugin binds the listener itself. An `onSubmit: fn` there does NOT run
+the declarative mutation, so the audit skips an `on` string or list that sits
+directly on a fetch config — object form, `fetch: [ ... ]` array form and
+`fetch: (el, s) => ({ ... })` function form alike. Any other `on` string or list
+still reports.
 
 ---
 
