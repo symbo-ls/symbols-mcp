@@ -202,7 +202,8 @@ export const prepareSharedLibs = (context) => {
           }
         }
       } else if (!(key in context)) {
-        context[key] = sharedLib[key]
+        // the app's own container, never the library's object (see below)
+        context[key] = isObject(sharedLib[key]) ? { ...sharedLib[key] } : sharedLib[key]
       }
     }
   }
@@ -211,9 +212,17 @@ export const prepareSharedLibs = (context) => {
 
 **The app ALWAYS wins.** Shared libraries only fill in missing keys (`!(k in context[key])`). designSystem uses `deepDefaults` which fills nested gaps while preserving all local values.
 
-**The library's design system is never written.** What `deepDefaults` fills in is a copy, all the way down — also when the app has no `designSystem` and takes a library's whole. A later library fills the app's copy, so a second app that links the same library payload, and the livesync re-init that reads it again, see the library as it was published. An ignore path holds at every depth, also inside a bag the app does not have (`ignoreList: ['designSystem/color/secret']`).
+**A library object is never written.** The app never holds a library's own object:
 
-**A prototype key never merges.** A library payload is parsed JSON, where `__proto__` is an ordinary key. In `designSystem` and `polyglot.translations`, a key named `__proto__`, `constructor` or `prototype` is dropped at every depth. It never reaches `Object.prototype` and never lands in the app.
+- A bag the app does not have (`components`, `pages`, `functions`, `methods`, `snippets`, `state`, `files`, `dependencies`, `globalScope`, or any other key) lands as the app's own container, a shallow copy. A later library fills the app's copy, and so does the boot when it revives the bag's code. The values inside stay shared, as the add-missing merge always shares them.
+- What `deepDefaults` fills into the design system is a copy, all the way down. This is also true when the app has no `designSystem` and takes a library's whole. `polyglot.translations` work the same way (see [Polyglot translations](#polyglot-translations)).
+- An ignore path holds at every depth, also inside a bag the app does not have (`ignoreList: ['designSystem/color/secret']`).
+
+So a second app that links the same library payload, and the livesync re-init that reads it again, see the library as it was published. One library object can serve many apps: the runtime registers every linked library on the realm-wide `__SMBLS_PKGS__` registry (the first registration wins), a frank dynamic-import facade (`await import('@symbo-ls/<key>/…')`) reads that registry, and one server process renders many projects.
+
+**Each boot starts from its own defaults.** `create()` gives an app that brings no `components`, `pages`, `state`, `router` or `define` its own new container for each. The merge and the runtime write into these containers, so one boot never sees another boot's libraries through them.
+
+**A prototype key never merges.** A library payload is parsed JSON, where `__proto__` is an ordinary key. The merge drops a key named `__proto__`, `constructor` or `prototype` in every bag it copies: the top level, the add-missing merge, `designSystem` and `polyglot.translations` at every depth, the scoped and bound copies of a library's code, and the files map. Such a key never reaches `Object.prototype`, never sets the prototype of an app's bag, and never lands in the app.
 
 The loop above is the core, simplified. The real merge is `mergeSharedLibraries` in `@symbo.ls/utils` (`smbls/packages/utils/sharedLibraries.js`): it also merges `system/default` — the base library — LAST, whatever its position in the array, and ranks the default font family claim the same way (see [Order of Precedence](#order-of-precedence)). And it merges a library's `polyglot.translations` language by language and key by key, like `designSystem`, not by the missing second-level keys of the loop above (see [Polyglot translations](#polyglot-translations)).
 
@@ -289,7 +298,7 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 
 ## What Gets Merged
 
-| Merged (key by key, only where the app has no such key) | Never merged from a library |
+| Merged (key by key, only where the app has no such key; a bag the app lacks lands as the app's own copy) | Never merged from a library |
 |--------|--------------------------|
 | components | `app` — the library's own root definition |
 | functions | `sharePages`, `sharedLibIgnore` — merge directives, not content |
@@ -298,7 +307,7 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 | | a `methods` entry named like a built-in element method — the built-in wins (see below) |
 | pages / routes | |
 | state | |
-| designSystem (deep defaults, into the app's own copy) | a key named `__proto__`, `constructor` or `prototype` in `designSystem` or `polyglot.translations`, at any depth |
+| designSystem (deep defaults, into the app's own copy) | a key named `__proto__`, `constructor` or `prototype`, in any bag the merge copies |
 | polyglot.translations (per language, key by key — see [Polyglot translations](#polyglot-translations)) | |
 | polyglot — every other key (`defaultLang`, `languages`, `storageLangKey`, `fetch`, …) | |
 | files | |
