@@ -1465,6 +1465,17 @@ or through a layout that itself extends Page:
   // components/AppLayout.js: { extends: 'Page', ... }
   // pages/Dashboard.js: { extends: 'AppLayout', ... }   ✓
 
+The layout may come from a linked shared library (sharedLibraries.js,
+symbols.json `sharedLibraries` link/destDir): names resolve built-ins,
+then the libraries, then the project, as DOMQL resolves them.
+
+  // a kit's components/SyRoutePage.js: { extends: 'Page', ... }
+  // pages/sy.js: { extends: 'SyRoutePage' }   ✓
+
+The proposed fix sets extends: 'Page' only when the page's extends names
+no defined component. Over a defined one it would drop that component;
+fix such a page by making its base (or the base's chain) extend Page.
+
 Without this chain the page misses Page-only behavior (route mounting,
 metadata pickup, default body class) and fails to register with the
 router as a navigable surface.
