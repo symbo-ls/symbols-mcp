@@ -211,6 +211,10 @@ export const prepareSharedLibs = (context) => {
 
 **The app ALWAYS wins.** Shared libraries only fill in missing keys (`!(k in context[key])`). designSystem uses `deepDefaults` which fills nested gaps while preserving all local values.
 
+**The library's design system is never written.** What `deepDefaults` fills in is a copy, all the way down — also when the app has no `designSystem` and takes a library's whole. A later library fills the app's copy, so a second app that links the same library payload, and the livesync re-init that reads it again, see the library as it was published. An ignore path holds at every depth, also inside a bag the app does not have (`ignoreList: ['designSystem/color/secret']`).
+
+**A prototype key never merges.** A library payload is parsed JSON, where `__proto__` is an ordinary key. In `designSystem` and `polyglot.translations`, a key named `__proto__`, `constructor` or `prototype` is dropped at every depth. It never reaches `Object.prototype` and never lands in the app.
+
 The loop above is the core, simplified. The real merge is `mergeSharedLibraries` in `@symbo.ls/utils` (`smbls/packages/utils/sharedLibraries.js`): it also merges `system/default` — the base library — LAST, whatever its position in the array, and ranks the default font family claim the same way (see [Order of Precedence](#order-of-precedence)). And it merges a library's `polyglot.translations` language by language and key by key, like `designSystem`, not by the missing second-level keys of the loop above (see [Polyglot translations](#polyglot-translations)).
 
 ### deepMerge Behavior
@@ -294,7 +298,7 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 | | a `methods` entry named like a built-in element method — the built-in wins (see below) |
 | pages / routes | |
 | state | |
-| designSystem (deep defaults) | |
+| designSystem (deep defaults, into the app's own copy) | a key named `__proto__`, `constructor` or `prototype` in `designSystem` or `polyglot.translations`, at any depth |
 | polyglot.translations (per language, key by key — see [Polyglot translations](#polyglot-translations)) | |
 | polyglot — every other key (`defaultLang`, `languages`, `storageLangKey`, `fetch`, …) | |
 | files | |
