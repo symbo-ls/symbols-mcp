@@ -416,7 +416,8 @@ export const Card = {
 
 ```js
 export const Rise = {
-  data: { rise: 'wait' },
+  // a server render starts in the final state (no view there, nothing fires)
+  data: { rise: (el) => el.context.ssr === true ? 'in' : 'wait' },
   '[data-rise="wait"]': { opacity: '0' },
   '[data-rise="in"]': { animationName: 'riseIn', animationDuration: 'E' },
   onInView: {
@@ -435,6 +436,7 @@ export const Rise = {
 - Observed when the element gets its node; unobserved on removal and once its `once` handlers ran. An `if:`-hidden element leaves the view.
 - Entries delivered together run in delivery order and share `entry.time` (count them for a stagger).
 - No IntersectionObserver (SSR / brender, jsdom) → nothing observed, nothing runs. Never hand-roll an IntersectionObserver in `onRender` for this.
+- So a start state that hides the element stays hidden in a server render, and the page is stored with a blank block until the client takes over. Start in the final state when `el.context.ssr === true` (the example's `data.rise`; FRAMEWORK.md §8 → In the server render).
 
 The smbls embed (`SymbolsEmbed`) has neither feature: `onInView` / `onLeaveView` never fire there, and `{ always: true, handler }` is not a handler (RUNNING_APPS.md → Embed Bundle).
 
