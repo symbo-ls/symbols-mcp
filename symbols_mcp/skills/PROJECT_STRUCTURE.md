@@ -50,6 +50,9 @@ project-root/
     │   ├── index.js              # export * from './formatDate.js'
     │   └── formatDate.js         # export const formatDate = function(date) { ... }
     │
+    ├── workers/                  # Module Web Workers — one file each, NO index.js
+    │   └── avifEncode.js         # self.onmessage = (e) => { ... }
+    │
     ├── designSystem/             # Visual tokens ONLY — NO translations, NO logic
     │   ├── index.js              # export default { color, theme, font, ... }
     │   ├── color.js              # export default { blue: '#0474f2', ... }
@@ -208,6 +211,35 @@ export const formatDate = function(date) {
   return new Intl.DateTimeFormat().format(date)
 }
 ```
+
+---
+
+## Web Workers (`workers/`)
+
+Since smbls 3.14.859 / cli 3.14.826. Each `workers/<name>.js` (or `.mjs`) is one MODULE Web Worker: work that must leave the main thread (an image encoder, a parser). Its global is the worker's own scope (`self`), not the app's window, and it may import packages; they ship inside the worker. No `index.js`: frank finds every file of the folder.
+
+```js
+// workers/avifEncode.js — the worker
+import { encode } from '@jsquash/avif'
+self.onmessage = async (event) => {
+  const file = await encode(event.data)
+  self.postMessage(file, [file])
+}
+
+// functions/encodeAvif.js — the app starts it with the form every bundler resolves
+export const encodeAvif = function (imageData) {
+  const worker = new Worker(new URL('../workers/avifEncode.js', import.meta.url), { type: 'module' })
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event) => { resolve(event.data); worker.terminate() }
+    worker.onerror = (error) => { reject(error); worker.terminate() }
+    worker.postMessage(imageData)
+  })
+}
+```
+
+- `smbls build` (Parcel) and Vite emit each worker as its own hashed bundle, fetched only when it starts.
+- `smbls push` ships each worker bundled (one ES module, every import inlined) in the project's `workers` section, and points the published caller at `/__smbls/workers/<name>.js`, a same-origin path the platform serves.
+- In a worker file, `self.X = …` / `globalThis.X = …` are the worker's own contract (FA409 allows them). `window` does not exist there and stays banned. FRAMEWORK.md §9 → Web Worker files.
 
 ---
 

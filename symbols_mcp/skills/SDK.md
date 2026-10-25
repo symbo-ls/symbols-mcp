@@ -49,6 +49,38 @@ general-purpose + the additional domain services, 50+ total) in parallel via
 `Promise.all`. Every service shares the same `_context` reference, so
 `sdk.updateContext({...})` propagates instantly.
 
+### In a Symbols project — static or on demand
+
+In Symbols project code (`functions/`, components, a shared library) `@symbo.ls/sdk` is a
+host-registered package: the page that runs the code supplies it, never `smbls` or a
+public CDN. Two forms:
+
+- **Static** — `import { SDK } from '@symbo.ls/sdk'` at the top of a file: the SDK ships
+  inline in the page's first document.
+- **On demand** (since smbls 3.14.859 / cli 3.14.826) — `const { SDK } = await import('@symbo.ls/sdk')`
+  inside the function that needs it: the first document carries no SDK bytes, and the SDK
+  loads on the first call (one same-origin, content-hashed file with SRI; one shared load;
+  every later call gets the same namespace).
+
+```js
+// functions/openAccount.js
+export const openAccount = async function (form) {
+  const { SDK } = await import('@symbo.ls/sdk')
+  const sdk = new SDK({})
+  await sdk.initialize({})
+  return sdk.register(form)
+}
+```
+
+The on-demand load can fail: the promise rejects with an `Error` that has `code`,
+`specifier` and `retryable` (`true` for `SMBLS_HOST_PACKAGE_LOAD_FAILED`,
+`SMBLS_HOST_PACKAGE_TIMEOUT`, `SMBLS_HOST_PACKAGE_NO_GLOBAL`). The page stays lazy only when
+EVERY mention of `@symbo.ls/sdk` is an on-demand import: a static import anywhere in the
+page's parts, a `dependencies.js` entry, or the specifier in a string or a comment inside
+another function makes the page inline the SDK again. Push with cli 3.14.826 or later. The
+loader, the error codes and the rules: FRAMEWORK.md §10 → Host packages on demand. A cached
+instance with a retry: PATTERNS.md → Load the SDK on demand.
+
 ### SDK instance methods
 
 | Method | Description |

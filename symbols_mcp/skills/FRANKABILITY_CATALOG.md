@@ -56,7 +56,13 @@ Files where sibling imports remain legal:
 frank.toJSON walks only the canonical project slots:
 
   components/  pages/  functions/  methods/  snippets/
-  designSystem/  files/  assets/
+  designSystem/  files/  assets/  workers/
+
+`workers/<name>.js` (cli 3.14.826, frank-audit after 3.14.782) is a
+module Web Worker: frank ships it bundled in the project's
+`workers` section; start it with
+`new Worker(new URL('../workers/<name>.js', import.meta.url), { type: 'module' })`
+(FRAMEWORK.md §9 → Web Worker files).
 
 Files in any other folder (utils/, lib/, helpers/, services/, ...) are
 silently dropped from the published JSON. The local dev server still
@@ -845,6 +851,11 @@ declare a function in `functions/` and accept `el` as the first arg —
 the framework calls it during create() and you receive the element
 graph naturally.
 
+A worker file (`workers/<name>.js`) runs in its own global scope:
+`self.onmessage = …` / `globalThis.X = …` there are the worker's own
+contract and are not flagged (cli 3.14.826, frank-audit after 3.14.782).
+`window` does not exist in a worker and stays banned.
+
 # FA410 — history-write
 
 The router owns the address. A raw History API write moves the URL
@@ -1439,6 +1450,18 @@ Not copy, never flagged:
 Any letter of a non-Latin script makes a string copy whatever its case.
 Test files (`*.test.js`, `__tests__/`) and files outside every frank
 slot are not audited for copy.
+
+## Head metadata defaults
+
+A `metadata` title is copy too. The app's defaults name labels
+(`title: '{{ ui.meta.site_name | polyglot }}'`); the static text a
+reader sees before the labels load is written once, in index.html (or
+the head the build wrote). Since smbls 3.14.859 the runtime head
+(@symbo.ls/helmet) keeps the document's tag while a label is still
+loading (it never writes the key) and never writes the app's defaults
+over a head the build wrote, on its served path. So app.js need not
+repeat index.html's text as literals (FRAMEWORK.md §7 → Labels still
+loading, and a head the build wrote).
 
 ## Escape hatch
 

@@ -839,7 +839,8 @@ Frank's bundler discovers code only through these paths (FRAMEWORK.md §9 module
 ```
 state.js, dependencies.js, sharedLibraries.js, config.js,
 designSystem/index.js, components/index.js, pages/index.js,
-functions/index.js, methods/index.js, snippets/index.js, files/index.js
+functions/index.js, methods/index.js, snippets/index.js, files/index.js,
+workers/<name>.js (module Web Workers; since smbls 3.14.859 / cli 3.14.826)
 ```
 
 ```js
@@ -1230,4 +1231,28 @@ export const Card = { border: '1px solid line', transition: 'opacity B defaultBe
 ```
 
 Default the shorthand in anything meant to be extended; put a property list inside `transition` (`'opacity B defaultBezier, transform B defaultBezier'`). The consumer's shorthand then replaces the default by key, and a consumer longhand (`borderColor`) still adjusts one part.
+
+---
+
+## 39. Any other mention of `@symbo.ls/sdk` makes the page inline the SDK
+
+Since smbls 3.14.859 / cli 3.14.826 a page whose code reads the SDK only through `await import('@symbo.ls/sdk')` inside a function loads it on the first call (FRAMEWORK.md §10 → Host packages on demand). The page decides from the published text: when EVERY mention of the specifier is frank's on-demand marker, the first document carries no SDK bytes. Any other mention ships the whole SDK inline again. The page still works, but every visitor downloads the SDK before the first view:
+
+```js
+// ❌ each of these makes the page inline the SDK
+import { SDK } from '@symbo.ls/sdk'                                // a static import, in any part of the page (app, shared library, kit)
+export const track = function () { return '@symbo.ls/sdk' }        // the specifier in a string inside a function body
+export const save = function () { /* reads @symbo.ls/sdk */ }      // a comment inside a function body: frank publishes it as written
+// symbols/dependencies.js: { '@symbo.ls/sdk': '…' }              // a dependencies.js entry
+
+// ✅ the only form that keeps the page lazy
+export const openAccount = async function (form) {
+  const { SDK } = await import('@symbo.ls/sdk')
+  // …
+}
+```
+
+- The function that imports on demand is published as bundle text, so the comments inside THAT function are not served (measured). Comments in every other function are.
+- Push with cli 3.14.826 or later. An older frank publishes the `import()` as written, and a browser cannot resolve that bare private specifier.
+- Check a built page: a lazy one carries `<script data-smbls-host-packages="lazy">` (the `window.__SMBLS_HOST_SOURCES__` declaration) and no inline SDK code.
 

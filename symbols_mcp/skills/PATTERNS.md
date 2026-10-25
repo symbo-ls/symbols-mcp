@@ -840,6 +840,69 @@ NavLink: {
 
 **Two routes of one shape** (`/:lang` for a language home, `/:page` for an editor page): let a guard choose the page from data with `{ route: '/:page' }` (the address stays), or `{ route, path }` to redirect and choose at once. Never parse `location` in a page to swap content. See SYNTAX.md → Router → Choosing a route from data.
 
+### Load the SDK on demand — an account step
+
+When to use: a step that needs `@symbo.ls/sdk` (sign-up, sign-in, an account form) on a page most visitors open without it. Since smbls 3.14.859 / cli 3.14.826, an `await import('@symbo.ls/sdk')` inside a function keeps the SDK out of the first document; it loads on the first call (FRAMEWORK.md §10 → Host packages on demand). Load it in ONE function, keep one instance per page, and offer a retry only when the failure says it is `retryable`:
+
+```js
+// functions/accountSdk.js — the SDK loads on the first call; one instance per page
+export const accountSdk = function () {
+  const scope = this.context.globalScope
+  if (!scope.accountSdk) {
+    scope.accountSdk = import('@symbo.ls/sdk')
+      .then(async ({ SDK }) => {
+        const sdk = new SDK({})
+        await sdk.initialize({})
+        return sdk
+      })
+      .catch((error) => {
+        scope.accountSdk = null // the next call loads again
+        throw error
+      })
+  }
+  return scope.accountSdk
+}
+
+// functions/createAccount.js — the account step
+export const createAccount = async function (form) {
+  const s = this.state
+  s.update({ status: 'sending', retryable: false })
+  try {
+    const sdk = await this.call('accountSdk')
+    await sdk.register(form)
+    s.update({ status: 'done' })
+  } catch (error) {
+    // a failed load is retryable (LOAD_FAILED, TIMEOUT, NO_GLOBAL); an API refusal is not
+    s.update({ status: 'error', retryable: error.retryable === true })
+  }
+}
+
+// components/AccountStep.js
+export const AccountStep = {
+  flow: 'y',
+  gap: 'A',
+  state: { status: 'idle', retryable: false },
+  Button: {
+    text: '{{ account.create | polyglot }}',
+    onClick: (event, el, s) => el.call('createAccount', s.form)
+  },
+  Problem: {
+    role: 'alert',
+    hide: (el, s) => s.status !== 'error',
+    text: '{{ account.stepFailed | polyglot }}'
+  },
+  Button_retry: {
+    hide: (el, s) => !(s.status === 'error' && s.retryable),
+    text: '{{ account.retry | polyglot }}',
+    onClick: (event, el, s) => el.call('createAccount', s.form)
+  }
+}
+```
+
+- The cached value is the PROMISE, so two calls at once make one instance. A failed load clears it, and the loader removes its failed script, so a retry loads the file again.
+- Name `@symbo.ls/sdk` in no other function body and import it statically nowhere in the page, or the page inlines the SDK again (COMMON_MISTAKES.md §39).
+- A server render declares no SDK file (`SMBLS_HOST_PACKAGE_NO_SOURCE`, not retryable): call the step from a handler, never while the page renders.
+
 ### Freestyler — AI page generation (`projectKey: 'owner/key'`)
 
 When to use: wiring `@symbo.ls/freestyler`'s runtime AI page generator into an app.

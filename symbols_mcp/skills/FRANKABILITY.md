@@ -36,9 +36,11 @@ Files where sibling imports ARE allowed: `index.js`, `context.js`, `app.js`, `de
 
 #### FA006 — Never put loadable code in non-discovered folders
 
-Frank only walks: `components/`, `snippets/`, `pages/`, `functions/`, `methods/`, `designSystem/`, `files/`, `assets/`. Anything in `utils/`, `lib/`, `helpers/`, `services/`, etc. is **silently dropped from the published JSON**. Local dev still sees it via JS imports — local works, prod is missing the code.
+Frank only walks: `components/`, `snippets/`, `pages/`, `functions/`, `methods/`, `designSystem/`, `files/`, `assets/`, `workers/`. Anything in `utils/`, `lib/`, `helpers/`, `services/`, etc. is **silently dropped from the published JSON**. Local dev still sees it via JS imports — local works, prod is missing the code.
 
 If a file is generic-utility-shaped, put it in `functions/` (default) or `methods/` (if it needs `this`-binding).
+
+`workers/<name>.js` (since smbls 3.14.859 / cli 3.14.826; frank-audit after 3.14.782 knows the slot) is one module Web Worker per file, no `index.js`. frank ships each worker bundled in the project's `workers` section, and the app starts it with `new Worker(new URL('../workers/<name>.js', import.meta.url), { type: 'module' })`. A worker runs in its own global scope, so FA409 allows `self.X = …` / `globalThis.X = …` there; `window` stays banned (FRAMEWORK.md §9 → Web Worker files).
 
 A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`, or the `{ load, when }` form `lazy: { admin: { load: () => import('./admin/index.js'), when } }` — frank-audit 3.14.782; only `load` names the group entry, an `import()` inside `when` names none; a group or `load` that names a top-level const resolves through it) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
 

@@ -32,12 +32,20 @@ TOP = [
     ("fetch.early script early.js", "SYNTAX.md", "Early requests"),
     ("fetchRunsOf", "SYNTAX.md", "fetch.seed"),
     ("Icon viewBox wide logo fit", "DESIGN_SYSTEM.md", "icons"),
+    ("brender.lazyGroups", "CLI.md", "Lazy groups built ahead"),
+    ("onProblem skip report", "CLI.md", "Built-page options"),
+    ("smbls.core.lazyParts", "CLI.md", "Lazy group parts"),
+    ("fetchOnCreate kit", "CLI.md", "kits"),
+    ("importHostPackage retryable", "FRAMEWORK.md", "Host packages on demand"),
+    ("workers new Worker import.meta.url", "FRAMEWORK.md", "Web Worker files"),
 ]
 # query -> (file, section part) somewhere in the top 3
 IN_TOP_3 = [
     ("fetch.seed isStale", "SYNTAX.md", "fetch.seed"),
     ("onWindowResize", "FRANKABILITY_CATALOG.md", "FA503"),
     ("how to navigate el.router", "RULES.md", "window.location"),
+    ("@symbo.ls/sdk on demand", "SDK.md", "static or on demand"),
+    ("label stand-in helmet", "FRAMEWORK.md", "Labels still loading"),
 ]
 
 INDEX = DocsIndex(SKILLS)
