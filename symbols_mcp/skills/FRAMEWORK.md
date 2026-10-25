@@ -1017,6 +1017,7 @@ When editing any project whose published artifact is a frank-bundled JSON (`app.
 ### Function stringification gotchas
 
 - `stringifyFunctions` skips `__fn`, `__fnMeta`, `__handler`, `__meta` (internal markers). Don't name your own keys this.
+- The runtime revives a payload (`deepDestringifyFunctions`, `destringifyGlobalScope`, the server renderer's reviver) without any key named `__proto__`, `constructor` or `prototype`, at any depth — `state` and `globalScope` included. Such a key never reaches a prototype and never lands in the app. Don't name your own data keys this.
 - WeakMap-backed circular handling means circular refs become `'[Circular]'` strings in the output; if your function captures the parent element via closure, the closure isn't preserved — the function body is, evaluated against the runtime context.
 - `(el) => el.call('myFn', el.state.x)` round-trips fine. `() => MY_CONSTANT` publishes only because frank hoists `MY_CONSTANT` into the project's shared `globalScope` under its own name — a same-name declaration elsewhere or an element `scope` key collides with it. Put it in `scope: { MY_CONSTANT }` or `globalScope.js` (RULES.md Rule 33).
 
