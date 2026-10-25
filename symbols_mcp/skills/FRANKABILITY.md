@@ -40,7 +40,7 @@ Frank only walks: `components/`, `snippets/`, `pages/`, `functions/`, `methods/`
 
 If a file is generic-utility-shaped, put it in `functions/` (default) or `methods/` (if it needs `this`-binding).
 
-A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
+A lazy route group's folder (`context.js` `lazy: { admin: () => import('./admin/index.js') }`, or the `{ load, when }` form `lazy: { admin: { load: () => import('./admin/index.js'), when } }` — frank-audit 3.14.782; only `load` names the group entry, an `import()` inside `when` names none; a group or `load` that names a top-level const resolves through it) is discovered too: its entry module and its `components/`, `pages/`, `functions/`, `methods/` and `snippets/` ship (frank merges them into the canonical sections), and every rule applies inside them as at the root (FA008 checks `admin/components/index.js`). Any other file in the group's folder is an orphan of the group; FA006's fix moves it into the group's `functions/`.
 
 #### FA007 — `components/index.js` uses `export *`, never `export * as`
 

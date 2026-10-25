@@ -566,6 +566,25 @@ early: {
 }
 ```
 
+**fetch 3.14.671 / smbls 3.14.857 / cli 3.14.823 additions (all opt-in):**
+
+- **`slice: '<limit argument>'` for an rpc** — `slice: 'p_limit'` makes an rpc answer stand in for the same rpc with a smaller `p_limit`, as `slice: true` does for a select (the call takes the first rows, once).
+- **`adopt: 'init'`** — the script reads each answer as it comes in, and an element whose create-time query (`select`, or a read `rpc`, with a `cache`) asks for exactly an answer that is in takes it AT ITS INIT: it renders with its data from its first render, no loading look, one `onFetchComplete`. Only on the app shell (on a page built ahead the adoption stays as it is). Implies `wait: 'head'`. With `adopt: 'init'`, an early answer with FEWER rows than the call asks for is the call's **first part**: the element shows it at its init and asks for all rows at once; their answer replaces the first part.
+- **A first part's status is for the view, not for `transform`.** While the full answer is on its way the element is fetching (`el.__ref.__fetchStatus.isFetching`). `transform` runs for the first part AND for the full answer and cannot tell them apart. Keep "more rows" logic (a "Show more", a filter bar) in the view, behind `isFetching`, never in `transform`.
+- **`startLang(ctx)`** — names the language the first view is in, for a project whose languages are data or whose addresses decide the language its own way. The requests ask in it, `ctx.lang` is it, and the script stores it as polyglot's choice (`polyglot.storageLangKey`) before the app starts, so the app starts in it too. Runs at once on every page the script is on. `null` / `''` keeps the built-in rule and stores nothing. A request's `lang: '<code>'` asks in a language of its own (`lang: false`: none).
+- **`firstView(ctx)`** — runs once the first view is in, for work that must not compete with it (a beacon, page views): after smbls reports its first view (on a page built ahead: after the takeover), the page has loaded and painted its first content, at the next idle moment (2 s at most). A background tab counts paint 5 s after load; an app that never reports is not waited for past 20 s after load.
+- **`script: './early.js'`** — bundles the project's own pre-boot module (relative to the project's source directory; it may import what it likes) into the same `early.<hash>.js`: one request instead of two. The module runs first, on every page, before the requests. Its exported hooks `startLang`, `firstPaint`, `firstView`, `afterFirstView` are the script's, with the module's closure. A hook declared in `fetch.early` AND exported stops the script's build (`Early data requests skipped: … declared twice`). Remove the module's own `<script>` from the page. The module is pre-boot code, not app code: it runs before DOMQL exists, so browser globals are fine there, and it never ships through frank.
+
+```js
+// config.js
+fetch: { adapter: 'rest', url: '…', early: { script: './early.js', adopt: 'init', routes: { '/': [/* … */] } } }
+
+// symbols/early.js
+let views = 0
+export const startLang = (ctx) => /^\/en(\/|$)/.test(ctx.path) ? 'en' : 'ka'
+export const firstView = (ctx) => { views++ /* the beacon */ }
+```
+
 ### A pre-built page shows the data of its build — `fetch.seed`
 
 A page `smbls build` pre-rendered carries the answers its render got (§8), and the calls that take them never reach the server: its visitor sees the **build time's** data until the next build. `fetch.seed` tells a page its data is stale (`isStale`, `maxAge`, or `<html data-smbls-stale>` from the host); it then shows the build's data at once and, after the adoption, asks again for exactly what took a recorded answer. `fetch.seed: false` adopts no recorded answer. Config, example and the refresh contract: SYNTAX.md → Data Fetching → A pre-built page's data. When to use it: PATTERNS.md → Pre-built pages and fresh data.
@@ -579,6 +598,8 @@ A page `smbls build` pre-rendered carries the answers its render got (§8), and 
 `el.__ref.__fetchStatus = { isFetching, isLoading, isStale, isSuccess, error, status, fetchStatus }` (`plugins/fetch/index.js`). Also `__fetching` (mirrors `isFetching`), `__fetchError` (mirrors `error`). Callbacks: `onFetchStart`, `onFetchComplete`, `onFetchError`.
 
 Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error` if needed.
+
+A first part shown at init (`fetch.early` `adopt: 'init'`, a smaller early answer) keeps the element fetching until the full answer is in: read `isFetching` in the view (hide a "Show more" meanwhile), never in `transform` (it runs for both answers).
 
 ### Anti-patterns
 
@@ -1089,7 +1110,7 @@ smbls build --no-brender        # SPA only
 
 - A default component, icon or feature the build left out logs one `console.error` naming the key and the option when the app asks for it (in production too); a left-out component renders as an empty element. The scan sees only source: put keys that only data carries (DB records, fetched payloads) in `keep`.
 - With `lazyServerUtils`, `generateMetaTags`, `getPageMetadata`, `getImportMapScript`, `polyglotStartupScript`, `objectToString` and `deepStringifyFunctions` return a Promise in the browser: `await el.call('getPageMetadata', …)`.
-- `treeShakeFeatures` feature names (for `keep` and `drop`): `autoGrow`, `inertOutside`, `bridge`, `viewEvents`, `lazyRoutes`, `viewTransition`, `liveSync`, `prerender` (kept when the build pre-renders), `safeInk`.
+- `treeShakeFeatures` feature names (for `keep` and `drop`): `autoGrow`, `inertOutside`, `bridge`, `viewEvents`, `lazyRoutes`, `viewTransition`, `liveSync`, `prerender` (kept when the build pre-renders), `safeInk`, `containerVw` (trigger `breakpointsFrom`).
 - A feature stays only for the setting that switches it on (smbls 3.14.849). `liveSync`: `socketUrl`, `notifications: true`, `verbose: true` or the runner. A member named `editor` or a bare `livesync` does not keep it. `lazyRoutes`: `lazy` as an object key or an assigned non-literal member (`lazy: { … }`, `ctx.lazy = groups`) or `loadLazy`. `React.lazy(`, `lazy: true`, `lazy: 'admin'`, `loading: 'lazy'` and a read of `ctx.lazy` do not keep it.
 - `drop: [...]` forces a feature out when the app spells a trigger for something else. The build refuses it, with a warning, when the framework itself uses the feature or `keep` lists it, and (cli 3.14.818) when a build option or the config needs it: `prerender` while brender is on, `lazyRoutes` when `context.lazy` is an object, `viewTransition` when `designSystem.viewTransition` is set, `liveSync` when `socketUrl`, the runner, `notifications: true` or `verbose: true` is set. A scan hit alone still gives way to `drop`. Unknown names warn.
 

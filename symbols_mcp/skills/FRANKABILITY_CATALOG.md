@@ -62,7 +62,8 @@ Files in any other folder (utils/, lib/, helpers/, services/, ...) are
 silently dropped from the published JSON. The local dev server still
 sees them via normal JS imports — local works, prod is missing the code.
 
-A lazy group's folder (context.js `lazy: { admin: () => import('./admin/index.js') }`)
+A lazy group's folder (context.js `lazy: { admin: () => import('./admin/index.js') }`,
+or `lazy: { admin: { load: () => import('./admin/index.js'), when } }`)
 is discovered: its entry module and its components/, pages/, functions/,
 methods/ and snippets/ ship — frank merges them into the canonical
 sections. Any other file in it is an orphan of that group.

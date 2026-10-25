@@ -884,7 +884,7 @@ Component: {
 }
 ```
 
-**A preview narrower than the window** (a page editor's canvas, a device frame, a side panel showing a page): put `breakpointsFrom: 'container'` on the frame, give the frame a width, and use `cqw` (not `vw`) inside. The page's own `@mobileL` / `@tabletS` keys then follow the frame. Never copy media rules into raw `@container` blocks. See SYNTAX.md → Breakpoints that follow a container.
+**A preview narrower than the window** (a page editor's canvas, a device frame, a side panel showing a page): put `breakpointsFrom: 'container'` on the frame and give the frame a width. The page's own `@mobileL` / `@tabletS` keys then follow the frame, and its `vw` lengths (its own and the design-system tokens) measure the frame too (smbls 3.14.857): write the page as for a full window, no `cqw` rewrite. `breakpointsFrom: 'window'` on a nested part gives it the window's breakpoints and `vw` back. Never copy media rules into raw `@container` blocks. See SYNTAX.md → Breakpoints that follow a container.
 
 ```js
 DevicePreview: {
