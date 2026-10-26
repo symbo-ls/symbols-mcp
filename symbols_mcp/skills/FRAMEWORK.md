@@ -103,8 +103,9 @@ without an explicit `extends` (verified at
 `packages/element/src/create.js:1589-1593`).
 
 To mount multiple instances of the same component, use `Icon_1` /
-`Icon_2` (the `_<suffix>` is ignored for extend resolution). Prefer
-renaming the key to match the extended component over aliasing.
+`Icon_2` (the `_<suffix>` is ignored for extend resolution). A key with
+an explicit `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`):
+never name it after a different registered component (RULES.md Rule 6).
 
 ### Flat access
 

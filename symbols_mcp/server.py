@@ -203,10 +203,13 @@ mcp = FastMCP(
         "- Flat element API: props live at `el.X` (NEVER `el.props.X`); events at `el.onClick` (NEVER `on: {}`); "
         "reactive functions take `(el, s)` (NEVER `({ props, state })`).\n"
         "- Lowercase child keys NEVER render. PascalCase only.\n"
-        "- **Auto-extend by key** — `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. "
-        "Rename the wrapper key to the component name and drop `extends`. Multi-instance → suffix `_N` "
-        "(`Navbar_1`, `Navbar_2`). Keep `extends:` only for genuinely distinct semantic labels, "
-        "multi-base composition (`extends: ['Hgroup', 'Form']`), or nested-child chains (`'AppShell > Sidebar'`).\n"
+        "- **Auto-extend by key** — a key that names a registered component IS that component when it "
+        "has no `extends`: write `Navbar: {}`, not `Navbar: { extends: 'Navbar' }`. Multi-instance → suffix "
+        "`_N` (`Navbar_1`, `Navbar_2`), never `Navbar1`. A key WITH `extends` is a role name and is right "
+        "(`SidebarNav: { extends: 'Navbar' }`) unless it misleads: it names a DIFFERENT registered component "
+        "(`Title: { extends: 'PageHeaderTitle' }`), or it is an HTML tag name, a generic word or a placeholder "
+        "(`Header`, `Row`, `Foo`) — name it for its role, never rename it to the base (Rule 6, FA806). "
+        "Other forms: multi-base composition (`extends: ['Hgroup', 'Form']`), nested-child chains (`'AppShell > Sidebar'`).\n"
         "- ALL values use design-system tokens. NO raw px/hex/rgb/hsl/ms. Sequence families "
         "(typography / spacing / timing) share the letter alphabet but each generates its own values from "
         "`{ base, ratio }` — `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`. NO custom-named spacing tokens.\n"
@@ -1298,7 +1301,7 @@ def generate_component(
 - NO imports between project files — PascalCase keys auto-extend registered components, functions called via `el.call('fnName', …)` (Rule 2/8/33).
 
 ### Reusability — MANDATORY (Rule 6 / Rule 61)
-- **Auto-extend by key.** `Header: {{ extends: 'Navbar' }}` should almost always be `Navbar: {{}}`. Rename the wrapper key to match the component — DOMQL extends by key automatically. Multi-instance → `Navbar_1`, `Navbar_2` (the part before `_` auto-extends). Keep `extends:` only for (a) genuinely distinct semantic labels (`SidebarNav: {{ extends: 'Navbar' }}` IF the project really uses both names), (b) multi-base composition (`extends: ['Hgroup', 'Form']`), or (c) nested-child chains (`extends: 'AppShell > Sidebar'`). This is the most common boilerplate in Symbols code.
+- **Auto-extend by key.** A key that names a registered component IS that component when it has no `extends`: `Navbar: {{}}`, not `Navbar: {{ extends: 'Navbar' }}`. Multi-instance → `Navbar_1`, `Navbar_2` (the part before `_` auto-extends; never `Navbar1`). A key WITH `extends` is a role name, and that is right (`SidebarNav: {{ extends: 'Navbar' }}`, `TabHome: {{ extends: 'Button' }}`) — unless the name misleads: it names a DIFFERENT registered component (`Title: {{ extends: 'PageHeaderTitle' }}`), or it is an HTML tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`). Name it for its role; never rename it to the base. Other forms: multi-base composition (`extends: ['Hgroup', 'Form']`) and nested-child chains (`extends: 'AppShell > Sidebar'`).
 - **Extract every duplicated shape** to `components/<Name>.js`. Repeated PascalCase blocks = candidates for extraction.
 - For lists/groups of similar children → `childExtends: 'Name'` (+ `childrenAs: 'state'` if data-driven; preferred for reusability).
 - For shared per-child overrides → `childProps: {{ … }}` on the parent.
@@ -1376,7 +1379,7 @@ def generate_page(
 - NO `props: {{}}` / `on: {{}}` / `({{ props, state }})` destructured signatures.
 
 ### Reusability — MANDATORY (Rule 6 / Rule 61)
-- **Auto-extend by key.** `Header: {{ extends: 'Navbar' }}` should almost always be `Navbar: {{}}`. Rename the wrapper key to match the component. Multi-instance → `Navbar_1`, `Navbar_2`. Keep `extends:` only for genuinely distinct semantic labels, multi-base composition, or nested-child chains.
+- **Auto-extend by key.** A key that names a registered component IS that component when it has no `extends` (`Navbar: {{}}`). Multi-instance → `Navbar_1`, `Navbar_2`. A key WITH `extends` is a role name (`SidebarNav: {{ extends: 'Navbar' }}`) — right unless it names a different registered component or is a tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`): name it for its role, never rename it to the base.
 - Extract every duplicated shape across pages to `components/<Name>.js`. NEVER duplicate inline.
 - `childExtends: 'Name'` for lists/groups; `childProps: {{ … }}` for shared per-child overrides.
 

@@ -47,7 +47,7 @@ Use `Icon` (not `Svg`) for icons. `Icon: { name: 'iconName' }` references `desig
 
 ### Bridge — host a library that owns its DOM
 
-DOMQL owns the host node (its classes, styles, attributes, its place in the tree); the library owns everything inside it, and DOMQL never writes there. Any element that declares `onBridgeMount` is a host; `Bridge` is the named one (it stays a `<div>` under any key, so `Map: { extends: 'Bridge' }` is not an image map).
+DOMQL owns the host node (its classes, styles, attributes, its place in the tree); the library owns everything inside it, and DOMQL never writes there. Any element that declares `onBridgeMount` is a host; `Bridge` is the named one (it stays a `<div>` under any key, even a tag-name key: `Map: { extends: 'Bridge' }` is not an image map — but give the key a role name such as `MapView`, Rule 6).
 
 ```js
 Editor: {

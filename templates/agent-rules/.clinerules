@@ -14,7 +14,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 - Flat element API: `el.X` (NOT `el.props.X`); `el.onClick` (NOT `on: {}`); `(el, s)` sigs.
 - Lowercase keys never render — PascalCase only.
-- Auto-extend by key: `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to match the component. Multi-instance → `Navbar_1`, `Navbar_2`.
+- Auto-extend by key: a key that names a registered component IS that component when it has no `extends` (`Navbar: {}`). Multi-instance → `Navbar_1`, `Navbar_2`. A key WITH `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`) — never one that names a different component, a tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`).
 - Design-system tokens for ALL values. NO raw px / hex / rgb / hsl / ms.
 - Same letter resolves differently per family: `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`. No custom-named spacing tokens.
 - Polyglot only — `'{{ key | polyglot }}'`. No `t` / `tr`.

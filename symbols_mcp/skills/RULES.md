@@ -6,26 +6,26 @@ This is **smbls** (signal-based reactive engine, flat element API). The forbidde
 
 ---
 
-## #1 simplification you'll ship 10× a day: rename the key to match the component
+## #1 simplification you'll ship 10× a day: the key IS the component
 
-DOMQL auto-extends by key. If the key name matches a registered component, that component IS the extends — no `extends` clause needed.
+DOMQL extends a child by its key when the child has no `extends`. If the key name matches a registered component, that component IS the base — no `extends` clause needed.
 
 ```js
-// ❌ WRONG — wrapper key with redundant extends
-Header: { extends: 'Navbar' }
+// ❌ WRONG — the extends repeats what the key already says
+Navbar: { extends: 'Navbar', padding: 'A' }
 
-// ✅ RIGHT — just name the key after the component you're extending
-Navbar: {}
+// ✅ RIGHT — the key is enough
+Navbar: { padding: 'A' }
 ```
 
-This is the **single most common boilerplate mistake** in Symbols projects. Multiple instances → suffix with `_N` (the part before `_` is what auto-extends):
+Multiple instances → suffix with `_N` (the part before `_` is what auto-extends), never a bare number (`Navbar1`):
 
 ```js
 Navbar_1: { ...overrides },
 Navbar_2: { ...overrides }     // both auto-extend Navbar
 ```
 
-Keep `extends:` only when the wrapper key carries a **genuinely different semantic meaning** (e.g. `SidebarNav: { extends: 'Navbar' }` if your project uses `SidebarNav` as a label and `Navbar` as the base). When the wrapper is just dead-weight aliasing — drop it. Full coverage in Rule 6 below.
+A key WITH `extends` is a **role name**, and that is right: `SidebarNav: { extends: 'Navbar' }` is a Navbar named for what it does. Only a name that misleads is wrong — a key that names a DIFFERENT registered component (`Title: { extends: 'PageHeaderTitle' }`: a reader sees a Title and gets a PageHeaderTitle), an HTML tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`). Fix it with a name for the role, not a rename to the base. Full coverage in Rule 6 below; frank-audit FA806 reports each case.
 
 ---
 
@@ -105,7 +105,7 @@ import { findUser } from '../functions/findUser.js'
 import { brandColor } from '../designSystem/color.js'
 
 // ✅
-Nav: { extends: 'Navbar' }                       // string lookup
+SiteNav: { extends: 'Navbar' }                   // string lookup
 text: (el, s) => el.call('findUser', s).name     // el.call
 color: 'brand'                                    // token name
 ```
@@ -198,18 +198,47 @@ Toolbar: {
 }
 ```
 
-### Auto-extend by key — `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`
+### A key with `extends` is a role name — it must not mislead
 
-**The rule:** if a key would do nothing besides aliasing a registered component, drop the wrapper. Rename the key to match the component. DOMQL extends by key automatically.
+Key auto-extend applies only when the child has no `extends`: `Icon: { name: 'home' }` is an Icon, and `SkipLink: { extends: 'Link' }` is a Link and nothing more. So a key WITH `extends` is a role name. A role name is right; a name that misleads is not.
+
+**Redundant — drop the `extends`:** the key already names the base.
 
 ```js
 // ❌                                         // ✅
-Header: { extends: 'Navbar' }                  Navbar: {}
-Header: { extends: 'Navbar', padding: 'A' }    Navbar: { padding: 'A' }
+Navbar: { extends: 'Navbar', padding: 'A' }    Navbar: { padding: 'A' }
 Hgroup: { extends: 'Hgroup', gap: '0' }        Hgroup: { gap: '0' }
 Card:   { extends: 'Card',   padding: 'B' }    Card:   { padding: 'B' }
-Foo:    { extends: 'PriceCard', text: 'Pro' }  PriceCard: { text: 'Pro' }
 ```
+
+**Right — a role key with `extends`** (the key names no registered component):
+
+```js
+SidebarNav: { extends: 'Navbar' }
+TabHome:    { extends: 'Button', text: 'Home' }
+RowNum:     { extends: 'RowNumberCell' }
+MyLink:     { extends: 'Link', href: '/' }
+```
+
+**Wrong — the name misleads** (frank-audit FA806 reports each):
+
+```js
+// ❌ the key names a DIFFERENT registered component (any tier: framework,
+//    a linked library, the project) — a reader sees Title, gets a PageHeaderTitle
+Title:  { extends: 'PageHeaderTitle' }
+// ❌ a numbered instance — Icon_1 extends Icon by its key, so the extends can go
+Icon1:  { extends: 'Icon', name: 'home' }      // ✅ Icon_1: { name: 'home' }
+// ❌ an HTML tag name, a generic word (Rule 35) or a placeholder is not a role
+Header: { extends: 'Navbar' }
+Row:    { extends: 'SkeletonRow' }
+Foo:    { extends: 'PriceCard', text: 'Pro' }
+```
+
+**The fix is a name for the role** (`SiteNav`, `ProTier`, `SkeletonLine`), never a rename to the base: a `data-key` selector or a test may read the key. A tag-name key gives the element its tag when the base sets none (`Header` → `<header>`) — keep the tag with `tag: 'header'` when you rename the key. Only a numbered instance has an automatic fix (`Icon1` → `Icon_1`, aggressive mode).
+
+**The names FA806 knows** come from every tier: the framework's built-ins and plugin components, the linked shared libraries (`sharedLibraries.js`, `.symbols_local/libs/`, a symbols.json `link` / `destDir`) and the project. A workspace app module that a host shell installs links no library of its own — its bare keys resolve from the host. Name the host in symbols.json so the audit reads the host's components (read only): `"hostLibraries": ["../../packages/workspace"]` (a path from the project root, or a package name).
+
+**Keep a meant one** with `// frank-allow FA806: <why>` on the line above the key. An allow that covers no finding is reported.
 
 **Multiple instances of the same component:** suffix with `_N`. The runtime only looks at the part before the underscore for auto-extend resolution, so `Navbar_1` and `Navbar_2` both auto-extend `Navbar`:
 
@@ -221,22 +250,19 @@ PriceCards: {
 }
 ```
 
-**Keep `extends` ONLY when one of these is true:**
+**Other `extends` forms:**
 
-- The key carries a **genuinely different semantic meaning** from the component name. `SidebarNav: { extends: 'Navbar' }` is OK if your project distinguishes a `SidebarNav` from the regular `Navbar` somewhere else. If `SidebarNav` only exists because you didn't think to write `Navbar`, drop it.
 - **Multi-base composition** — `extends: ['Hgroup', 'Form']` to mix two component shapes.
 - **Nested-child reference chain** — `extends: 'AppShell > Sidebar'` to extend a deeply-keyed component.
 
-In every other case, the `extends:` line is dead weight. The audit (`bin/symbols-audit`) flags this aggressively as Rule 6 — see `audit_component(code)` for line-precise hits.
-
-**Audit grep for redundant aliasing:**
+**Audit grep for a redundant `extends`:**
 
 ```sh
 # Find every case where the key name matches a value in extends
 grep -nE "^\s+([A-Z][a-zA-Z0-9_]*):\s*\{\s*extends:\s*'\1'" symbols/components/*.js
 ```
 
-Each match is a candidate for the renaming rule above.
+Each match repeats its key: drop the `extends`. For the names that mislead, run `frank-audit audit <symbols-dir> --rule FA806`.
 
 ---
 
@@ -305,7 +331,7 @@ MyBtn: {
 
 The string references a component registered in `components/`. Direct variable references require imports (Rule 2) and break after JSON serialization to the platform.
 
-> **Heads-up:** before reaching for `extends`, check whether you can just **rename the key to match the component**. `Header: { extends: 'Navbar' }` should usually be `Navbar: {}` — DOMQL auto-extends by key. See Rule 6 for the full rule. The examples in this rule (Rule 10) intentionally use `extends:` to focus on the string-vs-variable concern, but in real code you'll most often drop `extends` entirely.
+> **Heads-up:** before reaching for `extends`, check whether the bare key does the job: `Navbar: {}` IS a Navbar — DOMQL auto-extends by key. A key with `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`), right as long as the key names no other component — see Rule 6 for the full rule. The examples in this rule (Rule 10) use `extends:` to focus on the string-vs-variable concern.
 
 ```js
 // ✅ string references (when `extends` is genuinely needed)
@@ -1039,6 +1065,8 @@ Header: { tag: 'div' }
 Cells:  { tag: 'div' }
 ```
 
+A generic key with an explicit `extends` reads as the generic thing: `Row: { extends: 'SkeletonRow' }` is not a plain row. frank-audit FA806 reports it — name it for its role (`SkeletonLine`), see Rule 6.
+
 ---
 
 ## Rule 36 — `childrenAs: 'state'` passes state automatically — never use `el.parent.state`
@@ -1180,7 +1208,7 @@ All links MUST use `extends: 'Link'`. The `href` property MUST be at the root le
 
 ```js
 // ✅
-Nav: { extends: 'Link', href: '/about', text: 'About' }
+AboutLink: { extends: 'Link', href: '/about', text: 'About' }
 ProfileLink: {
   extends: 'Link',
   href: (el, s) => `/user/${s.userId}`,
@@ -1188,8 +1216,8 @@ ProfileLink: {
 }
 
 // ❌
-Nav: { extends: 'Link', attr: { href: '/about' } }
-Nav: { tag: 'a', href: '/about' }
+AboutLink: { extends: 'Link', attr: { href: '/about' } }
+AboutLink: { tag: 'a', href: '/about' }
 ```
 
 ---
@@ -1753,7 +1781,7 @@ Is this shape / cluster used more than once?
     ├── Same component, multiple call sites? → extract to components/<Name>.js
     │       └── Reference by key (auto-extend by naming `Name: {...}`)
     │       └── Multiple instances at the same level → `Name_1`, `Name_2` (auto-extend `Name`)
-    │       └── ❌ NEVER `Wrap: { extends: 'Name' }` if Wrap carries no extra meaning — just rename the key to `Name`
+    │       └── A key with `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`) — never one that names a DIFFERENT component, a tag name, a generic word or a placeholder (Rule 6)
     ├── List of similar children?            → `childExtends: 'Name'`
     │       └── Data-driven? → use `childrenAs: 'state'` (preferred for reusability — child decouples from parent state shape)
     │       └── Single-use, narrow-scope?   → `state: 'key'` is also valid (binds to a parent-state subtree)
@@ -2240,7 +2268,19 @@ This also REPAIRS `role="status"` regions: a live region must exist in the DOM *
 
 **Verify it, don't assume it.** Snapshot the geometry of the SAME element references before and after the change and count how many moved; a `PerformanceObserver` on `layout-shift` confirms it independently. Comparing positions by ARRAY INDEX is invalid — an inserted node shifts every later index and reports a shift that did not happen.
 
-Audit: FA813 (opt-in, `--rule FA813`) and `audit_component` flag pattern 1 — a nested element beside siblings, gated by an `if:` that reads state (`(el, s) => …s…`, `({ state }) => …`, `….state`), and not out of the flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow built-in such as `Dropdown` or `ModalRoot`). One file cannot tell chrome from content, so a list swapped for its empty state is reported too; keep a meant one with `// frank-allow FA813`. Patterns 2 and 3 are not audited.
+Audit: FA813 (opt-in, `--rule FA813`) and `audit_component` flag pattern 1 — a nested element beside siblings, gated by an `if:` that reads state (`(el, s) => …s…`, `({ state }) => …`, `….state`), and not out of the flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow built-in such as `Dropdown` or `ModalRoot`). Two swaps in place move nothing, and the audit skips them:
+
+```js
+// a run of adjacent gated siblings of which EXACTLY ONE shows in every case
+Loading: { if: (el, s) => s.status === 'loading' },
+Content: { if: (el, s) => s.status !== 'loading' }
+
+// an empty note beside the list it stands for
+Rows:   { children: (el, s) => s.rows },
+NoRows: { if: (el, s) => !s.rows.length }
+```
+
+"At most one shows" is not a swap: a status line that goes blank is chrome, and it is reported. A member whose base sets a `state:` of its own refuses the swap (its `s` is not its siblings'). Keep a meant one with `// frank-allow FA813: <why>` on the line above it, or `// frank-allow-block FA813: <why>` above an element for all its direct children (the block form needs a reason). An allow that covers no finding is reported: remove it. Patterns 2 and 3 are not audited.
 
 ---
 

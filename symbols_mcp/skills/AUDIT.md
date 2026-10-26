@@ -239,7 +239,7 @@ Reading `el.node.X` is fine (focus, blur, scrollTop, selectionStart, etc.). Writ
 ### F. Reusability heuristics (Rule 61)
 - Same `extends: 'X'` value appearing 3+ times across siblings of one parent → suggest `childExtends: 'X'`
 - Identical inline-style cluster (>5 props matching) appearing in 2+ files → suggest extraction to `components/<Name>.js`
-- `Foo: { extends: 'Foo', ... }` (same name on both sides) → flag as redundant — rename and drop extends (Rule 6/61)
+- `Foo: { extends: 'Foo', ... }` (same name on both sides) → flag as redundant — drop the `extends`, the key already names the base (Rule 6/61)
 - Inline-object `childExtends` → flag (must extract to named component)
 - 3+ siblings with identical theme/font/spacing trio → move to `childProps: { … }` on parent
 

@@ -79,7 +79,7 @@ export const Header = {
   minWidth: 'G2',
   padding: 'A',
 
-  Search: { extends: 'Input', flex: 1 },     // Search is the key, Input is the atom
+  SearchField: { extends: 'Input', flex: 1 }, // SearchField is the role key, Input is the atom
   Avatar: { boxSize: 'B' },                    // Avatar key auto-extends the Avatar default-library component (no Image atom — it's `Img`)
 }
 ```
