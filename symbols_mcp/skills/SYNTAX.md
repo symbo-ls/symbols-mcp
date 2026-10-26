@@ -1246,6 +1246,7 @@ export const Chart = {
 | | `el.getQuery(path?)` | Read root state by dotted path |
 | | `el.getChildren()` | Direct children array |
 | | `el.getPath()` | Ancestor key chain |
+| | `el.getAdoption()` | `'adopted'` / `'replaced'` / `null`: how this element's first view came over a pre-rendered page (FRAMEWORK.md → In app code) |
 | **Updates** | `el.update(value, opts?)` | Deep merge update |
 | | `el.setProps(value, opts?)` | Alias for update |
 | | `el.set(content, opts?)` | Replace element's `content` child |

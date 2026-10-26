@@ -986,6 +986,13 @@ Pages from older servers still work: the inline `window.__BRENDER__` flag, `wind
 | `el.context.ssr` | the server render | `true`: this code runs inside brender |
 | `el.context.prerendered` | the browser | `true`: this app booted over a pre-rendered page (adopted or replaced) |
 | `el.context.prerender` | the browser | `{ stamp, time }`: the build that page comes from |
+| `el.getAdoption()` | the browser, per element | `'adopted'`, `'replaced'` or `null` (below) |
+
+**Per element — `el.getAdoption()`** (not released yet). `el.context.prerendered` answers for the whole page, also for the parts the build never had. `el.getAdoption()` answers for one element: `'adopted'` when its node is the built page's (a hydration boot); `'replaced'` when a replace boot built it in the first view over the built page and the built page had its counterpart (the same `data-key` chain, tag and rank); `null` for everything else — a fresh client render, a part the built page did not have, and every element made after the boot's first view (a navigation, a list's next data, an `if` that opens later). It is set when the element's node is made: `onRender` and `onInView` read it (in a replace, before the swap; `onInit` runs before the node and reads `null`). It stays for the element's life. A replace answers `'replaced'`, never `'adopted'`: a gate that waits for data reads a fresh build, and an entrance can skip a part the visitor saw already:
+
+```js
+onInView: (el) => { if (!el.getAdoption()) el.call('rise') }
+```
 
 On a client boot over a pre-rendered page (`el.context.prerendered`), the server's first view is already on screen: an entrance that hides it again makes it blink.
 
