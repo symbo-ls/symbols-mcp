@@ -1,7 +1,7 @@
 {
-  "smbls": "3.14.853",
-  "commit": "64cec6cda",
-  "checked": "2026-10-24",
+  "smbls": "3.14.859",
+  "commit": "b9cf297ab",
+  "checked": "2026-10-26",
   "examples": [
     "isxRootState",
     "isxInverse",
@@ -28,6 +28,9 @@
     "forcedColorsSystemColor",
     "rootStateMethodNamedKeys",
     "routeChoiceGuard",
-    "staleSeedRefresh"
+    "staleSeedRefresh",
+    "fetchTriggerList",
+    "afterFirstViewOption",
+    "polyglotPrefetch"
   ]
 }
