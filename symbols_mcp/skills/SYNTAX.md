@@ -1332,6 +1332,8 @@ export default {
 
 Dynamic params (`:id`) populate `state.params`. Query strings populate `state.query`.
 
+A route value is a page definition or a component's name (`'/ask': 'AiPage'`). An entry that adds only a head to a component, `'/blueprint': { extends: 'AiPage', metadata: { title: '…', robots: 'noindex' } }`, gives that route its own served and live head over the component's `metadata` (since smbls 3.14.860; FRAMEWORK.md → helmet → A route entry's head).
+
 ### Link Navigation
 
 ```js
@@ -1387,7 +1389,7 @@ export default { router: { keepSamePage: true } }
 el.router('/en/texts', el.getRoot(), {}, { replace: true, render: false })
 ```
 
-- `keepSamePage`: the same page object under another pathname, route key or params stays mounted (its elements, their state, focus and whatever is open). The history entry, `route` / `params` / `query` and `onRouteChanged` happen as for a query-only navigation; the scroll follows the usual options. The page is not built again, so it reads what changes from the route state (`s.root.params`). No `onRouteExit`, no view transition.
+- `keepSamePage`: the same page object under another pathname, route key or params stays mounted (its elements, their state, focus and whatever is open). Two entries that name the same component and carry nothing but a head (`'/ask': 'AiPage'`, `'/make': { extends: 'AiPage', metadata }`) are the same page too (since smbls 3.14.860): the page stays and its head changes to the new entry's. The history entry, `route` / `params` / `query` and `onRouteChanged` happen as for a query-only navigation; the scroll follows the usual options. The page is not built again, so it reads what changes from the route state (`s.root.params`). No `onRouteExit`, no view transition.
 - `render: false`: the navigation mounts, scrolls, exits, transitions and loads nothing (`force` included) and fires `onRouteChanged` with `options.render === false`. Use it when the page on screen already is the page of the new address — a language switch that changed the words in place, or a one-time token (an OAuth code, an auth e-mail link) taken out of the address before the first render (the first render then renders the page as usual). Guards run: a refusal writes nothing, a redirect renders its target. The app-wide `router` options cannot set it.
 - Either way never hand-write `history.replaceState` for this (FA410).
 
