@@ -289,8 +289,6 @@ export const TestimonialCard = {
     align: 'center',
     gap: 'A',
     Avatar: {
-      extends: 'Img',
-      round: '100%',
       boxSize: 'B2 B2'
     },
     Info: {

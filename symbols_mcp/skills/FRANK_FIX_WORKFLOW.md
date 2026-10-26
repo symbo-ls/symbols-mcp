@@ -150,7 +150,7 @@ or `null` for orphans). This is **load-bearing** for some fixes:
 | **FA304** (raw-px-rem) | `replaceTokenValue` with closest spacing token from project's actual generated scale (8% tolerance, skips 1px borders + complex `calc()`) |
 | **FA701** (hardcoded text) | `replaceTokenValue` wrapping in polyglot template, with quote-style detection from source |
 | **FA801** (page must extend Page) | `setObjectProperty` with kebab→camelCase componentName — only when the page's `extends` names no defined component; over a linked library's or the project's own component there is no op (it would drop that component; extend Page in the base's chain instead) |
-| **FA806** (auto-extend wrapper) | `renameObjectKey` with line-based disambiguation |
+| **FA806** (numbered instance) | `renameObjectKey` `Icon1` → `Icon_1`, line-based disambiguation, aggressive mode only. FA806's other cases (a key that names a different registered component, a tag name, a generic word, a placeholder) get no op: the author names the key for its role |
 
 For these rules, the agent's job is **acceptance, not construction**. Forwarding `proposedOps` verbatim is the correct call ~95% of the time.
 
@@ -188,7 +188,7 @@ Every op an agent submits must be one of these. Field names are exact. Extra fie
 | `removeTopLevelDecl` | Module-scope `let`/`var` (FA201) or single-component `const` (FA204) you've already moved. |
 | `addElementScope` | Factory closure (FA205) or single-component constant (FA204) that should ride on the component as `scope: { <key>: <value> }`. Use `valueIsCode: true` for JS expressions. |
 | `replaceTokenValue` | Raw design value (FA301–FA304), polyglot wrapping (FA701), expression rewrite (FA401 `window.location.href = X` → `el.router(X, el.getRoot())`). Pass exact line and old text; applier does literal `String#replace` once. |
-| `renameObjectKey` | Auto-extend wrapper (FA806): `Header: { extends: 'Navbar' }` → `Navbar: {}`. `componentName` scopes to one top-level component; `keyPath` is dot-separated. Optional `line` disambiguates when keyPath matches multiple places. |
+| `renameObjectKey` | A numbered instance (FA806): `Icon1: { extends: 'Icon' }` → `Icon_1: { extends: 'Icon' }` (the `extends` can then go: `Icon_1` extends Icon by its key). `componentName` scopes to one top-level component; `keyPath` is dot-separated. Optional `line` disambiguates when keyPath matches multiple places. |
 | `removeObjectKey` | Redundant atom extends (FA803/804/805): drop `extends: 'Box'/'Flex'/'Text'`. |
 | `setObjectProperty` | Add a property at a key path. Used for FA801 (`extends: 'Page'` on pages). `keyPath: ""` addresses the component itself. `position` controls insertion order. |
 | `addDesignToken` | Add a token to `designSystem/color.js` etc. Idempotent — no-op if same value already exists; rejects on collision. Always paired with `replaceTokenValue` that swaps the raw value for the new token name. |

@@ -19,7 +19,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 - **Flat element API.** `el.X` not `el.props.X`. `el.onClick` not `on: { click }`. Reactive functions are `(el, s)`.
 - **Lowercase child keys NEVER render.** PascalCase only.
-- **Auto-extend by key.** `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to match the component — DOMQL extends by key automatically. Multi-instance → `Navbar_1`, `Navbar_2`. Keep `extends:` only for genuinely distinct semantic labels, multi-base composition (`extends: ['Hgroup', 'Form']`), or nested-child chains (`extends: 'AppShell > Sidebar'`).
+- **Auto-extend by key.** A key that names a registered component IS that component when it has no `extends` (`Navbar: {}`, not `Navbar: { extends: 'Navbar' }`). Multi-instance → `Navbar_1`, `Navbar_2`. A key WITH `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`) — right unless it names a different registered component or is a tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`): name it for its role, never rename it to the base. Other forms: multi-base composition (`extends: ['Hgroup', 'Form']`), nested-child chains (`extends: 'AppShell > Sidebar'`).
 - **ALL values use design-system tokens.** NO raw px/hex/rgb/hsl/ms.
   - Sequence families (typography, spacing, timing) share the letter alphabet but each generates its own values from `{ base, ratio }` — `fontSize: 'B'` ≠ `padding: 'B'` ≠ `transition: 'B'`.
   - NO custom-named spacing tokens — sequence + sub-tokens (`A1`, `A2`, …) only.

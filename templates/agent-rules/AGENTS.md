@@ -14,7 +14,7 @@ A vendor-neutral version of the rules for any agent that reads `AGENTS.md` (Code
 
 - Flat element API: `el.X` (NOT `el.props.X`); `el.onClick` (NOT `on: {}`); `(el, s)` reactive sigs.
 - Lowercase child keys NEVER render — PascalCase only.
-- Auto-extend by key: `Header: { extends: 'Navbar' }` should usually be `Navbar: {}`. Rename the wrapper key to match the component name; DOMQL extends by key automatically. Multi-instance → suffix with `_N` (`Navbar_1`, `Navbar_2`). Keep `extends:` only for genuinely distinct semantic labels, multi-base composition, or nested-child chains.
+- Auto-extend by key: a key that names a registered component IS that component when it has no `extends` (`Navbar: {}`). Multi-instance → suffix with `_N` (`Navbar_1`, `Navbar_2`). A key WITH `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`) — right unless it names a different registered component or is a tag name, a generic word or a placeholder (`Header`, `Row`, `Foo`): name it for its role, never rename it to the base.
 - Design-system tokens for ALL values. NO raw px / hex / rgb / hsl / ms.
 - Three sequence families (typography, spacing, timing) — same letter, different values per family. NO custom-named spacing tokens.
 - Polyglot only for user-facing strings — `'{{ key | polyglot }}'`. No `t` / `tr` function exists.

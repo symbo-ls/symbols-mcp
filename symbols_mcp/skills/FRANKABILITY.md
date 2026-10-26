@@ -431,9 +431,24 @@ Four opt-in rules check the shape of a component object, the same way `audit_com
 - FA810 condition-case-block — 3+ CSS props of one element gated by the same `(el, s) => cond ? a : b` → one `isX` + `'.isX'` / `'!isX'` block (RULES.md Rule 19).
 - FA811 interactive-states — an interactive element (Link / Button family, tag `a` / `button`, or `href` / `onClick` on a definition) with `:hover` and no `:active` (Rule 65).
 - FA812 button-call-site-override — a built-in Button call site that sets `padding*`, `height` or `minHeight`; use a variant or a token (Rule 68).
-- FA813 if-in-flow — a nested element beside siblings, gated by an `if:` that reads state and not positioned out of the flow: keep it mounted and toggle `visibility`, `pointerEvents`, `tabindex` and `aria.hidden` (Rule 66). Low confidence: one file cannot tell chrome from content.
+- FA813 if-in-flow — a nested element beside siblings, gated by an `if:` that reads state and not positioned out of the flow: keep it mounted and toggle `visibility`, `pointerEvents`, `tabindex` and `aria.hidden` (Rule 66). Two swaps in place are skipped: a run of adjacent gated siblings of which exactly one shows in every case (a loading view and its content), and an empty note beside the list it stands for. Low confidence: one file cannot tell other chrome from content.
 
 Run them by name, like FA211: `--rule FA810,FA811,FA812,FA813`, `ruleIds`, or `'frank/FA810': 'warn'` in eslint-plugin-frank.
+
+Allow comments (frank-audit and `audit_component` read the same ones):
+
+```js
+// frank-allow FA813: the badge is meant to come and go     ← the line below it
+// frank-allow-block FA813: the toolbar's tools come and go ← an element's direct children
+```
+
+`frank-allow FA810` / `FA811` / `FA812` work the same way for one line. The block form is FA813's and needs a reason. An FA813 allow that covers no finding is reported (frank-audit: info; `audit_component`: a warning): remove it.
+
+#### FA806 — a key with `extends` that misleads (Rule 6)
+
+A key with an explicit `extends` is a role name (`SidebarNav: { extends: 'Navbar' }`) and passes. FA806 reports the names that mislead: a key that names a DIFFERENT registered component (`Title: { extends: 'PageHeaderTitle' }`), a numbered instance (`Icon1` → `Icon_1`, the only automatic fix, aggressive mode), an HTML tag name, a Rule 35 generic word (`Header`, `Body`, `Row`, `Cells`, `List`) or a placeholder (`Foo`, `Wrapper`, `Inner`, …). The fix is a name for the role, never a rename to the base — a `data-key` selector or a test may read the key.
+
+Registered names come from every tier — the framework's built-ins and plugin components, the linked shared libraries (npm, `.symbols_local/libs/`, a symbols.json `link` / `destDir`) and the project. A workspace app module installed into a host shell names the host in symbols.json (read only by the audit): `"hostLibraries": ["../../packages/workspace"]`. Keep a meant one with `// frank-allow FA806: <why>`.
 
 ---
 

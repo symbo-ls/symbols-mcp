@@ -22,6 +22,17 @@ A fourth report item — a reactive `fill`/`color`/`background` under a
 `:hover` block for the same property — is NOT a check: the runtime emits
 that block's declaration with `!important`, so the hover wins (pinned by
 tests/runtime_examples/run.mjs, case reactiveBaseBlocksWin).
+
+Decision 2026-10-26 ("go recommended"): Rule 66 skips two in-place swaps,
+as frank-audit FA813 does — a run of adjacent gated siblings of which
+exactly one shows in every case (a loading view and its content), and an
+empty note beside the list it stands for. "At most one shows" (a status
+line that goes blank) stays a warning. A member whose base sets a `state:`
+of its own refuses the swap. The allow comments frank-audit reads apply
+here too: `// frank-allow FA810` … `FA813` for one line,
+`// frank-allow-block FA813: <why>` for an element's direct children; an
+FA813 allow that covers no finding is a warning of its own. frank-audit's
+FA813-mcp-agreement test compares the two readers case by case.
 """
 
 import json
@@ -163,6 +174,79 @@ export const Alone = {
 }
 """
 
+# In-place swaps: nothing on screen moves, so no Rule 66 warning.
+IF_SWAPS = """export const Panel = {
+  Title: { text: 'x' },
+  Loading: { if: (el, s) => s.status === 'loading' },
+  Content: { if: (el, s) => s.status !== 'loading' }
+}
+
+export const Wizard = {
+  Title: { text: 'x' },
+  Ask: { if: (el, s) => s.step === 'ask' },
+  Code: { if: (el, s) => s.step === 'code' },
+  Done: { if: (el, s) => s.step !== 'ask' && s.step !== 'code' }
+}
+
+export const Deals = {
+  Title: { text: 'x' },
+  Rows: { children: (el, s) => s.deals },
+  NoDeals: { if: (el, s) => !s.deals.length }
+}
+"""
+
+# Not a swap: at most one shows (a status line goes blank), or a member's
+# base sets a state of its own (its `s` is another state).
+IF_NOT_SWAPS = """export const SaveStatus = {
+  Title: { text: 'x' },
+  Saving: { if: (el, s) => s.status === 'saving' },
+  Saved: { if: (el, s) => s.status === 'saved' }
+}
+
+export const Spinner = { state: { tick: 0 } }
+
+export const Loader = {
+  Title: { text: 'x' },
+  Spinner: { if: (el, s) => s.loading },
+  Content: { if: (el, s) => !s.loading }
+}
+"""
+
+# The allow comments frank-audit reads.
+IF_ALLOWED = """// frank-allow-block FA813: the toolbar's tools come and go with the query
+export const Bar = {
+  Title: {},
+  Clear: { if: (el, s) => !!s.q },
+  Count: { if: (el, s) => s.n > 0 },
+  Panel: {
+    Head: {},
+    Note: { if: (el, s) => !!s.note }
+  }
+}
+
+export const Row = {
+  Label: {},
+  // frank-allow FA813: the badge is meant to come and go
+  Badge: { if: (el, s) => s.count > 0 },
+  // frank-allow FA813: the icon comes with the props
+  Icon: { if: (el) => !!el.parent.icon }
+}
+
+export const Steps = {
+  // frank-allow-block FA813
+  Form: {
+    Title: {},
+    Hint: { if: (el, s) => !!s.hint }
+  }
+}
+
+export const FooterLink = {
+  extends: 'Link',
+  // frank-allow FA811
+  ':hover': { color: 'title' }
+}
+"""
+
 # The fixtures of the other validator tests (Python and Node).
 EXISTING = [
     """export const PriceCard = {
@@ -246,6 +330,34 @@ def test_rule_66_quiet_for_the_right_form_and_out_of_flow_elements():
     assert _python(IF_QUIET) == []
 
 
+def test_rule_66_skips_a_swap_in_place():
+    assert _python(IF_SWAPS) == []
+
+
+def test_rule_66_keeps_at_most_one_and_a_stateful_member():
+    found = _python(IF_NOT_SWAPS)
+    assert _rules(found) == ["Rule 66"] * 4
+    assert [f["line"] for f in found] == [3, 4, 11, 12]
+    assert "SaveStatus › Saving" in found[0]["message"]
+    assert "Loader › Spinner" in found[2]["message"]
+
+
+def test_rule_66_reads_the_allow_comments_and_reports_the_unused():
+    found = _python(IF_ALLOWED)
+    lines = [(f["line"], f["message"]) for f in found]
+    # the block allow covers Bar's direct children (Clear, Count), not Note
+    assert [l for l, m in lines if "Bar ›" in m] == [8]
+    # the used line allow is silent; the one above a props gate is reported
+    assert (16, "[Rule 66] `frank-allow FA813` covers no FA813 finding (line 17 has none) — remove it, or FA813 from it") in lines
+    assert not any("Row › Badge" in m for l, m in lines)
+    # a block allow without a reason allows nothing and says so
+    assert (21, "[Rule 66] `frank-allow-block FA813` needs a reason after the rule id (`// frank-allow-block FA813: <why>`) — it allows nothing until it has one") in lines
+    assert any(l == 24 and "Steps › Form › Hint" in m for l, m in lines)
+    # another rule's line allow: Rule 65 is quiet on FooterLink
+    assert not any(m.startswith("[Rule 65]") for l, m in lines)
+    assert len(found) == 4
+
+
 def test_python_report_lists_rule_66(monkeypatch):
     monkeypatch.setattr(server, "FRANK_AUDIT_URL", None)
     monkeypatch.setattr(server, "_run_frank_audit", lambda *a, **k: {"ok": True, "findings": []})
@@ -281,7 +393,7 @@ def _node_audit(code):
     return reply["result"]["content"][0]["text"]
 
 
-@pytest.mark.parametrize("code", [REPEATED_CONDITION, HOVER_NO_ACTIVE, BUTTON_PADDING, ISX_FORM, BUTTON_CLEAN, IF_IN_FLOW, IF_QUIET])
+@pytest.mark.parametrize("code", [REPEATED_CONDITION, HOVER_NO_ACTIVE, BUTTON_PADDING, ISX_FORM, BUTTON_CLEAN, IF_IN_FLOW, IF_QUIET, IF_SWAPS, IF_NOT_SWAPS, IF_ALLOWED])
 def test_node_server_reports_the_same_findings(code):
     text = _node_audit(code)
     for f in _python(code):

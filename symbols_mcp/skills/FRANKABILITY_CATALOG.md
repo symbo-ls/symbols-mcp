@@ -1547,22 +1547,40 @@ Any element with a `text:` prop is already a Text component.
 
 # FA806 — auto-extend-wrapper
 
-DOMQL auto-extends by key name. A wrapper that just re-exports another
-component under a different name (`Header: { extends: 'Navbar' }`) is
-usually noise — rename the key to match.
+DOMQL extends a child by its key only when the child has no `extends`:
+`Icon: { name: 'home' }` is an Icon, and `SkipLink: { extends: 'Link' }`
+is a Link and nothing more. A key with an explicit `extends` is a ROLE
+name, and that is fine — unless the name misleads.
 
-Bad:    Header: { extends: 'Navbar', logo: '...' }
-Good:   Navbar: { logo: '...' }
+Good (a role key that names no component):
+  SidebarNav: { extends: 'Navbar' }      TabHome: { extends: 'Button' }
+  RowNum: { extends: 'RowNumberCell' }   Logo: { extends: 'Icon' }
 
-Multi-instance:
-  Bad:    Icon1: { extends: 'Icon', name: 'home' }
-          Icon2: { extends: 'Icon', name: 'search' }
-  Good:   Icon_1: { name: 'home' }
-          Icon_2: { name: 'search' }
+Reported:
+  Title: { extends: 'PageHeaderTitle' }  the key names another registered
+                                         component (Title): name it for
+                                         its role, a name no component has
+  Icon1: { extends: 'Icon' }             a numbered instance: Icon_1
+  Header: { extends: 'Navbar' }          an HTML tag name, not a role
+  Row: { extends: 'SkeletonRow' }        a generic word (Rule 35: Header,
+                                         Body, Row, Cells, List)
+  Foo: { extends: 'PriceCard' }          a placeholder (Foo, Wrapper, Inner, …)
 
-Keep the explicit extends only when the wrapper carries distinct
-semantic meaning (e.g. `Sidebar: { extends: 'Drawer' }` where Sidebar
-has a real role beyond just "another Drawer instance").
+The fix is a name for the element's role — never a rename to the base:
+a `data-key` selector or a test may read the key. When the base sets no
+tag, a tag-name key gives the element its tag (`Header` → <header>):
+keep it with `tag: 'header'` when you rename the key. Only a numbered
+instance gets an automatic rename (aggressive mode).
+
+Registered names come from every tier: the framework's built-ins and
+plugin components, the linked shared libraries (npm, .symbols_local, a
+symbols.json link or destDir) and the project. An app module that a
+host installs names that host in symbols.json, read only by the audit:
+
+  "hostLibraries": ["../../shell"]   // or a package name
+
+Keep a meant one with `// frank-allow FA806: <why>` on the line above
+the key. An allow that covers no finding is reported (info).
 
 # FA807 — extends-variable
 
@@ -1717,10 +1735,39 @@ an `if:` also silences the announcement it was written for.
 Reported: a nested element with a sibling, an `if:` that reads state
 (`(el, s) => …s…`, `({ state }) => …`, `….state`), not out of the
 flow (its own `position: 'absolute' | 'fixed'`, or an out-of-flow
-built-in such as Dropdown or ModalRoot). One file cannot tell chrome
-from content: a list swapped for its empty state is reported too.
-Keep a meant one with `// frank-allow FA813` on the line above it; a
-read-then-dismiss panel belongs on an overlay (fixed panel + backdrop).
+built-in such as Dropdown or ModalRoot).
+
+## Skipped: a swap in place
+
+Nothing on screen moves when one thing takes the place of another:
+
+- a run of 2–6 adjacent in-flow siblings, each with a one-expression
+  `if:`, of which exactly one shows in every case:
+    Loading: { if: (el, s) => s.status === 'loading' },
+    Content: { if: (el, s) => s.status !== 'loading' }
+- an empty note beside the list it stands for — its gate says the
+  array is empty (`!X.length`, `X.length === 0`, `!(X || []).length`)
+  and the adjacent sibling (or a descendant) renders `children` from X:
+    Rows: { children: (el, s) => s.rows },
+    NoRows: { if: (el, s) => !s.rows.length }
+
+A gate is read as an AND of tests: `x`, `!x`, `x === lit`, `x !== lit`,
+`[lits].includes(x)`, `x === a || x === b`, `x.length > 0`; anything
+else is an opaque test. A test that reads the element itself (`el.X`,
+except `el.parent…`) refuses the run, and so does a member whose base
+(a project, library or framework component) sets a `state:` of its
+own — then its `s` is not its siblings'. "At most one of the two
+shows" is not skipped: a status line that goes blank is chrome.
+
+## Allow a meant one
+
+  // frank-allow FA813: <why>          on the line above the `if:`
+  // frank-allow-block FA813: <why>    above an element (or its
+                                       `export`): its direct children
+
+The block form needs a reason. An allow that covers no finding is
+reported (info): remove it. A read-then-dismiss panel belongs on an
+overlay (fixed panel + backdrop).
 
 ## Opt-in
 

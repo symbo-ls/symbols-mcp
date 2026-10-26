@@ -349,13 +349,13 @@ onClick: (e, el) => el.router('/dashboard', el.getRoot())
 
 ```js
 // ❌ WRONG — href in attrs
-Nav: { extends: 'Link', attr: { href: '/about' } }
+AboutLink: { extends: 'Link', attr: { href: '/about' } }
 
 // ❌ WRONG — no Link component
-Nav: { tag: 'a', attr: { href: '/about' } }
+AboutLink: { tag: 'a', attr: { href: '/about' } }
 
 // ✅ CORRECT — Link component with href as prop
-Nav: { extends: 'Link', href: '/about', text: 'About' }
+AboutLink: { extends: 'Link', href: '/about', text: 'About' }
 ```
 
 ---
@@ -798,7 +798,7 @@ export const Header = {
 
 // ✅ CORRECT — string-based extends + el.call + token name
 export const Header = {
-  Nav: { extends: 'Navbar' },
+  SiteNav: { extends: 'Navbar' },
   text: (el, s) => el.call('findUser', s).name,
   color: 'brand'
 }
@@ -861,18 +861,24 @@ symbols/functions/index.js → export * from './helpers/normalize.js'
 
 ---
 
-## 32b. `Header: { extends: 'Navbar' }` should usually be `Navbar: {}` — auto-extend by key
+## 32b. A key with `extends` is a role name — never one that misleads
 
-DOMQL auto-extends a component when the key name matches a registered component. Almost every `Wrap: { extends: 'X', ... }` you write is dead weight — rename the wrapper key to the component name and drop `extends`.
+DOMQL extends a child by its key only when the child has no `extends`. So a key that repeats its base is dead weight, and a key WITH `extends` is a role name: right, unless the name misleads.
 
 ```js
-// ❌                                       // ✅
-Header: { extends: 'Navbar' }                Navbar: {}
-Header: { extends: 'Navbar', padding: 'A' }  Navbar: { padding: 'A' }
-Hgroup: { extends: 'Hgroup', gap: '0' }      Hgroup: { gap: '0' }
-Card:   { extends: 'Card', padding: 'B' }    Card:   { padding: 'B' }
-Foo:    { extends: 'PriceCard', text: 'Pro' }  PriceCard: { text: 'Pro' }
+// ❌ redundant — the key already names the base     // ✅
+Navbar: { extends: 'Navbar', padding: 'A' }           Navbar: { padding: 'A' }
+Hgroup: { extends: 'Hgroup', gap: '0' }               Hgroup: { gap: '0' }
+Card:   { extends: 'Card', padding: 'B' }             Card:   { padding: 'B' }
+
+// ❌ misleading — the key names a DIFFERENT registered component, a tag name,
+//    a generic word or a placeholder                 // ✅ a name for the role
+Title:  { extends: 'PageHeaderTitle' }                ReportTitle: { extends: 'PageHeaderTitle' }
+Header: { extends: 'Navbar' }                         SiteNav: { extends: 'Navbar', tag: 'header' }
+Foo:    { extends: 'PriceCard', text: 'Pro' }         ProTier: { extends: 'PriceCard', text: 'Pro' }
 ```
+
+Rename a misleading key for its role, never to its base: a `data-key` selector or a test may read the key. A tag-name key gives the element its tag when the base sets none — keep it with `tag:` (above). frank-audit FA806 reports each case; `// frank-allow FA806: <why>` keeps a meant one.
 
 **Multiple instances of the same component → suffix with `_N`** (the part before `_` is what auto-extends):
 
@@ -882,12 +888,9 @@ PriceCard_2: { tier: 'pro' }
 PriceCard_3: { tier: 'enterprise' }
 ```
 
-**Keep `extends` only when:**
-- The wrapper key carries **genuinely distinct semantic meaning** (`SidebarNav: { extends: 'Navbar' }` if your project really uses both labels for different reasons).
-- You need **multi-base composition**: `extends: ['Hgroup', 'Form']`.
-- You're chaining a **nested-child reference**: `extends: 'AppShell > Sidebar'`.
+**Other `extends` forms:** multi-base composition (`extends: ['Hgroup', 'Form']`) and a nested-child reference (`extends: 'AppShell > Sidebar'`).
 
-If none of those apply, the `extends:` clause is wasted bytes. The audit (`bin/symbols-audit`, `audit_component`) flags this aggressively as Rule 6.
+A numbered instance (`PriceCard1: { extends: 'PriceCard' }`) is reported too: write `PriceCard_1: {}` — it extends PriceCard by its key.
 
 ---
 
