@@ -107,6 +107,8 @@ The shared-library merger does **not** recurse. If `<lib-A>` lists `system/defau
 
 **Always declare every dep directly in each consumer.** This is verbose but keeps merge order explicit and avoids hidden coupling. If three apps in a workspace all depend on `system/default` + `acme/brand`, all three must list both.
 
+**This is the LOCAL merge. The platform walk IS transitive.** When the platform serves a project, it also gives the project the libraries its libraries link. So a project that other projects link as a library hands its own libraries on to all of them. When a library project links a heavy library that its consumers must not get (an app kit linked by a landing that the docs and the design system link), declare that link `"transitive": false` in the library project's `symbols.json`. See [Link options](./SHARED_LIBRARIES.md#link-options-ignorelist-and-transitive).
+
 ---
 
 ## Adding a new shared dep — the canonical CLI flow
@@ -223,7 +225,7 @@ See SHARED_LIBRARIES.md "Parcel tree-shaking" for the deeper explanation.
 
 - **`sharedLibraries.js` deviating from canonical shape** — if you hand-edit imports beyond `import name from 'spec'` + `export default [...]`, the CLI refuses to regenerate without `--force`. This is a safety guard against losing hand-maintained custom wiring. To go back to canonical, simplify the file or pass `--force` once.
 
-- **No transitive resolution** — every consumer must declare every dep directly. See section above.
+- **No transitive resolution** — every consumer must declare every dep directly. See section above. This is the local merge: the platform walk is transitive unless the link says `"transitive": false`.
 
 - **Built-ins beat nothing, app beats everything** — local definitions silently shadow built-ins and shared-library entries. If a built-in or library `Avatar` works almost right, `extends: 'Avatar'` to customize. Don't redefine the bare key with a fresh implementation — that breaks every other consumer that expected the canonical behavior.
 

@@ -90,10 +90,39 @@ All formats normalize keys to `owner/key` via `normalizeLibraryKey()`.
 `normalizeSharedLibrariesConfig` returns entries shaped:
 
 ```js
-{ key, version, link, destDir, mode }
+{ key, version, link, destDir, ignoreList, mode }
 // mode = 'linked'  when `link` is set
 // mode = 'cloud'   otherwise
+// + transitive, only when the entry names it (see Link options below)
 ```
+
+### Link options: `ignoreList` and `transitive`
+
+The object form (shapes 3 and 4) can carry two link options beside the source fields. They say how this project uses the library, not where the library comes from. `smbls push` writes them to this project's platform record (`libraryOptions`), and the platform applies them when it serves the project.
+
+```json
+"sharedLibraries": {
+  "acme/brand": { "link": "../brand" },
+  "acme/app-core": { "ignoreList": ["pages"], "transitive": false },
+  "acme/app-kit": { "transitive": false }
+}
+```
+
+| Option | Value | Effect |
+|---|---|---|
+| `ignoreList` | paths, e.g. `"pages"`, `"designSystem/color/secret"` | this project does not take these parts of the library (see [What Gets Merged](#what-gets-merged)) |
+| `transitive` | `true` (the default) or `false` | `false`: a project that reaches the library only THROUGH this project does not get it |
+
+**The platform walk is transitive.** When the platform serves a project, it gives the project its own libraries AND the libraries those libraries link (nested links). Say `acme/docs` links `acme/landing`, and `acme/landing` links `acme/app-kit`. Then `acme/docs` gets `acme/app-kit` too: its components, its pages and its payload size. `"transitive": false` on the landing's `acme/app-kit` entry stops that. The landing still gets the kit. `acme/docs` does not, and the libraries the kit links do not reach `acme/docs` through it either. A project that needs the kit links it directly. The local merge is different: it never walks nested libraries (see [WORKSPACE.md](./WORKSPACE.md#no-transitive-resolution--each-consumer-declares-every-dep-directly)).
+
+- **Declare it in `symbols.json` only.** `sharedLibraries.js` cannot carry `transitive`: the option has no local meaning.
+- **`true` or `false`, nothing else.** Any other value (`"false"`, `0`, `null`) stops the push before it writes anything.
+- **To pass a library on again, set `"transitive": true`.** Deleting the key keeps the value the platform record already stores.
+- **One write.** `smbls push` links a library that carries options in the same platform write that sets them, before the content push, and prints `linked with its options in one write`. It never links such a library first and sets its options after: every project that links this one would get the library in between.
+- **A platform server that does not know `transitive` refuses it.** The push then stops before it links anything, names the libraries that are NOT linked, and writes nothing. Push again when the server supports the option. A server that takes the write but does not store `transitive: false` gets the link undone at once, and the push stops.
+- **A CLI that does not know `transitive` ignores it** and links the library plainly, so the library passes on. Push a project that declares `transitive: false` only with a CLI whose push prints the one-write line above.
+- **`smbls libs add` / `smbls libs link` never link a `transitive: false` library on the platform.** A plain link cannot carry the option. They write `symbols.json` and tell you to run `smbls push`. A re-add or a re-link keeps the entry's `ignoreList` and `transitive`.
+- **`smbls project libs add` is a plain link.** It sends no options. Never use it for a library that must not pass through.
 
 ### `link` vs `destDir` (load-bearing distinction)
 
