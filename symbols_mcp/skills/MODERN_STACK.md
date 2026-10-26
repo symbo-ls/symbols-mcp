@@ -119,7 +119,7 @@ cache: { staleTime: '30s', gcTime: '1h', key: 'custom-key' }
 - Stale-while-revalidate: stale data served immediately, background refetch swaps it.
 - Garbage collection: unused entries cleaned after `gcTime`.
 - Deduplication: identical concurrent queries share one network request.
-- Refetch on window focus: enabled by default. Disable with `refetchOnWindowFocus: false`. A server render (brender) binds no focus, reconnect or `refetchInterval` refetch.
+- Refetch on window focus: enabled by default. Disable with `refetchOnWindowFocus: false`. A server render (brender) binds no focus, reconnect or `refetchInterval` refetch. A focus refetch skips the cache but joins a request already in flight on the key, so a focus during a cold load sends no second request (since fetch 3.14.674 / smbls 3.14.860; before, it sent one per mounted declaration). Reconnect, `refetchInterval`, `el.__ref.refetch()` and `fetchNextPage` stay forced: they never join.
 - After a successful write, `invalidates` (a key substring, a RegExp or a predicate; `true` = the write's own `from`) makes the queries MOUNTED on matching keys refetch at once. From project code: `el.call('invalidateQueries', 'articles')` (also `removeQueries`, `getQueryData`, `setQueryData`) — never import the query client. An `rpc` fired by a click / submit, or declaring `invalidates`, is an action: never cached, runs its `invalidates`.
 - Reads retry 3 times; writes are sent once unless `retry` says otherwise.
 

@@ -359,6 +359,8 @@ export default { color, theme, font, font_family, typography, spacing, reset }
 
 UPPERCASE keys (`COLOR`, `THEME`, `FONT`, …) also work historically — scratch lowercases them internally before merging — but UPPERCASE is **deprecated and banned in new code** (Rule 0). Always lowercase.
 
+The key order does not matter (since scratch 3.14.796 / smbls 3.14.860): `set()` runs `color` before `gradient`, `theme` and `shadow`, and `gradient` before `theme`, whatever order the keys come in; every other family keeps its authored position. With an older scratch, a config with `theme` before `color` resolved every theme param against an empty palette (`--theme-*` held raw words): there, put `color` first.
+
 ---
 
 ## Token sequences — same letter, different value per family ⚠️
@@ -654,6 +656,8 @@ Config:
 ```js
 typography: { base: 16, ratio: 1.25, subSequence: true }
 ```
+
+A media override in this config or in `spacing` (`'@<name>': { … }`) must name a token of the media table. An override for a name the table lacks (`'@default'`) is skipped, with one dev warning per family and name (since scratch 3.14.796 / smbls 3.14.860). Before, it emitted `@media undefined` / `@media screen and undefined`, which no browser matches, so it never applied.
 
 ### Sequence ratios
 
