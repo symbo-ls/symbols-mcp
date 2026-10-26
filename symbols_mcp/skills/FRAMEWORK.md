@@ -817,6 +817,24 @@ metadata: {
 
 To REPLACE an element's metadata at runtime, pass a factory or `null`: `el.update({ metadata: (el, s) => ({ title: 'Checkout', robots: 'noindex' }) })`, `el.update({ metadata: null })`. An object patch (`el.update({ metadata: { title: 'Checkout' } })`) changes nothing — `update()` does not assign an object to a lowercase prop.
 
+### A route entry's head
+
+Since smbls 3.14.860 (@symbo.ls/utils 3.14.854, router 3.14.615, helmet 3.14.673, mermaid 3.14.848). A route entry names its page's component and may carry that route's own head — several routes, one page component, a head each:
+
+```js
+// pages/index.js
+export default {
+  '/ask': 'AiPage',
+  '/blueprint': { extends: 'AiPage', metadata: { title: '{{ ai.blueprint.title | polyglot }}', robots: 'noindex' } },
+  '/make': { extends: 'AiPage', metadata: { title: '{{ ai.make.title | polyglot }}' } }
+}
+```
+
+- A string entry's head is its component's static `metadata`. An object entry's head is its own `metadata` (or `helmet`) over the component's: the entry's keys win, the component's other keys stay. A whole-function `metadata` replaces the component's (a server head cannot read it); per-key functions work as usual.
+- The component is found as `extends` resolves: the project's components, then the linked libraries, along its string `extends` chain (at most 8 components; a cycle ends).
+- The served head (mermaid, `@symbo.ls/utils` `getPageMetadata`), the SSR head (`extractMetadata`) and the browser read it by this one rule (`routeEntryMetadata`), so the served `<title>` and robots are the route's own. Before, a string entry served the app's head, and an object entry lost its component's keys.
+- Two entries that name the same component and carry nothing but a head (`extends` with `metadata` / `helmet`, or a string) are the SAME page for `keepSamePage` (SYNTAX.md → Router → Keep the page): the page stays mounted (a canvas keeps its state) and the head changes to the new entry's, what a fresh visit to that address shows. An entry with any other key is a page of its own.
+
 ### Runtime — the head is the merge of mounted layers
 
 Every element with `metadata` adds a LAYER to the document head: opened when the element is created, kept current by a signal effect (a language switch re-resolves it), closed when the element is disposed (the router swaps the page, a list row leaves, `destroy(app)`).
@@ -848,8 +866,16 @@ Since smbls 3.14.859. The live head keeps what the document shows until a real v
 
 - A value that is a label's stand-in (a `polyglot` key whose language is still loading; `translate` marks it through `@symbo.ls/utils` `evaluateText`) is never written. The tag keeps the served value, or the last real one, and the label is written when it lands. So a title never flips to a raw `ui.meta.*` key.
 - On a page the build wrote (`<meta name="brender">` / `<meta name="brender-stamp">` in the served head), on the path it was served for, the app root's metadata does not replace a tag the document carries. The page's own metadata is written as soon as it is ready. A navigation, or a change of the app's values (a language switch), ends this.
+- A head the HOST wrote (an edge Worker that writes each route's own title and description into an app shell) is kept the same way when it carries `<meta name="smbls-head" content="served">` (since helmet 3.14.673; opt-in). Without the marker the app's defaults fill every tag the page does not set.
 
 So the app's defaults name labels (`title: '{{ ui.meta.site_name | polyglot }}'`), and the static text that shows before the labels load is written once, in `index.html`. `app.js` need not repeat the `index.html` literals (FRANKABILITY_CATALOG.md → FA701 → Head metadata defaults).
+
+#### The first head write, and a noindex the host forced
+
+Since helmet 3.14.673:
+
+- An app that routes renders its head once its first page is in: the app's metadata and the first route's page metadata, merged in ONE write (at the first `routeChanged`, or when the first navigation settles without one). The served title changes at most once at boot, to the first page's; the app's title alone is never written first. An app without routes (or with `router: false`) writes at once.
+- A Symbols-managed host (`*.symbo.ls`, every slot; a custom domain is the indexed one) serves the forced `<meta name="robots" content="noindex" data-smbls-host="forced">` (`generateMetaTags`, @symbo.ls/utils 3.14.854). Into a marked tag helmet writes only a robots value that keeps the page out of the index (it contains `noindex` or `none`, e.g. `noindex, nofollow`) and never removes it, so a project's `robots: 'index, follow'` does not reach a development or staging copy. A custom domain's head has no mark: the project's `robots` applies. `applyMetadata` keeps the same rule.
 
 ### Supported keys
 
@@ -888,7 +914,7 @@ SSR HTML brender produces.
 
 1. `data.integrations.seo` — lowest priority (defaults)
 2. `data.app.metadata` — medium
-3. `page.metadata` (or `page.helmet`) — highest
+3. the route entry's head — highest: an object entry's `metadata` (or `helmet`) over its component's static `metadata`; a string entry, the component's (A route entry's head, above)
 4. Falls back to `page.state.title` / `page.state.description`
 5. Final default: `data.name || 'Symbols'` for `title`
 6. Cascades `title` / `description` into `og:title` / `og:description` (unless the page sets them) and `twitter:title` / `twitter:description` (unless set anywhere)
@@ -913,7 +939,7 @@ Full reference: `plugins/brender/README.md`. Renders DOMQL trees to HTML on the 
 - **`smbls brender`** CLI — pre-renders every static route to `dist-brender/`, route `/x` → `x/index.html`. Its pages carry no registry: with its client bundle (ISR, on by default) the app boots over the markup and replaces it.
 - **`smbls build`** — pre-renders into the build output, route `/x` → `x.html`. Both write `/*` to `404.html`; `:param` routes and nested `*` routes have no single URL, so they are skipped and listed unless `brender.paths` lists addresses for them. Both run one route loop: the `symbols.json` `brender` settings (`context`, `exclude`, `paths`, `strict`, `eagerImages`, `timeout`, `stamp`), `file:` URLs mapped into the output, and the same diagnostics — `--strict` fails on a page made without its data or labels. Both exit 1 when no route renders (opt out with `--no-brender`). Every built page is made for adoption (hydration, below) unless `symbols.json` says `"brender": { "hydrate": false }`. `smbls build` also writes the prepared design system (below), `200.html` for routes without their own page and the `_redirects` rules that serve it (CLI.md → Dev / build / deploy → Routes without their own page). `smbls build` also takes `brender.lazyGroups` (a lazy route built as its group's real page, SYNTAX.md → Router → Lazy routes) and the opt-in built-page options `module`, `onProblem`, `report`, `paint`, `faces`, `app`, `pageScript`, `beforeWrite`, and `paths` as a function (since cli 3.14.826 / brender 3.14.676; CLI.md → Dev / build / deploy → Built-page options).
 - **`smbls publish --ssr`** (or `"prerender": true`) — pre-renders the static routes at publish time and stores them on the platform, one row per route outside the project content, served by the platform renderer; each route keeps its own icons after its content (CLI.md → Publish flow).
-- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render. `renderProjectHtml(data, { metadata })` takes a head the CALLER resolved for this address (for example from a CMS record it read): with keys it is the page's head, over a server render's and the page's own; an empty object, an array, `null` or a string keeps the usual head. It reaches the `<head>` tags only — the boot payload, and so the client, never carries it. (Head keys and `metadata.source`: §7.)
+- **mermaid** runtime — calls `renderRoute(...)` per request when `channel === 'production'` or `'staging'`. Falls back to client-side render if brender throws or `BRENDER=false` env var is set. `renderProjectHtml({ adoptDom, ssrWithoutEval, evalAvailable })`: without `eval` (Cloudflare Workers) there is no live server render, so the platform serves the client render or a stored `__ssr` pre-render. `renderProjectHtml(data, { metadata })` takes a head the CALLER resolved for this address (for example from a CMS record it read): with keys it is the page's head, over a server render's and the page's own; an empty object, an array, `null` or a string keeps the usual head. It reaches the `<head>` tags only — the boot payload, and so the client, never carries it. (Head keys and `metadata.source`: §7.) The served page names its language on `<html lang>` (mermaid 3.14.848, client and server render alike): the language a server render rendered in, else the page's start language (the address's when the project uses one, else `defaultLang`), escaped; no attribute without polyglot; a project `index.html` that sets `lang` on `<html>` keeps its own.
 
 ### The page and the client boot
 
