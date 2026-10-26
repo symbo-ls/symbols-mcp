@@ -450,11 +450,13 @@ fetch: [
 
 ### Cache, retry, dedupe, focus refetch — all default-on
 
-Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads and none for writes (`insert` / `update` / `upsert` / `delete` / rpc actions — a timed-out write may have been applied), `refetchOnWindowFocus: true`, `refetchOnReconnect: true` (in the browser: a server render binds no focus, reconnect or `refetchInterval` refetch). A forced refetch (`el.__ref.refetch()`, each `refetchInterval` tick, reconnect) reaches the network even while the entry is fresh. A shared in-flight request that fails gives every element on it the error. Override per-fetch:
+Defaults: `cache: { stale: '1m', gc: '5m' }`, `retry: 3` (exp backoff) for reads and none for writes (`insert` / `update` / `upsert` / `delete` / rpc actions — a timed-out write may have been applied), `refetchOnWindowFocus: true`, `refetchOnReconnect: true` (in the browser: a server render binds no focus, reconnect or `refetchInterval` refetch). A forced refetch (`el.__ref.refetch()`, each `refetchInterval` tick; a reconnect up to smbls 3.14.860, see below) reaches the network even while the entry is fresh. A shared in-flight request that fails gives every element on it the error. Override per-fetch:
 
 ```js
 { fetch: { from: 'X', cache: false, retry: false, refetchOnWindowFocus: false } }
 ```
+
+**Reconnect, one answer per element, a language switch** (not released yet). A reconnect asks once per key: the window `online` event marks the page's store, then each mounted declaration runs as a refresh (the cache skipped, a request on its key that started after the mark shared), so N declarations of one key send one request. A request out from before the reconnect is never shared: it may have been sent offline. `refetchInterval`, `el.__ref.refetch()` and `fetchNextPage` stay forced. An element takes each answer once per declaration: a focus refetch that joins the element's own create-time request does not run `onFetchComplete` again, and an older reply never replaces a newer answer's rows or turns them into an error. A language switch (polyglot `setLang`, or a host writing root `lang`) runs the create-time queries on screen again in the new language: a fresh entry on the new key answers from the cache, a request in flight on it is shared, else one request goes out; an answer for a language the element no longer asks for is not delivered. A page that switches its language in the root `onRender` (a browser that lists `ka`) gets the new language's rows after the switch, not the start language's.
 
 ### State path syntax
 
