@@ -770,9 +770,8 @@ Modules get right-click context menus through the shell's house
    lets actions run `moduleOpenPage`/records ops with a graceful guard.
 3. Terminal actions clear `root.contextDropdown` themselves.
 
-Reference implementation: bellforge-app `functions/bfContext.js`
-(bfOpenContext/bfContextAction) wired on thesis cards, watch rows, applicant
-rows. Verified end-to-end on dev cloud: menu renders, action navigates.
+Reference implementation: a project function pair (open the menu, run an
+action) wired on card and list rows. Verified end-to-end on dev cloud: menu renders, action navigates.
 
 ## Verifying a UI fix — traps that produce false PASSES (2026-08-06)
 

@@ -411,7 +411,7 @@ next/
 │   └── plugins/
 │       └── router/            # @domql/router
 ├── platform/                  # internal platform app
-└── rita/, bazaar/, ...        # consumer apps
+└── app/, site/, ...           # consumer apps
 ```
 
 All packages are version-locked at the same version across the monorepo. Consumer apps depend on `"smbls"` (workspace-resolved).

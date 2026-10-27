@@ -1536,7 +1536,7 @@ Apps in the same browser realm (e.g. canvas editor + preview iframe mounted on t
 
 **Next release (after smbls 3.14.864; not in 3.14.864 or older).** This section describes the owner + key identity that ships in the next smbls release: the collab socket, the `editor.remote` project fetch (`X-AppKey: owner/key`, no fetch without an owner), the shared-library API fallback (searched by owner) and freestyler's `projectKey`. A project is named by owner + key: the server answers a bare key that several owners share with 409 `ambiguous_key`, and never picks one. Set `owner` in `symbols.json` now; it is harmless on the current release.
 
-The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when a page wants live sync) opens a socket only when it can name the project. The collab server resolves a handshake by `projectId` first (unique, wins outright — `owner` is then optional, carried along if known), then by `owner` + `projectKey` — a bare key alone is the legacy 1-seg route and is not unique across owners (dev: `default`, `survey`, `web3`; production: `symbols`).
+The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when a page wants live sync) opens a socket only when it can name the project. The collab server resolves a handshake by `projectId` first (unique, wins outright — `owner` is then optional, carried along if known), then by `owner` + `projectKey` — a bare key alone is the legacy 1-seg route and is not unique across owners (`acme/web` and `globex/web` share the key `web`).
 
 `editor.projectId` (mermaid injects the served record's `_id`) is read straight off. With no `projectId`, `owner` is required and comes from, first match wins (`plugins/sync/identity.js`):
 
@@ -1553,7 +1553,7 @@ The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when 
 Set the owner once, in `symbols.json`:
 
 ```json
-{ "owner": "acme", "key": "default" }
+{ "owner": "acme", "key": "web" }
 ```
 
 ### `import * as` getter-only namespaces — Parcel fallback

@@ -3370,7 +3370,7 @@ export const UserNavbar = {
     gap: 'W',
     H: {
       tag: 'h5',
-      text: 'Nika Tomadze'
+      text: 'Jane Doe'
     },
     P: {
       text: 'active now'

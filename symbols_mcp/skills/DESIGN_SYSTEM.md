@@ -714,7 +714,7 @@ A shape token may alias a bare spacing letter: `radiusControl: 'Z1'`. The letter
 | `radiusSheet` | `A2` — `1.381953em` (23.493px) | Modals, sheets, docked panels |
 | `radiusPill` | `999px` | Capsules: pills, toggles, tabs |
 
-Since company `7ba29f9` (the radius law: letters everywhere) the first three follow the em spacing scale — each is its letter's own em value, so it scales with the element's font size.
+Since the radius law (letters everywhere) the first three follow the em spacing scale — each is its letter's own em value, so it scales with the element's font size.
 
 ### Usage
 
