@@ -45,6 +45,8 @@ color: '#202124',  background: '#f1f3f4',  borderColor: '#dadce0'
 color: 'text',  background: 'headerBg',  borderColor: 'border'
 ```
 
+A token you use but never define is dropped with a console warning, also when its name is a CSS colour (`color: 'highlight'` with no `highlight` in the palette paints nothing, not the browser's selection blue). Define it in `designSystem/color.js`. Only a system colour in spec spelling (`Highlight`) or inside `'@media (forced-colors: active)'` passes through (DESIGN_SYSTEM.md → color).
+
 ---
 
 ## 2. CSS — flatten at root level, never use `style: {}` wrapper

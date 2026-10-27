@@ -422,6 +422,22 @@ fetch: {
 }
 ```
 
+### Custom adapters — `registerAdapter`
+
+```js
+import { registerAdapter } from '@symbo.ls/fetch'
+
+// the loader resolves to a module that exports `setup(options) => adapter`
+registerAdapter('api', () => import('./adapters/api.js'))
+
+// config.js
+fetch: { adapter: 'api', /* options passed to setup() */ }
+```
+
+A registration shadows a built-in of the same name (`rest`, `local`). An element made before its adapter registers waits for it up to about 5 s, then fails with `Unknown db adapter`.
+
+**An adapter that cannot open fails only its queries** (since `@symbo.ls/fetch` 3.14.676 / smbls 3.14.864). When `setup()` throws, every run that needs the adapter fails as a failed request does: the element gets its error status, and `onFetchError` runs on the element and on the query (the `fetch:` item). The next run tries the adapter again. A `smbls build` pre-render no longer ends on such a throw. So an adapter may throw in `setup()` when its client is missing (no SDK client in a server render): that query errors, and the page still builds. Show the element's empty or error state for it; the client fetches again after the takeover.
+
 ### Declarative fetch on an element / app
 
 ```js
@@ -1200,7 +1216,7 @@ smbls build --no-brender        # SPA only
 
 - A default component, icon or feature the build left out logs one `console.error` naming the key and the option when the app asks for it (in production too); a left-out component renders as an empty element. The scan sees only source: put keys that only data carries (DB records, fetched payloads) in `keep`.
 - With `lazyServerUtils`, `generateMetaTags`, `getPageMetadata`, `getImportMapScript`, `polyglotStartupScript`, `objectToString` and `deepStringifyFunctions` return a Promise in the browser: `await el.call('getPageMetadata', …)`.
-- `treeShakeFeatures` feature names (for `keep` and `drop`): `autoGrow`, `inertOutside`, `bridge`, `viewEvents`, `lazyRoutes`, `viewTransition`, `liveSync`, `prerender` (kept when the build pre-renders), `safeInk`, `containerVw` (trigger `breakpointsFrom`), `capsize` (triggers `useCapsize` / `metrics`, or a `fontFamily` set to a font of capsize's metrics table; since smbls 3.14.858 / cli 3.14.825), `routeHead` (not released yet: a route entry's own head and the router's one page across such entries; the build reads the routes, not the source words — CLI.md), `themeColorList` (not released yet: the `'theme-color'` list; kept for a list, a name or a call, not a plain colour).
+- `treeShakeFeatures` feature names (for `keep` and `drop`): `autoGrow`, `inertOutside`, `bridge`, `viewEvents`, `lazyRoutes`, `viewTransition`, `liveSync`, `prerender` (kept when the build pre-renders), `safeInk`, `containerVw` (trigger `breakpointsFrom`), `capsize` (triggers `useCapsize` / `metrics`, or a `fontFamily` set to a font of capsize's metrics table; since smbls 3.14.858 / cli 3.14.825), `routeHead` (not released yet: a route entry's own head and the router's one page across such entries; the build reads the routes, not the source words — CLI.md), `themeColorList` (not released yet: the `'theme-color'` list; kept for a list, a name or a call, not a plain colour), `faceWait` (not released yet: the `faceWait` prop, `designSystem.faceWait` and `el.facesReady()`; triggers `faceWait`, `facesReady` — DESIGN_SYSTEM.md → fonts).
 - **`smbls/core` kits** (since smbls 3.14.858 / cli 3.14.825). With `treeShakeFeatures` and `"smblsEntry": "core"` the build also leaves out each kit the `create()` configuration never switches on: `windows`, `dropdown`, `tooltip`, `shorthand`, `analyze`, `inspect`, `fetchOnCreate`, and the fetch `local` adapter. The kit names work in `keep` / `drop`; a left-out kit that the app asks for logs one `console.error` and resolves to nothing. `treeShakeLibraries` also keeps `@symbo.ls/channels` out of the boot, and the default-icon option drops a default icon that the project's own `designSystem.icons` replaces under the same name (CLI.md → `symbols.json` `build` — size options).
 - **Lazy group parts** (since smbls 3.14.859 / cli 3.14.826). With `treeShakeFeatures`, `"smblsEntry": "core"` and `context.lazy` groups with plain `() => import('./file.js')` loaders, the framework parts that only group code uses (`inertOutside`, the bridge hooks, `TooltipLayer`) move into one file, `smbls.core.lazyParts-*.js`, which loads with the first group load. A part that the main code names, or `keep` names, stays in the main bundle (CLI.md → Lazy group parts); not released yet: only a group whose own code uses a part loads it, and a page built with that group preloads the file.
 - A feature stays only for the setting that switches it on (smbls 3.14.849). `liveSync`: `socketUrl`, `notifications: true`, `verbose: true` or the runner. A member named `editor` or a bare `livesync` does not keep it. `lazyRoutes`: `lazy` as an object key or an assigned non-literal member (`lazy: { … }`, `ctx.lazy = groups`) or `loadLazy`. `React.lazy(`, `lazy: true`, `lazy: 'admin'`, `loading: 'lazy'` and a read of `ctx.lazy` do not keep it.
@@ -1277,7 +1293,7 @@ A route without its own page (a `:param` route `brender.paths` does not list, `p
 | Declarative `fetch:` loads nothing; `getDB()` returns `null` | The adapter config sits under `db:`, which the runtime never reads | Rename it to `fetch:` in `config.js` (RULES.md Rule 59) |
 | `Unknown db adapter: "supabase"` after about 5 s | `@symbo.ls/fetch` has no Supabase adapter | `fetch: { adapter: 'rest', url: 'https://<project>.supabase.co/rest/v1', headers: { apikey } }`, or a registered adapter; drop `createClient` and `@supabase/supabase-js` |
 | Routes 404 in deployed env | `pages/index.js` default export not in expected `{ '/': X, '/about': Y }` shape | Frank only picks up the default export of `pages/index.js`. Named exports must be re-exported there |
-| Font flicker / FOUT | `useFontImport: false` or design system `font` block missing `fontFace` | Set `useFontImport: true` and define `fontFace` for every font family |
+| Font flicker / FOUT | `useFontImport: false` or design system `font` block missing `fontFace` | Set `useFontImport: true` and define `fontFace` for every font family. Text that must not show in a fallback face: `faceWait: true` (DESIGN_SYSTEM.md → fonts; not released yet) |
 | CSS vars missing in iframe | Multi-app secondary not getting its own document on `config.document` | Use the framework's `prepareDesignSystem` flow — pass `context.document` (and `themeRoot`) to the iframe app's `create()` call. Don't manually inject CSS into the iframe |
 | `[smbls/router] no content matched for path /` warning | Router fired before pages were registered | Verify `context.pages` exists (frank picks it up from `pages/index.js`'s default export). Check `context.router !== false` |
 | Parcel dev server crash: `ENOENT: no such file or directory, open '.../.parcel-cache/<hash>'` | Race in Parcel's dev cache write/read after a fresh build | Clear `.parcel-cache` AND `dist` for the project, restart. Not a code bug. For framework-level changes, run the monorepo-wide nuke: `find <your-monorepo-root> -name ".parcel-cache" -type d -exec rm -rf {} +` |
@@ -1518,7 +1534,7 @@ Apps in the same browser realm (e.g. canvas editor + preview iframe mounted on t
 
 ### Live sync — collab socket identity needs an owner (`@symbo.ls/sync`)
 
-**Next release (after smbls 3.14.853; not in 3.14.853 or older).** This section describes the owner + key identity that ships in the next smbls release: the collab socket, the `editor.remote` project fetch (`X-AppKey: owner/key`, no fetch without an owner) and freestyler's `projectKey`. Set `owner` in `symbols.json` now; it is harmless on the current release.
+**Next release (after smbls 3.14.864; not in 3.14.864 or older).** This section describes the owner + key identity that ships in the next smbls release: the collab socket, the `editor.remote` project fetch (`X-AppKey: owner/key`, no fetch without an owner), the shared-library API fallback (searched by owner) and freestyler's `projectKey`. A project is named by owner + key: the server answers a bare key that several owners share with 409 `ambiguous_key`, and never picks one. Set `owner` in `symbols.json` now; it is harmless on the current release.
 
 The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when a page wants live sync) opens a socket only when it can name the project. The collab server resolves a handshake by `projectId` first (unique, wins outright — `owner` is then optional, carried along if known), then by `owner` + `projectKey` — a bare key alone is the legacy 1-seg route and is not unique across owners (dev: `default`, `survey`, `web3`; production: `symbols`).
 
@@ -1531,6 +1547,8 @@ The collab live-sync transport (`SyncComponent`, attached via `syncPlugin` when 
 **No `projectId` and no owner anywhere → fails closed.** No service-token request, no socket — one `console.error` naming the fix: set `owner` in `symbols.json` (or `context.owner` / `editor.owner`), or pass `editor.projectId`.
 
 **A key shared by more than one owner → the server answers `ambiguous_key`.** The client logs one `console.error` naming every candidate as `owner/key`, then disconnects — it never retries the same ambiguous join.
+
+**Every (re)connect takes a fresh service token.** The socket's token expires; a reconnect after that fetches a new one instead of replaying the old one. A refresh that fails logs one warning and closes the socket. A join the server refuses (a private project the token may not see) logs one warning naming `owner/key` and does not reconnect. A session the server ends after a join gets one fresh handshake, not a loop.
 
 Set the owner once, in `symbols.json`:
 

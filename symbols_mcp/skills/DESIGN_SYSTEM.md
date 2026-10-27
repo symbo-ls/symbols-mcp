@@ -400,6 +400,8 @@ Don't reason about "the value of B" in the abstract — always ask **B in which 
 
 **Define each color as a named token** in `designSystem/color.js`. Never use raw `#hex`, `rgb()`, `rgba()` in component CSS. Generate all shades dynamically using modifiers — never define multiple shade variants of the same color (no `blue100`, `blue200`, `blue300` Tailwind-style palettes).
 
+**A name the palette does not define paints nothing.** A colour name that is not in the project's palette but is also a CSS named colour or system colour (`red`, `highlight`, `canvas`) is dropped with a console warning; it is never emitted as the browser's own colour (theme-blind, and for a system colour the user's desktop value). Exceptions: a system colour in its spec spelling (`Highlight`, `CanvasText`), any spelling inside a forced-colours block (`'@media (forced-colors: active)'`), and a hyphenated unknown word (`highlight-reversed`) pass through (SYNTAX.md → CSS system colours). Define every colour token you use in `designSystem/color.js`. A test that mounts components with a design system must pass the project's colours too, or the palette-absent name renders nothing.
+
 ### Token grammar
 
 ```
@@ -1264,6 +1266,51 @@ font: {
 ```
 
 Generates comma-separated `src` with auto-detected formats per URL.
+
+### Text that waits for its own face — `faceWait` (not released yet)
+
+A text drawn first in a fallback face and then again in its own face jumps: its width, line breaks and height change, and code that measured it measured the fallback. `faceWait` holds such text back until its own face is in.
+
+| Where | Value | Effect |
+|---|---|---|
+| element prop | `faceWait: true` | the element and every text inside it stay unseen until the faces that draw that text are loaded |
+| element prop | `faceWait: false` | this element does not wait, also under the design-system flag |
+| design system | `faceWait: true` | every element with a text of its own waits for its own faces |
+| every element | `el.facesReady()` | `Promise<FontFace[]>` of the faces that draw the element's text (below); no prop needed |
+
+```js
+// designSystem/index.js — every element with its own text waits
+export default { color, theme, font, font_family, typography, spacing, faceWait: true }
+
+// one part only
+Headline: { faceWait: true, text: 'Le grand titre' }
+```
+
+- **How it hides.** A waiting element keeps its room: `visibility: hidden` (never `opacity` or `display`), through the attribute `data-smbls-face-wait="wait"`. Nothing around it moves when it shows.
+- **The cap.** It waits 3 s at most per face, counted from the first element that asks for that face. Then it shows in whatever face is there. A face that fails to load counts as loaded. An element made after the cap shows at once.
+- **Which face counts.** Each character is matched as the browser matches it: the family list, the style, the weight, then the face whose `unicode-range` holds the character. So a Georgian label waits for the Georgian subset only, a Latin label for the Latin subset only. A system font family is passed over; a generic family (`serif`, `system-ui`, …) ends the list. Of two equal faces, an inline one (a `data:` URL `src`, as on a pre-rendered page) counts first. A Google Fonts stylesheet that is still loading is waited for under the same cap.
+- **Not drawn, no load.** An element with `display: none` (or inside a closed part) asks for no face. It is checked again when it gets a box.
+- **A text write checks again.** A new text (a language switch to a script whose subset is not in yet) waits like the first view.
+- **Print.** Under `@media print` a waiting element shows at once.
+- **A pre-rendered page.** An element adopted from the built page (`el.getAdoption() === 'adopted'`, FRAMEWORK.md → In app code) never hides for its first view: the page already shows it in its own faces. A later text write waits as usual.
+- **Server render.** A document without `document.fonts` (brender) does nothing: no wait is in the server markup.
+
+**`el.facesReady()`** resolves with the list of faces when they are in, at the cap with the faces that are in so far, and at once with `[]` when no face applies. It never rejects. Code that fits or measures text awaits it and measures once:
+
+```js
+FitTitle: {
+  text: (el, s) => s.title,
+  onRender: async (el) => {
+    await el.facesReady()
+    if (!el.node) return
+    el.call('fitText', el.node)          // one measurement, in the real face
+  }
+}
+```
+
+On an adopted element of a built page, `facesReady()` waits on the page's own `window.__smblsFacesReady` (FRAMEWORK.md → The page and the client boot) and asks for no face again.
+
+**Build size.** `faceWait` is an optional feature of `build.treeShakeFeatures` (CLI.md). The build leaves it out when no source names `faceWait` or `facesReady`.
 
 ---
 

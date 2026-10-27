@@ -349,6 +349,7 @@ A CSS system colour (`CanvasText`, `Canvas`, `Highlight`, `HighlightText`, `Butt
 
 - Inside `'@media (forced-colors: active)'`, or a media key of your design system that maps to it (`media: { forcedColors: '(forced-colors: active)' }` → `'@forcedColors'`), every spelling passes (`'Highlight'` and `'highlight'`).
 - Outside such a block the spec spelling passes (`color: 'CanvasText'`, for example beside `forcedColorAdjust: 'none'`). A lowercase word that only shares the name (`'highlight'`, `'canvastext'`) is a missing palette token: it is dropped with a dev warning.
+- The same holds for a CSS named colour (`red`, `navy`): a name the project's palette does not define is dropped with a dev warning, never emitted as the browser's colour. A hyphenated unknown word (`highlight-reversed`) passes through as before. A render with no palette at all passes every name through. So define every colour token you use (`highlight`, `red`) in `designSystem/color.js`, and give a test that mounts components the project's design-system colours.
 - A palette token of the same name always wins. A system colour inside a `border` / `outline` / `boxShadow` shorthand (`'1px solid ButtonText'`) stays as written.
 
 ```js
@@ -1254,6 +1255,7 @@ export const Chart = {
 | **Content** | `el.removeContent()` | Dispose & remove `content` child |
 | **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
 | | `el.whenConnected(fn)` | Run `fn(el)` once the node is in a document — now if it is (below) |
+| | `el.facesReady()` | `Promise<FontFace[]>`: the faces that draw this element's text, once they are in (3 s cap; `[]` when none applies; never rejects). Await it before you measure text (DESIGN_SYSTEM.md → `faceWait`; not released yet) |
 | | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
 | **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` (a protected built-in name resolves the element's own method; `log`/`warn`/`error`/`verbose` are override points) |
 | **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |
