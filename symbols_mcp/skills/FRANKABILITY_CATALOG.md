@@ -87,6 +87,14 @@ Sub-folder orphans are auto-moved to `functions/` (a lazy group's own
 method-style (require `this`-binding), pass `--rule FA006` and move the
 file manually into `methods/` instead.
 
+A root file the bundle imports is not an orphan either (frank-audit after 3.14.785).
+frank bundles context.js (with no context.js, the canonical modules that
+exist) and schema.js with esbuild, which inlines every module they reach —
+so `import local from './translations.js'` in config.js ships the
+dictionary inside `config` (`polyglot.translations`). A root file only
+index.js imports (index.js is never bundled: it calls create()) still is an
+orphan.
+
 Root-level orphans (a misnamed file at symbols/ root) are surfaced but
 not auto-moved — they need a rename decision a human should make.
 
@@ -1448,8 +1456,12 @@ Not copy, never flagged:
     an identifier, unit, icon name or polyglot key (`'shell.app.studio'`).
     An ARIA label is read aloud, so there a lowercase word counts.
 Any letter of a non-Latin script makes a string copy whatever its case.
-Test files (`*.test.js`, `__tests__/`) and files outside every frank
-slot are not audited for copy.
+Test files (`*.test.js`, `__tests__/`), files outside every frank
+slot, and the slots that hold no copy — designSystem/, lang.js, a root
+data module the bundle imports (config.js → ./translations.js, the
+polyglot dictionary) and schema.js (the editor's metadata: `title:
+'Chip'` names the component in the editor; frank-audit after 3.14.785) — are not
+audited for copy.
 
 ## Head metadata defaults
 
