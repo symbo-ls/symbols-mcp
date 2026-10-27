@@ -1289,21 +1289,23 @@ Headline: { faceWait: true, text: 'Le grand titre' }
 - **How it hides.** A waiting element keeps its room: `visibility: hidden` (never `opacity` or `display`), through the attribute `data-smbls-face-wait="wait"`. Nothing around it moves when it shows.
 - **The cap.** It waits 3 s at most per face, counted from the first element that asks for that face. Then it shows in whatever face is there. A face that fails to load counts as loaded. An element made after the cap shows at once.
 - **Which face counts.** Each character is matched as the browser matches it: the family list, the style, the weight, then the face whose `unicode-range` holds the character. So a Georgian label waits for the Georgian subset only, a Latin label for the Latin subset only. A system font family is passed over; a generic family (`serif`, `system-ui`, …) ends the list. Of two equal faces, an inline one (a `data:` URL `src`, as on a pre-rendered page) counts first. A Google Fonts stylesheet that is still loading is waited for under the same cap.
-- **Not drawn, no load.** An element with `display: none` (or inside a closed part) asks for no face. It is checked again when it gets a box.
+- **Not drawn, no load.** An element with `display: none` (or inside a closed part) asks for no face. It stays unseen while it has no box, and it is checked again when it gets one, so the frame that opens it never paints the fallback face (since smbls 3.14.867). A `display: contents` element counts as drawn when its text is.
 - **A text write checks again.** A new text (a language switch to a script whose subset is not in yet) waits like the first view.
+- **A font change checks again** (since smbls 3.14.867). A `class`, `style` or `lang` write that gives a waiting element another font (its own node, a node it is in, or, for `faceWait: true`, a node inside it) checks it again in the next frame, before that frame paints. A write that keeps the font checks nothing. For a change no such attribute shows (a stylesheet rule added, another attribute a selector reads, a face added to `document.fonts`), call `el.checkFaces()`: it checks the element and every waiting element inside it again.
 - **Print.** Under `@media print` a waiting element shows at once.
 - **A pre-rendered page.** An element adopted from the built page (`el.getAdoption() === 'adopted'`, FRAMEWORK.md → In app code) never hides for its first view: the page already shows it in its own faces. A later text write waits as usual.
 - **Server render.** A document without `document.fonts` (brender) does nothing: no wait is in the server markup.
 
-**`el.facesReady()`** resolves with the list of faces when they are in, at the cap with the faces that are in so far, and at once with `[]` when no face applies. It never rejects. Code that fits or measures text awaits it and measures once:
+**`el.facesReady()`** resolves with the list of faces when they are in, at the cap with the faces that are in so far, and at once with `[]` when no face applies. It never rejects. Every list it resolves with has `late` (since smbls 3.14.867, not enumerable): a promise of the faces that were still loading and came after all, or `null` when none was. Code that fits or measures text awaits it, measures once, and measures again only if a face came late:
 
 ```js
 FitTitle: {
   text: (el, s) => s.title,
   onRender: async (el) => {
-    await el.facesReady()
+    const faces = await el.facesReady()
     if (!el.node) return
     el.call('fitText', el.node)          // one measurement, in the real face
+    if (faces.late) faces.late.then(() => el.node && el.call('fitText', el.node))
   }
 }
 ```

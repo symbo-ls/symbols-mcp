@@ -1247,7 +1247,7 @@ export const Chart = {
 | | `el.getQuery(path?)` | Read root state by dotted path |
 | | `el.getChildren()` | Direct children array |
 | | `el.getPath()` | Ancestor key chain |
-| | `el.getAdoption()` | `'adopted'` / `'replaced'` / `null`: how this element's first view came over a pre-rendered page (FRAMEWORK.md → In app code) |
+| | `el.getAdoption()` | `'adopted'` / `'replaced'` / `null`: how this element's first view came over a pre-rendered page, from its first hook (`onInit` too, since smbls 3.14.867; FRAMEWORK.md → In app code) |
 | **Updates** | `el.update(value, opts?)` | Deep merge update |
 | | `el.setProps(value, opts?)` | Alias for update |
 | | `el.set(content, opts?)` | Replace element's `content` child |
@@ -1255,7 +1255,8 @@ export const Chart = {
 | **Content** | `el.removeContent()` | Dispose & remove `content` child |
 | **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
 | | `el.whenConnected(fn)` | Run `fn(el)` once the node is in a document — now if it is (below) |
-| | `el.facesReady()` | `Promise<FontFace[]>`: the faces that draw this element's text, once they are in (3 s cap; `[]` when none applies; never rejects). Await it before you measure text (DESIGN_SYSTEM.md → `faceWait`; since smbls 3.14.865) |
+| | `el.facesReady()` | `Promise<FontFace[]>`: the faces that draw this element's text, once they are in (3 s cap; `[]` when none applies; never rejects). Await it before you measure text; `.late` is a promise of the faces that came after the cap, or `null` (DESIGN_SYSTEM.md → `faceWait`; since smbls 3.14.865, `late` since 3.14.867) |
+| | `el.checkFaces()` | check this element's face wait, and every one inside it, again: after a font change no `class` / `style` / `lang` write shows (since smbls 3.14.867) |
 | | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
 | **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` (a protected built-in name resolves the element's own method; `log`/`warn`/`error`/`verbose` are override points) |
 | **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |
