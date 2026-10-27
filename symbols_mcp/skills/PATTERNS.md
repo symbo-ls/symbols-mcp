@@ -920,7 +920,7 @@ configureFreestyler({
 FreestyleAi: { ...Freestyle }
 ```
 
-`projectKey` must be `'owner/key'`. Use that form now. The refusal of a bare key ships in the next release (after smbls 3.14.853). A bare key (`'storefront'`) is not unique across owners, so the MCP context fetch refuses it and `generatePage` falls back to the local (`contextPath`) context instead of the richer platform one — the AI still generates pages, just without the design-system/component context from Symbols MCP.
+`projectKey` must be `'owner/key'`. Since smbls 3.14.865 (freestyler 3.14.658) a bare key is refused. A bare key (`'storefront'`) is not unique across owners, so the MCP context fetch refuses it and `generatePage` falls back to the local (`contextPath`) context instead of the richer platform one — the AI still generates pages, just without the design-system/component context from Symbols MCP.
 
 ---
 

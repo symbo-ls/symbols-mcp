@@ -62,7 +62,7 @@ Resolving a key to a platform library:
 - `owner/key` resolves to that owner's library or to nothing — never to another owner's library of the same key.
 - A bare key in `symbols.json` or in a `smbls libs ...` command means `system/<key>`.
 - A bare key typed to `smbls project libs add|remove` resolves only when exactly one library uses it. When several owners use it, the command lists them (`owner/key` + id) and exits without a change — name the owner or pass the id.
-- At runtime, a library the app loads from the platform API (when its cached copy is missing) is searched under its owner only (`system` for a bare key). Next release (after smbls 3.14.864): before, the search took the first library of that key under any owner.
+- At runtime, a library the app loads from the platform API (when its cached copy is missing) is searched under its owner only (`system` for a bare key). Since smbls 3.14.865 (utils 3.14.856); before, the search took the first library of that key under any owner.
 
 ---
 

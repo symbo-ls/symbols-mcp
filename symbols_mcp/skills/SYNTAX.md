@@ -1255,7 +1255,7 @@ export const Chart = {
 | **Content** | `el.removeContent()` | Dispose & remove `content` child |
 | **DOM** | `el.setNodeStyles({})` | Apply inline styles directly (escape hatch) |
 | | `el.whenConnected(fn)` | Run `fn(el)` once the node is in a document — now if it is (below) |
-| | `el.facesReady()` | `Promise<FontFace[]>`: the faces that draw this element's text, once they are in (3 s cap; `[]` when none applies; never rejects). Await it before you measure text (DESIGN_SYSTEM.md → `faceWait`; not released yet) |
+| | `el.facesReady()` | `Promise<FontFace[]>`: the faces that draw this element's text, once they are in (3 s cap; `[]` when none applies; never rejects). Await it before you measure text (DESIGN_SYSTEM.md → `faceWait`; since smbls 3.14.865) |
 | | `el.remove()` / `el.dispose()` | Remove from tree, dispose effects, dispose state |
 | **Functions** | `el.call('fnName', ...args)` | Lookup: `methods → functions → utils → prototype` (a protected built-in name resolves the element's own method; `log`/`warn`/`error`/`verbose` are override points) |
 | **Routing** | `el.router(path, root, state?, options?)` | SPA navigation (root = `el.getRoot()`) |

@@ -1267,7 +1267,7 @@ font: {
 
 Generates comma-separated `src` with auto-detected formats per URL.
 
-### Text that waits for its own face — `faceWait` (not released yet)
+### Text that waits for its own face — `faceWait` (since smbls 3.14.865)
 
 A text drawn first in a fallback face and then again in its own face jumps: its width, line breaks and height change, and code that measured it measured the fallback. `faceWait` holds such text back until its own face is in.
 
