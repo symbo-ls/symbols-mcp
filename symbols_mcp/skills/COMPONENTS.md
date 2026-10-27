@@ -399,6 +399,14 @@ export const DeleteNoteButton = {
 }
 ```
 
+### The windows kit's window — `ModalWindow` and `ModalHeader`
+
+- Each windows dialog renders in the design system's `ModalWindow` (the sheet), and each template's title row is a `ModalHeader`. Define them in a library or the project to style every modal at once; a project's or library's own `ModalWindow` / `ModalHeader` always wins.
+- A design system that defines neither (an app without a brand library) gets the kit's fallbacks: the `dialog` sheet theme (opaque, with its own ink), `B` padding, the `radiusSheet` radius, and a title row with the icons at its end. They are registered as `smbls.ModalWindow` / `smbls.ModalHeader`, like `smbls.CancelButton`, so they never block your own, even when the shell spreads `windowsComponents` into its registry.
+- The dialog semantics stay on the kit's window slot over any sheet: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` (the active template's title), the size limits and the entry motion.
+- On a phone (below `mobileL`, 768 px) every windows modal is the bottom sheet: full width on the bottom edge, top corners only, at most 92% of the screen, a grabber, and the `modalInUp` entry. The kit puts this phone sheet UNDER your `ModalWindow` (the `ModalPhoneSheet` component, handed to the window as `childExtends`), so a `ModalWindow` that sets its own `@mobileL` keys or `SheetGrabber` wins per key, and every key it does not set keeps the phone sheet's. To replace the window half of the phone sheet for every modal, define your own `ModalPhoneSheet`. The frame half stays on `ModalLayer`: below `mobileL` the layer drops its gutter and seats the window on the bottom edge.
+- The fallbacks and the phone sheet are not released yet. Until the next `@symbo.ls/windows` release, an app without a `ModalWindow` shows the dialog text straight on the `backdrop` veil, and a windows modal stays a centred sheet on a phone.
+
 ### Dropdowns — the menu-button contract
 
 - The trigger is the dropdown parent itself when it renders a button (`extends: ['Button', 'DropdownParentFocus']`), else its first child other than the `Dropdown` panel and `Input_trigger`. Use a `Button` there: a plain text element (`Label`, `Text`) is given `role="button"` + `tabindex="0"`; a link, a field or an icon leaves the dropdown CSS-only.

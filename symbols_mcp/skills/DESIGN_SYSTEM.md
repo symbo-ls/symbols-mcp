@@ -473,10 +473,18 @@ title: ['gray-168', 'gray+168'],
 | Token | Light (first) | Dark (second) | Use |
 |---|---|---|---|
 | `title` | `'gray-168'` | `'gray+168'` | Primary text |
-| `caption` | `'gray-68'` | `'gray+68'` | Secondary/meta |
-| `paragraph` | `'gray-42'` | `'gray+42'` | Body copy |
+| `caption` | `'gray-68'` | `'gray+146'` | Secondary/meta |
+| `paragraph` | `'gray-42'` | `'gray+120'` | Body copy |
+| `inactive` | `'gray-48'` | `'gray+120'` | Quiet secondary text — the windows kit's Confirm / Alert / Prompt message |
 | `disabled` | `'gray-26'` | `'gray+26'` | Disabled state |
 | `line` | `'gray-16'` | `'gray+16'` | Borders/dividers |
+| `scrim` | `'black.45'` | `'black.55'` | Blocking veil fill (the `backdrop` theme) |
+| `scrimSoft` | `'black.2'` | `'black.3'` | Non-blocking veil fill (the `backdropSoft` theme) |
+
+- `title`, `caption`, `paragraph` and `inactive` clear 4.5:1 on every neutral surface the default config paints, in both schemes: the document, the bare `backdrop` veil, the `dialog` sheet, and the `field` / `card` / `label` / `tertiary` plates. Tightest pairs: light `paragraph` 4.62:1 on the bare veil; dark `paragraph` / `inactive` 4.78:1 on `label` / `tertiary`, 5.37:1 on the dark `dialog` sheet; dark `caption` 6.95:1 on that sheet.
+- `inactive` ships since `@symbo.ls/default-config` 3.14.792 (smbls 3.14.866); `scrim` / `scrimSoft` since default-config 3.14.784.
+- The `caption` / `paragraph` dark halves `gray+146` / `gray+120` are not released yet. default-config 3.14.792 and earlier ship `gray+68` / `gray+42`: 2.95:1 / 2.08:1 on the dark `dialog` sheet.
+- A design system replaces any of these by name; the framework value only fills a name it lacks. The Symbols brand ships `inactive: ['gray6', 'gray10']`.
 
 ### Theme-dependent named tokens
 
@@ -566,12 +574,16 @@ export default {
 | Theme | Use |
 |---|---|
 | `document` | Page root surface (black/white) |
-| `dialog` | Elevated card/panel with glass blur |
+| `dialog` | Overlay sheet with its own ink — `Dialog`, the windows kit's window, tooltip panels. Light: opaque `gray+159` + `black` (17.96:1); dark: `gray.92` + `white` (9.16:1 over black) |
+| `backdrop` | Blocking veil behind a modal, side panel or phone sheet: `scrim` + `blur(8px)` |
+| `backdropSoft` | Non-blocking veil: `scrimSoft` + `blur(4px)` |
 | `card` | Card surface with `.child` and `.secondary` variants |
 | `field` | Input control surface with `::placeholder` |
 | `label` | Label surface with `.light` and `.dark` variants |
 | `transparent` | No background, inherits text color |
 | `none` | Resets both color and background to `none` |
+
+The opaque light `dialog` sheet is not released yet. default-config 3.14.792 and earlier ship `gray.1` + `currentColor`: a 10%-opaque tint that inherits its ink, rgb(134, 134, 134) over the `backdrop` veil. `backdrop` / `backdropSoft` ship since default-config 3.14.784.
 
 ### Priority themes
 
@@ -780,6 +792,8 @@ A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-b
 | `iconLg` | `24px` | Large icon container |
 | `iconXl` | `32px` | Extra-large icon container |
 
+The framework default config (`@symbo.ls/default-config`) also ships `grabberW` (`36px`) and `grabberH` (`5px`): the grabber pill of the phone sheet (`@symbo.ls/windows` `ModalPhoneSheet`). A brand replaces either by name. These two are not released yet.
+
 ### Runtime resolution
 
 The scratch runtime (`getSequenceValue`) checks `CONFIG.sizes[value]` BEFORE the spacing-scale var path. Matching tokens return the **literal pixel string**, not a CSS variable:
@@ -976,6 +990,8 @@ Box: { transition: 'B defaultBezier', transitionProperty: 'opacity, transform' }
 ## animation
 
 The scratch default animation config is empty — define your own in `designSystem/animation.js`. The default template includes `fadeInUp`, `fadeOutDown`, and `marquee`.
+
+The framework default config (`@symbo.ls/default-config`) ships the keyframes of the `@symbo.ls/windows` modal: `modalIn` / `modalOut` for the centred sheet (since default-config 3.14.784), and `modalInUp` / `modalOutDown` for the phone sheet below `mobileL` (6.5% up from the bottom edge). `modalOut` and `modalOutDown` declare only a `to` frame, so an exit starts from where the element is. `modalInUp` / `modalOutDown` are not released yet.
 
 ### CSS shorthand syntax
 
