@@ -38,6 +38,7 @@ TOP = [
     ("fetchOnCreate kit", "CLI.md", "kits"),
     ("importHostPackage retryable", "FRAMEWORK.md", "Host packages on demand"),
     ("workers new Worker import.meta.url", "FRAMEWORK.md", "Web Worker files"),
+    ("dialog.cancel cancelText", "COMPONENTS.md", "Dialog texts"),
 ]
 # query -> (file, section part) somewhere in the top 3
 IN_TOP_3 = [

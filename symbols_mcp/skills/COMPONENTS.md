@@ -339,7 +339,65 @@ export const ForcedPasswordChange = {
   DialogFooter: {}
 }
 ```
-- Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. A name you give it yourself (`aria-label`, `aria-labelledby`, a factory too) is kept. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with English defaults.
+- Named by its DialogHeader title (`aria-labelledby`; another element can be the title with `dialogTitle: true`); the close button is labelled. A name you give it yourself (`aria-label`, `aria-labelledby`, a factory too) is kept. Texts are the polyglot keys `dialog.title`, `dialog.close`, `dialog.cancel`, `dialog.ok`, with a framework default in the active language (Dialog texts, below).
+
+### Dialog texts — one `dialog.*` table for every framework dialog
+
+The built-in `Dialog` and the windows kit's dialogs — `el.call('confirmDialog' | 'alertDialog' | 'promptDialog', { … })`, which open in the `ModalRoot: {}` that the app's shell holds once — take every default text from one framework table. Each text shows the first answer:
+
+1. the caller's own text: a `text` on `DialogHeader > Title > Text` or on `DialogFooter > Cancel` / `Ok`, an `aria.label` on the close button (`DialogHeader > Title > SquareButton`); the call's `title`, `message`, `cancelText`, `confirmText` (the main button of Confirm and Prompt), `okText` (Alert's);
+2. the project's polyglot for the text's `dialog.*` key: its static and server catalogs, the translations its shared libraries merge in, and polyglot's default-language fallback;
+3. the framework default for the active language (`getActiveLang`): `en` and `ka` today;
+4. English.
+
+| Key | Text | en | ka |
+|-----|------|----|----|
+| `dialog.title` | `Dialog` title | Title | სათაური |
+| `dialog.close` | `Dialog` close button's name | Close | დახურვა |
+| `dialog.cancel` | Cancel in `Dialog`, `confirmDialog`, `promptDialog` | Cancel | გაუქმება |
+| `dialog.ok` | OK in `Dialog`, `alertDialog`, `promptDialog` | OK | კარგი |
+| `dialog.confirm` | `confirmDialog` main button | Confirm | დადასტურება |
+| `dialog.confirmTitle` | `confirmDialog` title | Are you sure? | დარწმუნებული ხართ? |
+| `dialog.confirmMessage` | `confirmDialog` message | This action cannot be undone. | ამ მოქმედების გაუქმება შეუძლებელია. |
+| `dialog.alertTitle` | `alertDialog` title | Notice | შეტყობინება |
+| `dialog.promptTitle` | `promptDialog` title | Enter a value | შეიყვანეთ მნიშვნელობა |
+
+- One key per word, read by every dialog that shows the word: a project translates "Cancel" once, with `dialog.cancel` in its polyglot catalog, and `Dialog`, `confirmDialog` and `promptDialog` all show it. Do not pass `cancelText` (or `okText`, or a footer `text`) only to translate a default. Pass the caller's text when one dialog needs other words: `confirmText` for "Delete", a `title` that names the thing.
+- Translate a `dialog.*` key in every language you ship. Step 2 includes polyglot's default-language fallback: a key that `translations` holds only in the default language shows that text in the other languages too, ahead of their framework default. A language the table does not hold (`ru`, `de`) shows English until its catalog holds the keys.
+- No polyglot, or a catalog without the key: the framework default, never the raw key. The framework calls `polyglot` and `getActiveLang` only when the project has them, so it logs no error.
+- The table is the framework's own and frozen: word a default your way in your polyglot catalog, never by editing the table (`DIALOG_COPY`, with its resolver `resolveDialogCopy(el, key)`, exported by `smbls`).
+- The windows dialogs work this way since smbls 3.14.866. `Dialog`'s step 3 and the two `smbls` exports are not released yet; until then a `Dialog` key that the project does not translate shows English.
+
+```js
+// context.js — en and ka need no dialog.* keys (framework defaults); ru translates each word once
+export const polyglot = {
+  defaultLang: 'en',
+  languages: ['en', 'ka', 'ru'],
+  translations: {
+    en: { deleteNote: 'Delete', deleteNoteTitle: 'Delete this note?' },
+    ka: { deleteNote: 'წაშლა', deleteNoteTitle: 'წავშალოთ ეს შენიშვნა?' },
+    ru: {
+      deleteNote: 'Удалить',
+      deleteNoteTitle: 'Удалить эту заметку?',
+      'dialog.cancel': 'Отмена',                           // every Cancel: Dialog, confirmDialog, promptDialog
+      'dialog.confirmMessage': 'Это действие нельзя отменить.'
+    }
+  }
+}
+```
+
+```js
+// components/DeleteNoteButton.js — the call passes only this dialog's own words; Cancel and the message follow dialog.cancel and dialog.confirmMessage
+export const DeleteNoteButton = {
+  extends: 'Button',
+  text: '{{ deleteNote | polyglot }}',
+  onClick: (e, el) => el.call('confirmDialog', {
+    title: el.call('polyglot', 'deleteNoteTitle'),
+    confirmText: el.call('polyglot', 'deleteNote'),
+    onConfirm: () => el.call('removeNote')
+  })
+}
+```
 
 ### Dropdowns — the menu-button contract
 
