@@ -58,6 +58,9 @@ function docExports (file, anchor) {
   const body = hits[0]
     .replace(/^export const (\w+) = /gm, '__d.push(["$1"]); __d[__d.length - 1][1] = ')
     .replace(/^export default /gm, '__d.push(["default"]); __d[__d.length - 1][1] = ')
+    // A block that shows two files (`// lang.js` … `// context.js`
+    // `import lang from './lang.js'`): the import binds the export above it.
+    .replace(/^import (\w+) from '\.\/[^']+'\s*$/gm, 'const $1 = __d[__d.length - 1][1]')
   const __d = []
   // eslint-disable-next-line no-new-func
   new Function('__d', body)(__d)
@@ -505,6 +508,19 @@ Object.assign(cases, {
       localStorage.removeItem('smbls_lang')
       window.history.replaceState(null, '', '/')
     }
+  },
+
+  // PATTERNS "Polyglot": the one declaration, `polyglot: { defaultLang,
+  // languages, translations: lang }` in context.js, translates; a bare `lang`
+  // key in the context starts no polyglot, so the pipe renders empty.
+  async polyglotOneForm () {
+    const [[, lang], [, context]] = docExports('PATTERNS.md', 'translations: lang')
+    eq(context.polyglot.translations, lang, 'context.js passes lang.js as polyglot.translations')
+    const tree = { Title: { text: '{{ welcome | polyglot }}' } }
+    const app = await mount(tree, { polyglot: context.polyglot })
+    eq(app.Title.node.textContent, lang.en.welcome, 'the documented form translates')
+    const bare = await mount(tree, { lang })
+    eq(bare.Title.node.textContent, '', 'a bare lang key: no polyglot, the pipe renders empty')
   },
 
   // COMPONENTS "DropdownDisclosure": aria-expanded + aria-controls, no

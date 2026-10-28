@@ -707,7 +707,7 @@ Config and contract: SYNTAX.md → Data Fetching → A pre-built page's data. Ap
 
 ### Polyglot — internationalised strings
 
-**All user-facing strings MUST go through polyglot.** Never hardcode text. Use the `{{ key | polyglot }}` template — values resolve from `context.polyglot.translations` (or root-level `lang.js`, NOT inside `designSystem/`).
+**All user-facing strings MUST go through polyglot.** Never hardcode text. Use the `{{ key | polyglot }}` template — values resolve from `context.polyglot.translations`, the one place polyglot reads them. Keep the strings in a root-level `lang.js` (NOT inside `designSystem/`) and pass it as `translations` in the `polyglot` declaration in `context.js`. A bare `lang` key in the context is not read: without a `polyglot` key the plugin never starts, so every `{{ key | polyglot }}` renders an empty string.
 
 ```js
 // CORRECT
@@ -731,17 +731,25 @@ text: (el, s) => `{{ ${s.heading_key} | polyglot }}`
 text: '{{ greeting | polyglot }}'   // locale: { greeting: 'Hello, {{name}}!' }
 ```
 
-Locale file:
+Locale file and its declaration:
 
 ```js
 // symbols/lang.js  (root-level — NOT inside designSystem/)
-//   OR set context.polyglot.translations = { en: {...}, ka: {...}, ... } in context.js
 export default {
   en: { welcome: 'Welcome', get_started: 'Get Started' },
   ka: { welcome: 'მოგესალმებით', get_started: 'დაიწყე' },
   ru: { welcome: 'Добро пожаловать', get_started: 'Начать' }
 }
+
+// symbols/context.js — the one declaration polyglot reads
+import lang from './lang.js'
+export default {
+  // …components, designSystem, state…
+  polyglot: { defaultLang: 'en', languages: ['en', 'ka', 'ru'], translations: lang }
+}
 ```
+
+A workspace module inside the workspace shell gets polyglot from the shell; its standalone page still needs this declaration.
 
 ### Helmet — page metadata
 

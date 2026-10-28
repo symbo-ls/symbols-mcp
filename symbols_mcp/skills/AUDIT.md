@@ -254,7 +254,7 @@ Reading `el.node.X` is fine (focus, blur, scrollTop, selectionStart, etc.). Writ
 - Missing tokens → flag with the file/line of the unresolved use AND the missing token name to add.
 
 ### I. Polyglot coverage (Rule 48)
-- Build the set of keys in `context.polyglot.translations` or root-level `lang.js`.
+- Build the set of keys in `context.polyglot.translations` (the root-level `lang.js` the `polyglot` declaration passes as `translations`). A project that calls polyglot and declares no `polyglot` renders every such text empty: flag that first.
 - For every `text:` / `placeholder:` / `aria-label:` / `title:` / `alt:` that uses a `{{ X | polyglot }}` template, verify `X` is registered.
 - Missing keys → flag.
 

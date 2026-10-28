@@ -29,7 +29,7 @@ project-root/
     ├── index.js                  # Root entry: exports components, pages, state, designSystem, functions
     ├── state.js                  # export default { key: initialValue, ... }
     ├── cases.js                  # export default { isSafari: () => {}, ... } — conditional cases
-    ├── lang.js                   # Translations — root level, NOT in designSystem
+    ├── lang.js                   # Translations — root level, NOT in designSystem; read through polyglot.translations
     ├── dependencies.js           # export default { 'pkg': 'exact-version' }
     ├── config.js                 # export default { useReset: true, fetch: { adapter: 'rest', url, headers, auth }, polyglot: {...}, router: {...} }
     ├── vars.js                   # export default { APP_VERSION: '1.0.0', ... }
@@ -274,7 +274,7 @@ See `DESIGN_SYSTEM.md` for the full token reference.
 
 ## Translations (`lang.js`) — Root Level
 
-Translations live at root level (`symbols/lang.js`), NOT inside `designSystem/`. Export them in `context.js` at root level alongside other top-level modules.
+Translations live at root level (`symbols/lang.js`), NOT inside `designSystem/`. The polyglot plugin reads them from one place only: the `polyglot` declaration. Import `lang.js` in `context.js` and pass it as `polyglot.translations`. A bare `lang` key in the context is not read: without a `polyglot` key the plugin never starts, so `{{ key | polyglot }}` renders an empty string and `el.call('polyglot', key)` returns `undefined`.
 
 ```js
 // symbols/lang.js
@@ -285,10 +285,14 @@ export default {
 
 // symbols/context.js
 import lang from './lang.js'
-export default { lang, cases, state, components, designSystem, ...config }
+export default {
+  cases, state, components, designSystem,
+  polyglot: { defaultLang: 'en', languages: ['en', 'ka'], translations: lang },
+  ...config
+}
 ```
 
-For Supabase-backed translations, configure the `polyglot` key in `config.js`:
+For Supabase-backed translations, configure the `polyglot` key in `config.js` instead (declare `polyglot` in one place: a later spread replaces the whole object):
 
 ```js
 // config.js
