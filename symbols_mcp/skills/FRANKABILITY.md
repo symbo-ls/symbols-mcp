@@ -452,6 +452,15 @@ A key with an explicit `extends` is a role name (`SidebarNav: { extends: 'Navbar
 
 Registered names come from every tier — the framework's built-ins and plugin components, the linked shared libraries (npm, `.symbols_local/libs/`, a symbols.json `link` / `destDir`) and the project. A workspace app module installed into a host shell names the host in symbols.json (read only by the audit): `"hostLibraries": ["../../packages/workspace"]`. Keep a meant one with `// frank-allow FA806: <why>`.
 
+#### FA814 — a `childrenAs` value the runtime does not know (Rule 36)
+
+Since frank-audit 3.14.787. The runtime reads one `childrenAs` value, `'state'` (each child row becomes the child's state). Every other value acts as the default, `'props'` (each row becomes the child's props), with no message: `childrenAs: 'element'` (an old form, removed) does nothing, and a misspelt `'states'` renders the rows as props. FA814 (structural, on by default, no auto-fix) names a plain string other than the two; a value known only when the code runs is not checked. `audit_component` reports the same.
+
+```js
+List: { childExtends: 'Item', childrenAs: 'element', children: (el, s) => s.items }  // FA814: acts as 'props'
+List: { childExtends: 'Item', childrenAs: 'state', children: (el, s) => s.items }    // each row is the Item's state
+```
+
 ---
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)

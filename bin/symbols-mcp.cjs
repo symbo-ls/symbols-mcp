@@ -768,6 +768,7 @@ const RULE_CHECKS = [
   [/extends\s*:\s*['"]Box['"]/, "Remove extends: 'Box' — every element is already a Box (Rule 26)"],
   [/extends\s*:\s*['"]Text['"]/, "Remove extends: 'Text' — any element with text: is already Text (Rule 26)"],
   [/\bchildExtends\s*:\s*\{/, "FORBIDDEN: childExtends must be a quoted string name, not an inline object — register as a named component (Rule 10)"],
+  [/\bchildrenAs['"]?\s*:\s*(['"`])(?!(?:state|props)\1)[^'"`\n$]*\1/, "childrenAs takes 'state' (each child row becomes the child's state) or 'props' (the default); any other value acts as 'props' — 'element', an old form, does nothing (Rule 36, frank-audit FA814)"],
   [/(?:padding|margin|gap|width|height|fontSize|borderRadius|minWidth|maxWidth|minHeight|maxHeight|top|left|right|bottom|letterSpacing|lineHeight|borderWidth|outlineWidth)\s*:\s*['"]?\d+(?:\.\d+)?px/, "FORBIDDEN: No raw px values — use design system tokens (A, B, C, etc.) instead of hardcoded pixels (Rule 28)"],
   [/(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['"]#[0-9a-fA-F]/, "Use design system color tokens (primary, secondary, white, gray.5) instead of hardcoded hex colors (Rule 27)"],
   [/(?:color|background|backgroundColor|borderColor|fill|stroke)\s*:\s*['"]rgb/, "Use design system color tokens instead of hardcoded rgb/rgba values (Rule 27)"],

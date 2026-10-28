@@ -100,3 +100,23 @@ def test_imports_are_fine_in_the_files_that_aggregate():
     assert NO_IMPORTS in _audit(CONTEXT_FILE)
     assert NO_IMPORTS not in _audit(CONTEXT_FILE, "context.js")
     assert NO_IMPORTS in _audit(CONTEXT_FILE, "components/Card.js")
+
+
+# childrenAs (Rule 36, frank-audit FA814): the runtime reads one value, 'state';
+# every other value acts as the default, 'props', with no message — so the
+# removed `childrenAs: 'element'` silently does nothing.
+CHILDREN_AS = "childrenAs takes 'state'"
+
+
+@pytest.mark.parametrize("value, flagged", [
+    ("'element'", True),
+    ('"states"', True),
+    ("`Element`", True),
+    ("'state'", False),
+    ("'props'", False),
+    ("(el, s) => s.mode", False),
+    ("`${MODE}`", False),
+])
+def test_a_children_as_value_the_runtime_does_not_know(value, flagged):
+    code = f"export const List = {{\n  childExtends: 'Item',\n  childrenAs: {value},\n  children: (el, s) => s.items\n}}\n"
+    assert (CHILDREN_AS in _audit(code)) is flagged

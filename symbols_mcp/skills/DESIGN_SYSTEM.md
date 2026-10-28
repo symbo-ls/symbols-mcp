@@ -1312,7 +1312,7 @@ Headline: { faceWait: true, text: 'Le grand titre' }
 - **A pre-rendered page.** An element adopted from the built page (`el.getAdoption() === 'adopted'`, FRAMEWORK.md → In app code) never hides for its first view: the page already shows it in its own faces. A later text write waits as usual.
 - **Server render.** A document without `document.fonts` (brender) does nothing: no wait is in the server markup.
 
-**`el.facesReady()`** resolves with the list of faces when they are in, at the cap with the faces that are in so far, and at once with `[]` when no face applies. It never rejects. Every list it resolves with has `late` (since smbls 3.14.867, not enumerable): a promise of the faces that were still loading and came after all, or `null` when none was. Code that fits or measures text awaits it, measures once, and measures again only if a face came late:
+**`el.facesReady()`** resolves with the list of faces when they are in, at the cap with the faces that are in so far, and at once with `[]` when no face applies. It never rejects. Every list it resolves with has `late` (since smbls 3.14.867, not enumerable): a promise of the faces that were still loading and came after all, or `null` when none was. Since smbls 3.14.870 it also watches a face the browser gave up as failed and then loaded after all: WebKit fails a face that is slower than its own font timeout (~3 s; `status` reads `'error'`) and loads it later. Such a face is watched for up to 10 s more and joins `late` once it reads `'loaded'`; a face that really failed stays out. Code that fits or measures text awaits it, measures once, and measures again only if a face came late:
 
 ```js
 FitTitle: {
