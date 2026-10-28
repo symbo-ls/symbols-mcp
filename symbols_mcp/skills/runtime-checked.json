@@ -1,6 +1,6 @@
 {
-  "smbls": "3.14.869",
-  "commit": "8f60d362c",
+  "smbls": "3.14.870",
+  "commit": "ad2c30ed1",
   "checked": "2026-10-28",
   "examples": [
     "isxRootState",
@@ -22,6 +22,7 @@
     "viewEvents",
     "whenConnectedFocus",
     "polyglotStartLang",
+    "polyglotOneForm",
     "dropdownDisclosure",
     "dialogLocked",
     "breakpointsFromContainer",
