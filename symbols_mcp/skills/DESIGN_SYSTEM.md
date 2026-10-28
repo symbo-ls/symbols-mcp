@@ -1328,7 +1328,7 @@ FitTitle: {
 
 On an adopted element of a built page, `facesReady()` waits on the page's own `window.__smblsFacesReady` (FRAMEWORK.md → The page and the client boot) and asks for no face again.
 
-**Build size.** `faceWait` is an optional feature of `build.treeShakeFeatures` (CLI.md). The build leaves it out when no source names `faceWait` or `facesReady`.
+**Build size.** `faceWait` is an optional feature of `build.treeShakeFeatures` (CLI.md). The build leaves it out when no source names `faceWait` or `facesReady`. Since smbls 3.14.869 / cli 3.14.832, one part of it is a feature of its own, `faceWaitLinks`: the wait for a family stylesheet still on its way (the `<link data-smbls-font>` smbls writes for a font served by Google Fonts). A build that keeps `faceWait` leaves that part out when the design system's `font` table names no Google Fonts address — self-hosted faces only (676 B less minified, 255 B Brotli). `keep: ["faceWaitLinks"]` keeps it for a design system the build cannot read.
 
 ---
 
