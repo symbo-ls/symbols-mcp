@@ -366,7 +366,7 @@ The built-in `Dialog` and the windows kit's dialogs — `el.call('confirmDialog'
 - Translate a `dialog.*` key in every language you ship. Step 2 includes polyglot's default-language fallback: a key that `translations` holds only in the default language shows that text in the other languages too, ahead of their framework default. A language the table does not hold (`ru`, `de`) shows English until its catalog holds the keys.
 - No polyglot, or a catalog without the key: the framework default, never the raw key. The framework calls `polyglot` and `getActiveLang` only when the project has them, so it logs no error.
 - The table is the framework's own and frozen: word a default your way in your polyglot catalog, never by editing the table (`DIALOG_COPY`, with its resolver `resolveDialogCopy(el, key)`, exported by `smbls`).
-- The windows dialogs work this way since smbls 3.14.866. `Dialog`'s step 3 and the two `smbls` exports are not released yet; until then a `Dialog` key that the project does not translate shows English.
+- The windows dialogs work this way since smbls 3.14.866. `Dialog`'s step 3 and the two `smbls` exports ship since default-config 3.14.793 (smbls 3.14.867). In default-config 3.14.792 and earlier, a `Dialog` key that the project does not translate shows English.
 
 ```js
 // context.js — en and ka need no dialog.* keys (framework defaults); ru translates each word once
@@ -405,7 +405,7 @@ export const DeleteNoteButton = {
 - A design system that defines neither (an app without a brand library) gets the kit's fallbacks: the `dialog` sheet theme (opaque, with its own ink), `B` padding, the `radiusSheet` radius, and a title row with the icons at its end. They are registered as `smbls.ModalWindow` / `smbls.ModalHeader`, like `smbls.CancelButton`, so they never block your own, even when the shell spreads `windowsComponents` into its registry.
 - The dialog semantics stay on the kit's window slot over any sheet: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` (the active template's title), the size limits and the entry motion.
 - On a phone (below `mobileL`, 768 px) every windows modal is the bottom sheet: full width on the bottom edge, top corners only, at most 92% of the screen, a grabber, and the `modalInUp` entry. The kit puts this phone sheet UNDER your `ModalWindow` (the `ModalPhoneSheet` component, handed to the window as `childExtends`), so a `ModalWindow` that sets its own `@mobileL` keys or `SheetGrabber` wins per key, and every key it does not set keeps the phone sheet's. To replace the window half of the phone sheet for every modal, define your own `ModalPhoneSheet`. The frame half stays on `ModalLayer`: below `mobileL` the layer drops its gutter and seats the window on the bottom edge.
-- The fallbacks and the phone sheet are not released yet. Until the next `@symbo.ls/windows` release, an app without a `ModalWindow` shows the dialog text straight on the `backdrop` veil, and a windows modal stays a centred sheet on a phone.
+- The fallbacks and the phone sheet ship since `@symbo.ls/windows` 3.14.714 (smbls 3.14.867). In windows 3.14.713 and earlier, an app without a `ModalWindow` shows the dialog text straight on the `backdrop` veil, and a windows modal stays a centred sheet on a phone.
 
 ### Dropdowns — the menu-button contract
 

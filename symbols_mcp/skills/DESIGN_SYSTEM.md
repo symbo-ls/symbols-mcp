@@ -483,7 +483,7 @@ title: ['gray-168', 'gray+168'],
 
 - `title`, `caption`, `paragraph` and `inactive` clear 4.5:1 on every neutral surface the default config paints, in both schemes: the document, the bare `backdrop` veil, the `dialog` sheet, and the `field` / `card` / `label` / `tertiary` plates. Tightest pairs: light `paragraph` 4.62:1 on the bare veil; dark `paragraph` / `inactive` 4.78:1 on `label` / `tertiary`, 5.37:1 on the dark `dialog` sheet; dark `caption` 6.95:1 on that sheet.
 - `inactive` ships since `@symbo.ls/default-config` 3.14.792 (smbls 3.14.866); `scrim` / `scrimSoft` since default-config 3.14.784.
-- The `caption` / `paragraph` dark halves `gray+146` / `gray+120` are not released yet. default-config 3.14.792 and earlier ship `gray+68` / `gray+42`: 2.95:1 / 2.08:1 on the dark `dialog` sheet.
+- The `caption` / `paragraph` dark halves `gray+146` / `gray+120` ship since default-config 3.14.793 (smbls 3.14.867). default-config 3.14.792 and earlier ship `gray+68` / `gray+42`: 2.95:1 / 2.08:1 on the dark `dialog` sheet.
 - A design system replaces any of these by name; the framework value only fills a name it lacks. The Symbols brand ships `inactive: ['gray6', 'gray10']`.
 
 ### Theme-dependent named tokens
@@ -583,7 +583,7 @@ export default {
 | `transparent` | No background, inherits text color |
 | `none` | Resets both color and background to `none` |
 
-The opaque light `dialog` sheet is not released yet. default-config 3.14.792 and earlier ship `gray.1` + `currentColor`: a 10%-opaque tint that inherits its ink, rgb(134, 134, 134) over the `backdrop` veil. `backdrop` / `backdropSoft` ship since default-config 3.14.784.
+The opaque light `dialog` sheet ships since default-config 3.14.793 (smbls 3.14.867). default-config 3.14.792 and earlier ship `gray.1` + `currentColor`: a 10%-opaque tint that inherits its ink, rgb(134, 134, 134) over the `backdrop` veil. `backdrop` / `backdropSoft` ship since default-config 3.14.784.
 
 ### Priority themes
 
@@ -792,7 +792,7 @@ A fixed-pixel reservoir for named dimension tokens that fall outside the ratio-b
 | `iconLg` | `24px` | Large icon container |
 | `iconXl` | `32px` | Extra-large icon container |
 
-The framework default config (`@symbo.ls/default-config`) also ships `grabberW` (`36px`) and `grabberH` (`5px`): the grabber pill of the phone sheet (`@symbo.ls/windows` `ModalPhoneSheet`). A brand replaces either by name. These two are not released yet.
+The framework default config (`@symbo.ls/default-config`) also ships `grabberW` (`36px`) and `grabberH` (`5px`): the grabber pill of the phone sheet (`@symbo.ls/windows` `ModalPhoneSheet`). A brand replaces either by name. Both ship since default-config 3.14.793 (smbls 3.14.867).
 
 ### Runtime resolution
 
@@ -991,7 +991,7 @@ Box: { transition: 'B defaultBezier', transitionProperty: 'opacity, transform' }
 
 The scratch default animation config is empty — define your own in `designSystem/animation.js`. The default template includes `fadeInUp`, `fadeOutDown`, and `marquee`.
 
-The framework default config (`@symbo.ls/default-config`) ships the keyframes of the `@symbo.ls/windows` modal: `modalIn` / `modalOut` for the centred sheet (since default-config 3.14.784), and `modalInUp` / `modalOutDown` for the phone sheet below `mobileL` (6.5% up from the bottom edge). `modalOut` and `modalOutDown` declare only a `to` frame, so an exit starts from where the element is. `modalInUp` / `modalOutDown` are not released yet.
+The framework default config (`@symbo.ls/default-config`) ships the keyframes of the `@symbo.ls/windows` modal: `modalIn` / `modalOut` for the centred sheet (since default-config 3.14.784), and `modalInUp` / `modalOutDown` for the phone sheet below `mobileL` (6.5% up from the bottom edge). `modalOut` and `modalOutDown` declare only a `to` frame, so an exit starts from where the element is. `modalInUp` / `modalOutDown` ship since default-config 3.14.793 (smbls 3.14.867).
 
 ### CSS shorthand syntax
 
