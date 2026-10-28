@@ -7,3 +7,5 @@ __pycache__
 .mcp.json
 .symbols_local/
 .venv-ci/
+node_modules/
+dist/
