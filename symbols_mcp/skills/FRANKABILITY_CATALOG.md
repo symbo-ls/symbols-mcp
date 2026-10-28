@@ -1793,6 +1793,18 @@ finding, count or prescription. Name it to run it:
 
 symbols-mcp's audit_component runs the same check; the two agree.
 
+# FA814 — children-as-value
+
+The runtime reads one `childrenAs` value: 'state'. Any other value acts
+as the default, 'props', with no message: `childrenAs: 'element'` (an
+old form, removed) does nothing, and a misspelt 'states' renders the
+rows as props.
+
+Bad:    List: { childExtends: 'Item', childrenAs: 'element', children: (el, s) => s.items }
+Good:   List: { childExtends: 'Item', childrenAs: 'state', children: (el, s) => s.items }
+        // each row is the Item's state; leave childrenAs out (or 'props')
+        // for rows that are the Item's props
+
 ---
 
 ## FA9xx — Reference resolution
