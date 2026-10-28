@@ -461,6 +461,18 @@ List: { childExtends: 'Item', childrenAs: 'element', children: (el, s) => s.item
 List: { childExtends: 'Item', childrenAs: 'state', children: (el, s) => s.items }    // each row is the Item's state
 ```
 
+#### FA815 — the project calls polyglot and declares none (Rule 48)
+
+Since frank-audit {{FRANK_AUDIT_R19}}. The runtime starts polyglot only from a `polyglot` declaration (PROJECT_STRUCTURE, "Translations"); without one, every `{{ key | polyglot }}` renders an empty string and `el.call('polyglot', key)` returns `undefined`. A project that calls polyglot (a `{{ … | polyglot }}` text or `el.call('polyglot', …)`; `setLang`, `getLang` and the plugin's other functions when it defines none of that name) and declares no `polyglot` in context.js, config.js, index.js or app.js gets one FA815 finding, at context.js (else config.js, index.js or app.js). It names the files that call polyglot (the first five, then a count of the rest) and the fix, `polyglot: { defaultLang, languages, translations }`, with the translations file it found. FA815 is a warning (systemic, on by default, no auto-fix): `--strict` never blocks on it. A workspace module (a config with `manifest`) gets polyglot from the workspace shell, so only its standalone page renders empty; the finding says so. A project with its own `polyglot` function is not checked, and an audit of one component (no root file in view, as `audit_component` sends it) reports nothing.
+
+```js
+// components/Title.js
+Title: { text: '{{ welcome | polyglot }}' }   // FA815 when the project declares no polyglot
+// context.js — the fix
+import lang from './lang.js'
+export default { /* … */ polyglot: { defaultLang: 'en', languages: ['en', 'ka'], translations: lang } }
+```
+
 ---
 
 ### Banned runtime APIs (FA5xx — extends DOM-traversal family)

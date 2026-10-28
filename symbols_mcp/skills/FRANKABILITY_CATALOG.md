@@ -1805,6 +1805,25 @@ Good:   List: { childExtends: 'Item', childrenAs: 'state', children: (el, s) => 
         // each row is the Item's state; leave childrenAs out (or 'props')
         // for rows that are the Item's props
 
+# FA815 — polyglot-undeclared
+
+The polyglot plugin and its functions start only when the project
+declares `polyglot` in context.js (or config.js). Without it,
+`{{ key | polyglot }}` renders an empty string and
+`el.call('polyglot', key)` returns undefined.
+
+Bad:    // components/Title.js
+        Title: { text: '{{ welcome | polyglot }}' }
+        // context.js: no polyglot key
+Good:   // context.js
+        import lang from './lang.js'
+        export default { …, polyglot: { defaultLang: 'en', languages: ['en', 'ka'], translations: lang } }
+
+A bare `lang` key in the context is not read. A workspace module
+inside the workspace shell gets polyglot from the shell; its
+standalone page needs the declaration. A project with its own
+`polyglot` function is not checked.
+
 ---
 
 ## FA9xx — Reference resolution
