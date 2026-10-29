@@ -323,6 +323,19 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 - `--fresh` (wipe the caches first; `lock.json` and `config.json` stay)
 - Any other flag goes to the bundler (`parcel serve` / `vite serve`) with the value after it; `start`'s own flags never do.
 
+**The page's API** (runner after 3.14.608 / cli after 3.14.833). A page that `smbls start` (or `smbls runner serve`) serves declares the API it talks to before the runtime starts — `window.__SYMBOLS_CHANNEL__` and `window.__SYMBOLS_ENV__ = { channel, projectEnv, apiUrl, socketUrl }`, the identity a published page gets from the platform — so the SDK, the `symbols` fetch adapter and the shared-library fallback all use one API. It is the API the run, the project or the CLI already names, in this order; with nothing named, production:
+
+| Named by | Page API |
+|---|---|
+| `SYMBOLS_CHANNEL=<channel> smbls start` | that channel's API (`development`, `staging`, `production`, …) |
+| `SYMBOLS_API_BASE_URL=<url>` (also `SYMBOLS_API_URL`, `SMBLS_API_URL`) | that API; it serves the socket too |
+| `SYMBOLS_LOCAL=true` | `http://localhost:8080` (local) |
+| the project: `.symbols_local/config.json` `channel` / `apiBaseUrl`, a legacy project `.smblsrc` `apiUrl`, `symbols.json` `useLocal` | the API the CLI uses in this directory |
+| this machine's active channel (`smbls login --use`, `smbls channels`) | that channel's API |
+| nothing | `https://api.symbols.app` (production) |
+
+`NODE_ENV` never changes it. The start output prints the page's API under the URL, with what named it (`page API …`; in yellow when it is production, which is live data). To work against development data, run `SYMBOLS_CHANNEL=development smbls start`. `smbls build` output declares none: where it is deployed decides.
+
 `build` flags: `--no-cache`, `--no-optimize`, `--no-brender`, `--strict`, `--out-dir <dir>`, `--bundler`. `build` copies `public/` (or `symbols.json` `publicDir`) into the output root and never replaces a file the bundler wrote. With brender on, `build` pre-renders each route into the bundler's `index.html`: `/x` → `x.html`, `/*` → `404.html` (rendered at the address `/404`), and exits 1 when no route renders (`--no-brender` opts out). Two routes that would write one file (`/404` and `/*`) are written once and the other is reported.
 
 - **`200.html`** is the bundler's own document, kept before `/` overwrites `index.html`. Serve `200.html` for client-side routes — never `index.html`, which is now the home page with the home page's canonical and og tags (see Routes without their own page, below).
