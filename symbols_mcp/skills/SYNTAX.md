@@ -1653,7 +1653,7 @@ A server render (brender) binds no interval timer and no focus / online listener
 
 Reads retry 3 times by default. A write — `insert`, `update`, `upsert`, `delete` or an rpc action (below) — is sent once unless `retry` asks for more: a write that timed out may have been applied.
 
-A refused answer is not sent again (fetch after 3.14.678): a 4xx reaches `onFetchError` after one request, also with a `retry` count; a 429 is sent once more, after its `Retry-After` (30 s at most); a 408, a 5xx or a network failure retries. The status comes from the result's `status` (REST adapter) or the error's `status` / `statusCode` (SDK errors). More: FRAMEWORK.md → Cache, retry, dedupe, focus refetch.
+A refused answer is not sent again (fetch {{FETCH_SITES4}}): a 4xx reaches `onFetchError` after one request, also with a `retry` count; a 429 is sent once more, after its `Retry-After` (30 s at most); a 408, a 5xx or a network failure retries. The status comes from the result's `status` (REST adapter) or the error's `status` / `statusCode` (SDK errors). More: FRAMEWORK.md → Cache, retry, dedupe, focus refetch.
 
 ### Invalidation, actions, and the cache from project code
 
@@ -1821,7 +1821,7 @@ context.polyglot = {
 }
 ```
 
-In a frank payload, `translations: lang` (with `lang` the design system's `designSystem/lang.js` map) arrives as `translationsFrom: 'designSystem.lang'`, a pointer that keeps the map once; every framework reader resolves it (frank after 3.14.810 — FRAMEWORK.md §6 → One copy in the payload). Code that reads a payload's `polyglot.translations` itself uses `polyglotTranslations(project, polyglot)` from `@symbo.ls/utils`.
+In a frank payload, `translations: lang` (with `lang` the design system's `designSystem/lang.js` map) arrives as `translationsFrom: 'designSystem.lang'`, a pointer that keeps the map once; every framework reader resolves it (frank {{FRANK_SITES4}} — FRAMEWORK.md §6 → One copy in the payload). Code that reads a payload's `polyglot.translations` itself uses `polyglotTranslations(project, polyglot)` from `@symbo.ls/utils`.
 
 ### The start language
 
