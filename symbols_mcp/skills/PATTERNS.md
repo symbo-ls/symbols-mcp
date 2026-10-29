@@ -749,7 +749,7 @@ export default {
 }
 ```
 
-A workspace module inside the workspace shell gets polyglot from the shell; its standalone page still needs this declaration. Since frank-audit {{FRANK_AUDIT_R19}}, FA815 names a project that calls polyglot and declares none.
+A workspace module inside the workspace shell gets polyglot from the shell; its standalone page still needs this declaration. Since frank-audit 3.14.788, FA815 names a project that calls polyglot and declares none.
 
 ### Helmet — page metadata
 
