@@ -323,7 +323,7 @@ smbls tunnel [port]                           Expose local port via tunnel.symbo
 - `--fresh` (wipe the caches first; `lock.json` and `config.json` stay)
 - Any other flag goes to the bundler (`parcel serve` / `vite serve`) with the value after it; `start`'s own flags never do.
 
-**The page's API** (runner {{RUNNER_SITES4}} / cli {{CLI_SITES4}}). A page that `smbls start` (or `smbls runner serve`) serves declares the API it talks to before the runtime starts — `window.__SYMBOLS_CHANNEL__` and `window.__SYMBOLS_ENV__ = { channel, projectEnv, apiUrl, socketUrl }`, the identity a published page gets from the platform — so the SDK, the `symbols` fetch adapter and the shared-library fallback all use one API. It is the API the run, the project or the CLI already names, in this order; with nothing named, production:
+**The page's API** (runner 3.14.609 / cli 3.14.835). A page that `smbls start` (or `smbls runner serve`) serves declares the API it talks to before the runtime starts — `window.__SYMBOLS_CHANNEL__` and `window.__SYMBOLS_ENV__ = { channel, projectEnv, apiUrl, socketUrl }`, the identity a published page gets from the platform — so the SDK, the `symbols` fetch adapter and the shared-library fallback all use one API. It is the API the run, the project or the CLI already names, in this order; with nothing named, production:
 
 | Named by | Page API |
 |---|---|
