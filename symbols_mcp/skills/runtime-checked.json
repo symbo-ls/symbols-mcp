@@ -1,7 +1,7 @@
 {
-  "smbls": "3.14.870",
-  "commit": "ad2c30ed1",
-  "checked": "2026-10-28",
+  "smbls": "3.14.873",
+  "commit": "67be43586",
+  "checked": "2026-10-30",
   "examples": [
     "isxRootState",
     "isxInverse",
