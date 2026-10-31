@@ -2445,3 +2445,54 @@ declaration time instead of at a downstream `TypeError`.
 
 **Files:** `smbls/packages/element/src/create.js` (`wrapCustomPropFunctions`,
 `looksLikeStashedCallback`).
+
+---
+
+## Rule 71 — A route that fails to pre-render stops `smbls publish --ssr` — fix the cause, or keep the page out on purpose and say why
+
+Since cli {{CLI_R28}}. `smbls publish --ssr` (or `"prerender": true` in
+`symbols.json`) renders every static route before any publish request. When a
+route fails, the publish stops: it exits 1, publishes nothing, stores no route,
+and prints each failed route with its error (CLI.md → Publish flow →
+Publish-time pre-render). A route fails when its render:
+
+- throws;
+- takes longer than its 20 s;
+- renders nothing;
+- leaves out a part of the page on an error the framework caught — a child, a
+  `children:` row or factory, or the route's content that failed to build. The
+  framework logs such an error and renders the rest, so the page looks whole
+  in its HTML. Before, the route was stored and served without that part.
+
+The most common cause is a design-system token the PUSHED design system does
+not define (`Unresolvable design-system token "<name>"`). Look first at a
+hand-written `context.js` that copies a token table instead of importing
+`designSystem/` (PROJECT_STRUCTURE.md → Design System; frank names each
+`designSystem/` file the entry does not import).
+
+Two ways on, and only two:
+
+1. **Fix the cause** — register the token, fix the code that throws, give a
+   page that measures the browser an `el.context.ssr === true` guard
+   (FRAMEWORK.md §8 → In the server render).
+2. **Keep the page out of the pre-render on purpose** — `prerender: false` on
+   the page, or its key in symbols.json `brender.exclude` (an exact key, or a
+   trailing `*`). Write down why: a comment beside `prerender: false`, or a
+   line in the project's notes for `brender.exclude`. A page kept out is
+   served with the client render.
+
+```js
+// ❌ WRONG — silences the stop and says nothing
+export const pricing = { prerender: false, Hero: { /* … */ } }
+
+// ✅ RIGHT — the reason stays beside the opt-out
+export const checkout = {
+  prerender: false, // the cart lives in the browser; the server has nothing to show
+  Cart: { /* … */ }
+}
+```
+
+Do not silence the error to get past the stop (an empty `catch`, a fallback
+that hides the missing token): the page still ships without what failed, and
+the stop was the only signal. Run `smbls publish --ssr --dry-run` before a real
+publish — it renders what production serves now and stops the same way.

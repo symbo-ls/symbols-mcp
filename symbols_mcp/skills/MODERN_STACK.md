@@ -868,6 +868,8 @@ Two small framework changes:
 
 `packages/utils/function.js` — `runPluginHook` now returns `true` when at least one plugin handled the hook.
 
+A second hook, `renderError(element, { where, error, key?, route? })` (since element {{ELEMENT_R28}} / router {{ROUTER_R28}}), hears each part of the page that failed to build and was left out: a child, a `children:` row or factory, a route's content. It only listens: the console line stays whatever the plugin does. `@symbo.ls/brender` returns them as `renderErrors` (FRAMEWORK.md §8).
+
 ### Element targeting via `data-key`
 
 Click/key/form events reference the DOMQL key path (e.g. `App > Sidebar > MenuItem_3`) by walking up `data-key` DOM attributes (set by element/create.js for every keyed element). Stable across renders. Falls back to a CSS selector when the node isn't owned by a DOMQL tree.

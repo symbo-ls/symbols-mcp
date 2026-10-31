@@ -810,7 +810,7 @@ hide:     (el, s) => !s.root.searchOpen
 // HTML attributes
 href:        (el, s) => `/user/${s.id}`
 disabled:    (el, s) => s.loading
-placeholder: '{{ search | polyglot }}'
+placeholder: '{{ search | polyglot }}'   // flat on input / textarea only; elsewhere attr: { placeholder }
 
 // Conditional rendering
 if:   (el, s) => s.root.modalOpen
@@ -925,6 +925,7 @@ Return `null` or `undefined` from a prop function to remove the attribute.
 - Every multi-word attribute works in its HTML spelling and in camelCase: `fetchpriority` / `fetchPriority`, `inputmode` / `inputMode`, `httpEquiv` → `http-equiv`, `acceptCharset` → `accept-charset`.
 - An element-specific camelCase spelling applies only on a tag that has the attribute: `fetchPriority` on a `<div>` stays a custom prop, exactly like `fetchpriority`. The camelCase spellings of global attributes (`tabIndex`, `inputMode`, `enterKeyHint`, `contentEditable`, `spellCheck`, `autoCapitalize`, `autoCorrect`, `accessKey`, …) apply on every tag.
 - Microdata is lowercase only (`itemid`, `itemtype`, `itemprop`, …): `itemId` / `itemType` stay custom props.
+- `placeholder` is a field attribute, not a global one: a flat `placeholder` renders on `<input>` and `<textarea>` only (since attrs-in-props {{ATTRS_R28}}). On any other element write `attr: { placeholder }`. The prop stays on the element, so a field wrapper keeps passing it down: its inner input reads `el.parent.placeholder` (a value or a function), and the wrapper's own node gets no attribute. Before, the wrapper's `<div>` also got the attribute, and a polyglot key showed raw there.
 - A boolean on an enumerated attribute is written as the keyword it expects: `draggable`, `contenteditable`, `spellcheck`, `writingsuggestions` and `aria-*` → `"true"` / `"false"`; `autocorrect` → `"on"` / `"off"`; `translate` → `"yes"` / `"no"` (through `attr: {}` only — a flat `translate` is the CSS property).
 - `attr: {}` is left for names no table lists (non-standard attributes) and for an attribute whose flat key means something else on that tag: `translate` and `width` / `height` on an `<img>` are CSS, `content` and `scope` are framework keys (frank-audit FA105 checks this per tag).
 
@@ -1203,6 +1204,20 @@ export const ErrorMsg = {
 ```
 
 `if` removes from DOM. For tabs/views, use `show:` / `hide:` (Rule 18).
+
+### `deferUntil` — build at the first need, then keep
+
+Since element {{ELEMENT_R28}} / smbls {{SMBLS_R28}}.
+
+```js
+export const HelpSheet = {
+  deferUntil: (el, s) => s.root.helpOpen,   // not built until this is first true
+  hide: (el, s) => !s.root.helpOpen,        // after that, its own hide rule closes it
+  Title: { text: '{{ help | polyglot }}' }
+}
+```
+
+Until the function first returns true, the element waits as behind a false `if:`: no node, no server-rendered markup, nothing for a hydrating boot to adopt. The first true builds it once, in its place, with its full lifecycle. After that the key never removes it: its own `hide:` / `show:` rules close it, and an exit transition plays on a live node. With an `if:` beside it, the element opens the first time both are true, and after that `if:` alone decides. A function that throws counts as false and warns once. Use it for overlays, sheets and modal layers a visitor may never open: the page builds and ships none of them until they are needed. A view that must leave the DOM each time it closes keeps `if:`. `@symbo.ls/windows` `ModalRoot` builds its stack slots this way: slot 0 at boot, and slot N while the modal below it opens, so every open lands on a built slot.
 
 ---
 

@@ -264,6 +264,8 @@ import theme from './theme.js'
 export default { color, theme }
 ```
 
+**A hand-written `context.js` imports the design system; it never copies it.** A push carries the design system the entry (`context.js`) exports, and nothing else. Import `designSystem/index.js` there (`import designSystem from './designSystem/index.js'`), or import each file you use. Never keep a hand copy of a token table in `context.js`: a token that only a `designSystem/` file defines never reaches the platform, and a page that uses it loses that property. frank warns for each top-level `designSystem/` file the entry does not import (since frank {{FRANK_R28}}; CLI.md → Sync data with platform).
+
 **What belongs here:** color, gradient, theme, font, typography, spacing, timing, grid, icons, shape, reset, animation, media, vars.
 
 **What does NOT belong here:** translations/lang (use root-level `lang.js`), cases (use root-level `cases.js`), application state, API config, business logic.
