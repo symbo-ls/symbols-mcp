@@ -341,7 +341,7 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 | polyglot.translations (per language, key by key — see [Polyglot translations](#polyglot-translations)) | |
 | polyglot — every other key (`defaultLang`, `languages`, `storageLangKey`, `fetch`, …) | |
 | files | |
-| dependencies (the served page's importmap maps the merged map too, less the libraries' own package names, since mermaid {{MERMAID_R26}} / utils {{UTILS_R26}} — see FRANKABILITY.md → FA209) | |
+| dependencies (the served page's importmap maps the merged map too, less the libraries' own package names, since mermaid 3.14.853 / utils 3.14.862 — see FRANKABILITY.md → FA209) | |
 | dependenciesOnDemand (never in the importmap: the runtime loads it by its full CDN URL) | |
 | utils, cases, plugins | |
 
