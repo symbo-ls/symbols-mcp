@@ -375,20 +375,17 @@ Anything matching none of the three paths stays as a component-level property in
 
 ---
 
-## state.root.update() with onlyUpdate
+## state.root.update() re-renders only what reads the changed keys
 
-To limit re-rendering to a specific component subtree, pass `onlyUpdate` as the second argument:
+A state write re-runs only the reactive props and effects that read a key it changed. The rest of the tree does not re-render, so there is nothing to narrow: the v3 `onlyUpdate` option has no effect.
 
 ```js
 onClick: (e, el, s) => {
-  s.root.update(
-    { activeModal: 'settings' },
-    { onlyUpdate: 'ModalCard' }  // Only re-render ModalCard subtree
-  )
+  s.root.update({ activeModal: 'settings' })  // only what reads s.root.activeModal re-runs
 }
 ```
 
-**Why:** Without `onlyUpdate`, the entire component tree re-renders on root state change. Use this for performance.
+**Why:** `s.root.update` also runs the root element's `onUpdate`. To skip it, pass `{ quiet: true }` (SYNTAX.md → State Update Options).
 
 ---
 

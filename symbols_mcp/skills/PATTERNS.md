@@ -109,14 +109,15 @@ export const ModalCard = {
   InnerContent: { /* ... */ }
 }
 
-// functions/showModal.js — declarative state update; CSS transitions handle the fade
+// functions/showModal.js — declarative state update; CSS transitions handle the fade.
+// Only what reads `activeModal` re-runs; no option is needed to narrow it.
 export const showModal = function showModal (path) {
-  this.state.root.update({ activeModal: true }, { onlyUpdate: 'ModalCard' })
+  this.state.root.update({ activeModal: true })
 }
 
 // functions/closeModal.js
 export const closeModal = function closeModal () {
-  this.state.root.update({ activeModal: false }, { onlyUpdate: 'ModalCard' })
+  this.state.root.update({ activeModal: false })
 }
 ```
 

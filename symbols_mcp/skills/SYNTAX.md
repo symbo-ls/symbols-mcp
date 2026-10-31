@@ -661,12 +661,13 @@ isActive: (el, s) => s.active                          // true on EVERY row
 
 ### Targeted Updates (Performance)
 
+A write re-runs only the reactive props and effects that read a key it changed. Nothing else re-renders, so no option is needed to narrow it:
+
 ```js
-s.root.update(
-  { activeModal: true },
-  { onlyUpdate: 'ModalCard' }    // only ModalCard subtree re-renders
-)
+s.root.update({ activeModal: true })   // only what reads s.root.activeModal re-runs
 ```
+
+`s.update` also runs `onUpdate` on the element that owns the state. To skip that, see State Update Options below.
 
 ---
 
@@ -695,8 +696,8 @@ s.root.update(
 | `s.applyFunction(fn, opts?)` | `fn(s)` mutates in place, then update |
 | `s.applyReplace(fn, opts?)` | `fn(s)` returns full replacement |
 | `s.$settled()` | Promise that resolves with the state once the DOM of the pending writes is applied (see below) |
-| `s.quietUpdate(value)` | Update without triggering listeners |
-| `s.quietReplace(value)` | Replace without triggering listeners |
+| `s.quietUpdate(value)` | Same as `s.update(value, { quiet: true })`: writes the values and bound values re-render, but the owner's `onUpdate` does not run (`onBeforeStateUpdate` still runs) |
+| `s.quietReplace(value, opts?)` | Same as `s.replace(value, { quiet: true, ...opts })` |
 | `s.rootUpdate(obj, opts?)` | Update root state from anywhere |
 | `s.parentUpdate(obj, opts?)` | Update parent state |
 | `s.root` | Root state reference |
@@ -760,15 +761,20 @@ It does not cover opt-in deferred children (`yieldChildren` / `mountYield`) or `
 
 ### State Update Options
 
-| Option | Purpose |
+`s.update(values, opts)`, `s.replace(values, opts)` and `s.set(values, opts)` read two option keys. The owner is the element that declares the `state`.
+
+| Option | Effect |
 | -- | -- |
-| `onlyUpdate` | Limit re-render to a specific subtree by key |
-| `preventUpdate` | Skip element update |
-| `preventStateUpdate` | Skip state update step |
-| `preventUpdateListener` | Skip update event listeners |
-| `preventUpdateAfter` | Skip post-update hooks |
-| `lazyLoad` | Lazy-load updates |
-| `quiet` | Update store without firing subscribers |
+| `quiet` | `s.update` (and `s.set`, which writes through it) writes the values and every bound value that reads them re-renders, but the owner's `onUpdate` does not run. `s.quietUpdate(values)` is the same call. |
+| `preventBeforeStateUpdateListener` | The owner's `onBeforeStateUpdate` does not run for this write (`s.update`, `s.replace`, `s.set`). |
+
+The v3 options `onlyUpdate`, `preventUpdate`, `preventStateUpdate`, `preventUpdateListener`, `preventUpdateAfter`, `lazyLoad`, `isForced`, `preventContentUpdate`, `preventRecursive` and `preventDefineUpdate` have no effect: `s.update(values, { preventUpdate: true })` still runs the owner's `onUpdate`. Any other key reaches only `onBeforeStateUpdate` (as `options`); a state write calls `onUpdate` with no options argument.
+
+To keep a state write from running `onUpdate`:
+
+- write with `quiet: true`, or call `s.quietUpdate(values)`;
+- keep the value in the element's own `state: { … }`: a write runs only the `onUpdate` of the element that owns that state, so a child's own state never runs the page's `onUpdate`;
+- move the work from `onUpdate` to `onStateUpdate` + `stateDeps`: that handler runs only when a selected value changes.
 
 ### State String References (Path Syntax)
 
@@ -1281,14 +1287,13 @@ export const SearchField = {
 
 ### Element Update Options
 
-| Option | Purpose |
+`el.update(props, opts)` (and `el.setProps`) reads one option key.
+
+| Option | Effect |
 | -- | -- |
-| `onlyUpdate` | Limit re-render scope to a key |
-| `preventUpdate` | Skip update |
-| `preventStateUpdate` | Skip state update |
-| `preventUpdateListener` | Skip update listeners |
-| `preventUpdateAfter` | Skip post-update hooks |
-| `lazyLoad` | Lazy-load |
+| `preventListeners` | `onBeforeUpdate` and `onUpdate` do not run for this update. The props still apply. |
+
+`el.update` passes the whole `opts` object to the element's own hooks as their 4th argument, `onBeforeUpdate(el, s, ctx, opts)` and `onUpdate(el, s, ctx, opts)`, so a hook can read a key of your own: `el.update({ text }, { fromSync: true })` with `onUpdate: (el, s, ctx, opts) => { if (opts && opts.fromSync) return }`. A state write calls the same `onUpdate` with no 4th argument, hence the `opts &&` guard. The v3 options (`onlyUpdate`, `preventUpdate`, `preventStateUpdate`, `preventUpdateListener`, `preventUpdateAfter`, `lazyLoad`, …) have no effect: the props apply and both hooks run.
 
 ---
 
