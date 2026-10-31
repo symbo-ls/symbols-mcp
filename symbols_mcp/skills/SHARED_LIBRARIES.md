@@ -345,6 +345,13 @@ So the final component resolution is: **App > Shared Libraries > UIKit**
 | dependenciesOnDemand (never in the importmap: the runtime loads it by its full CDN URL) | |
 | utils, cases, plugins | |
 
+### What a served page carries
+
+The browser merges the libraries; the Worker (and the runner, `smbls start`) sends them. Two rules keep the sent copy small and leave the merged result as it is:
+
+- **A path the merge skips is not sent** (since mermaid 3.14.854 / utils 3.14.863). Each linked library is served without the paths its merge never takes: the consumer's `ignoreList` for it, the library's own `sharedLibIgnore`, and `pages` when the library sets `sharePages: false`. Merging the served copy gives the same context as merging the full library: the directives, the identity keys (`key`, `name`, `owner`, every `__` key) and any path a polyglot `translationsFrom` pointer reads stay. Code that imports the library's package at runtime sees the served copy too, so never read a skipped path from it.
+- **An icon no text names is not sent** (since mermaid 3.14.854 / utils 3.14.863 / smbls 3.14.879). A linked library's `designSystem.icons` bag is served without the icons no string in the payload can name. A page served with its own origin also prunes when the project computes an icon name (`icon: (el, s) => s.icon`): an icon the page lacks loads by name on first use from `<origin>/v1/library-icons/<owner>/<key>?names=a,b` (one request per library per task), so it paints one request later instead of `noIcon`. Without a resolvable origin a computed icon name keeps every library icon. `settings.libraryIconPrune: false` turns the prune off for a project.
+
 ### Polyglot translations
 
 **A library's strings reach the app.** A library component that renders `{{ key | polyglot }}` shows the library's string in every app that links it — also in an app that declares translations of its own. The library's `polyglot.translations` fill the app's language by language and key by key (nested namespaces too), the same rule as `designSystem`:
