@@ -836,6 +836,8 @@ import sizes from './sizes.js'
 export default { ..., sizes }
 ```
 
+A project with a hand-written `context.js` imports `designSystem/index.js` there (or `sizes.js` itself), never a copy of the table: a push carries only what the entry exports, so a token missing from the copy never reaches the platform (PROJECT_STRUCTURE.md → Design System).
+
 The brand's `sizes.js` ships via the shared library and is available to all projects that include it. Override individual tokens by adding your own `sizes.js` — project tokens take precedence.
 
 ---
