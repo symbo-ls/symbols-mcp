@@ -2450,7 +2450,7 @@ declaration time instead of at a downstream `TypeError`.
 
 ## Rule 71 — A route that fails to pre-render stops `smbls publish --ssr` — fix the cause, or keep the page out on purpose and say why
 
-Since cli {{CLI_R28}}. `smbls publish --ssr` (or `"prerender": true` in
+Since cli 3.14.838. `smbls publish --ssr` (or `"prerender": true` in
 `symbols.json`) renders every static route before any publish request. When a
 route fails, the publish stops: it exits 1, publishes nothing, stores no route,
 and prints each failed route with its error (CLI.md → Publish flow →

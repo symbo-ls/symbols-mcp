@@ -925,7 +925,7 @@ Return `null` or `undefined` from a prop function to remove the attribute.
 - Every multi-word attribute works in its HTML spelling and in camelCase: `fetchpriority` / `fetchPriority`, `inputmode` / `inputMode`, `httpEquiv` → `http-equiv`, `acceptCharset` → `accept-charset`.
 - An element-specific camelCase spelling applies only on a tag that has the attribute: `fetchPriority` on a `<div>` stays a custom prop, exactly like `fetchpriority`. The camelCase spellings of global attributes (`tabIndex`, `inputMode`, `enterKeyHint`, `contentEditable`, `spellCheck`, `autoCapitalize`, `autoCorrect`, `accessKey`, …) apply on every tag.
 - Microdata is lowercase only (`itemid`, `itemtype`, `itemprop`, …): `itemId` / `itemType` stay custom props.
-- `placeholder` is a field attribute, not a global one: a flat `placeholder` renders on `<input>` and `<textarea>` only (since attrs-in-props {{ATTRS_R28}}). On any other element write `attr: { placeholder }`. The prop stays on the element, so a field wrapper keeps passing it down: its inner input reads `el.parent.placeholder` (a value or a function), and the wrapper's own node gets no attribute. Before, the wrapper's `<div>` also got the attribute, and a polyglot key showed raw there.
+- `placeholder` is a field attribute, not a global one: a flat `placeholder` renders on `<input>` and `<textarea>` only (since attrs-in-props 3.14.698). On any other element write `attr: { placeholder }`. The prop stays on the element, so a field wrapper keeps passing it down: its inner input reads `el.parent.placeholder` (a value or a function), and the wrapper's own node gets no attribute. Before, the wrapper's `<div>` also got the attribute, and a polyglot key showed raw there.
 - A boolean on an enumerated attribute is written as the keyword it expects: `draggable`, `contenteditable`, `spellcheck`, `writingsuggestions` and `aria-*` → `"true"` / `"false"`; `autocorrect` → `"on"` / `"off"`; `translate` → `"yes"` / `"no"` (through `attr: {}` only — a flat `translate` is the CSS property).
 - `attr: {}` is left for names no table lists (non-standard attributes) and for an attribute whose flat key means something else on that tag: `translate` and `width` / `height` on an `<img>` are CSS, `content` and `scope` are framework keys (frank-audit FA105 checks this per tag).
 
@@ -1207,7 +1207,7 @@ export const ErrorMsg = {
 
 ### `deferUntil` — build at the first need, then keep
 
-Since element {{ELEMENT_R28}} / smbls {{SMBLS_R28}}.
+Since element 3.14.832 / smbls 3.14.880.
 
 ```js
 export const HelpSheet = {
