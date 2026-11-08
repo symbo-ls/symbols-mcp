@@ -1294,6 +1294,7 @@ A text drawn first in a fallback face and then again in its own face jumps: its 
 | element prop | `faceWait: true` | the element and every text inside it stay unseen until the faces that draw that text are loaded |
 | element prop | `faceWait: false` | this element does not wait, also under the design-system flag |
 | design system | `faceWait: true` | every element with a text of its own waits for its own faces |
+| design system | `faceWait: 'firstView'` | a fresh render's first view waits as one: the page stays unseen until the faces its layout asked for are in; no text waits on its own (below; since smbls 3.14.882) |
 | every element | `el.facesReady()` | `Promise<FontFace[]>` of the faces that draw the element's text (below); no prop needed |
 
 ```js
@@ -1330,7 +1331,22 @@ FitTitle: {
 
 On an adopted element of a built page, `facesReady()` waits on the page's own `window.__smblsFacesReady` (FRAMEWORK.md → The page and the client boot) and asks for no face again.
 
-**Build size.** `faceWait` is an optional feature of `build.treeShakeFeatures` (CLI.md). The build leaves it out when no source names `faceWait` or `facesReady`. Since smbls 3.14.869 / cli 3.14.832, one part of it is a feature of its own, `faceWaitLinks`: the wait for a family stylesheet still on its way (the `<link data-smbls-font>` smbls writes for a font served by Google Fonts). A build that keeps `faceWait` leaves that part out when the design system's `font` table names no Google Fonts address — self-hosted faces only (676 B less minified, 255 B Brotli). `keep: ["faceWaitLinks"]` keeps it for a design system the build cannot read.
+#### The first view as one wait — `faceWait: 'firstView'` (since smbls 3.14.882)
+
+With `true`, each held text keeps the fallback face's room. When its face comes, its width changes and what is already shown beside it (an icon after a label, a tab's rule, a right-aligned count) moves — a real app measured CLS 0.0021 on a filtered list (Chromium, face 1.5 s late) — and its checks cost a style read and a face match per text. `'firstView'` holds the first view as a whole instead, with no work per element:
+
+```js
+// designSystem/index.js
+export default { color, theme, font, font_family, typography, spacing, faceWait: 'firstView' }
+```
+
+- **The gate.** When a fresh render's app root (create()'s root) goes into the document, `data-smbls-face-gate` on it hides the app's content (`opacity: 0` on the root's children, laid out, its room kept); the page's own markup and canvas outside the app stay as they are. After the layout that asks for its faces (before that frame paints) it goes if `document.fonts` is not `'loading'` and no Google Fonts stylesheet is on its way, else when they settle and a layout after it asks for nothing more — 3 s at most. While the first render is still building, each layout asks again. A face (or a font stylesheet) that fails counts as in. Faces already in (cached): the app shows in the frame that first lays it out, or a frame or two later while the browser reads them from its cache.
+- **No element waits on its own.** Text written after the first view shows at once; put `faceWait: true` on the elements whose late text must wait (a headline in a face the first view does not use).
+- **An app that hides itself until its data is in** (`opacity: 0` on its root or a node it is in, `visibility: hidden`, or no box; the root's own opacity is the app's) keeps the gate until a layout finds it seen, so the faces its labels ask for count.
+- **Never over what was seen:** only the app's root, which no frame has painted when it goes in, is gated — not one built in place after a frame painted (`firstRender: { progressive: true }`); not a built page (`context.prerendered`, an adopted node, or brender's `<html data-smbls-paint-wait>` — brender's `faces.wait` covers its first view: no double wait).
+- **Print** shows the page. The first view comes later and whole: first contentful paint and LCP move to the gate's end (at most the cap); while unseen the page is in the accessibility tree and takes focus, as under a built page's hold.
+
+**Build size.** `faceWait` is an optional feature of `build.treeShakeFeatures` (CLI.md). The build leaves it out when no source names `faceWait` or `facesReady`. Since smbls 3.14.869 / cli 3.14.832, one part of it is a feature of its own, `faceWaitLinks`: the wait for a family stylesheet still on its way (the `<link data-smbls-font>` smbls writes for a font served by Google Fonts). A build that keeps `faceWait` leaves that part out when the design system's `font` table names no Google Fonts address — self-hosted faces only (676 B less minified, 255 B Brotli). `keep: ["faceWaitLinks"]` keeps it for a design system the build cannot read. Since smbls 3.14.882, the first-view gate is a feature of its own too, `faceWaitFirstView` (614 B Brotli of `smbls/core`, 2,851 B minified; left out, about 150 B Brotli stays, most of it the one report): kept only when the loaded configuration sets `designSystem.faceWait: 'firstView'`, which then refuses `drop`. A build that left it out and meets `'firstView'` at run time logs one `console.error` naming the option; the first view does not wait.
 
 ---
 
