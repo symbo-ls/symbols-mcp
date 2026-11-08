@@ -1,14 +1,21 @@
-"""generate_component / generate_page / convert_react / convert_html list the
-get_project_rules calls for their context instead of inlining it.
+"""generate_component / generate_page / convert_react / convert_html name the
+get_project_rules calls for their context instead of inlining it, in two
+groups.
 
 Each tool inlined whole skill files: 678,000 to 704,000 bytes per answer, 15
 times what Claude Code passes to the model inline (it saves an answer over
 50,000 chars to a file). The default answer is now the task frame (as before)
-plus a Context section: the 2 core parts, then every part of each skill the
-tool used to inline, in the same order, from the splitter at call time. The
-agent skips the calls already in its context. `full=True` returns the old
-one-shot answer. The Node server names the same calls (server.py's skill
-lists are canonical).
+and a Context section:
+- "Before you write code": every call for the 2 core parts and every part of
+  SYNTAX, COMPONENTS and FRANKABILITY (convert_react: and MIGRATION);
+- "When the task needs it": one line per other skill of the tool's list, in
+  the list's order: its name, its parts and bytes, what it holds (its
+  RULES_SECTIONS description, else the skill file's `# ` title) and its first
+  exact call; each part names the next.
+The section carries the line "Skip a call that you already made in this
+session." `full=True` returns the old one-shot answer. The Node server prints
+the same bytes as this server for every answer (server.py is canonical).
+tests/test_frame_calls.py runs every call the answers name.
 
 Known limit, not fixed here: the tools echo the description / source they are
 given, so a very large input makes a large answer.
@@ -28,46 +35,65 @@ server = importlib.import_module("symbols_mcp.server")
 ROOT = Path(__file__).resolve().parent.parent
 NODE_SERVER = ROOT / "bin" / "symbols-mcp.cjs"
 CAP = server.RULES_SAFE_BYTES
+SKIP = "Skip a call that you already made in this session."
+BEFORE = ("SYNTAX.md", "COMPONENTS.md", "FRANKABILITY.md")
 
 TOOLS = {
     "generate_component": ({"description": "A pricing card with a title and a button", "component_name": "PriceCard"},
-                           server.GENERATE_COMPONENT_SKILLS, "## Context — Rules, Syntax & Examples"),
+                           server.GENERATE_COMPONENT_SKILLS, BEFORE, "## Context — Rules, Syntax & Examples"),
     "generate_page": ({"description": "A pricing page", "page_name": "pricing"},
-                      server.GENERATE_PAGE_SKILLS, "## Context — Rules, Structure, Patterns & Snippets"),
+                      server.GENERATE_PAGE_SKILLS, BEFORE, "## Context — Rules, Structure, Patterns & Snippets"),
     "convert_react": ({"source_code": "export const A = () => <div className='x'>Hi</div>"},
-                      server.CONVERT_REACT_SKILLS, "## Context — Migration Guide, Syntax & Rules"),
+                      server.CONVERT_REACT_SKILLS, BEFORE + ("MIGRATION.md",), "## Context — Migration Guide, Syntax & Rules"),
     "convert_html": ({"source_code": "<div class='x'><p>Hi</p></div>"},
-                     server.CONVERT_HTML_SKILLS, "## Context — Syntax, Components & Design System"),
+                     server.CONVERT_HTML_SKILLS, BEFORE, "## Context — Syntax, Components & Design System"),
 }
 
 CALL = re.compile(r"^\d+\. `(get_project_rules\([^`]*\))` — ", re.M)
+LINE = re.compile(r"^- `([A-Z_]+)` \(.*$", re.M)
 
 
 def _bytes(text):
     return len(text.encode("utf-8"))
 
 
-def _expected_calls(skills):
+def _parts(fname):
+    return len(server._split_markdown_parts(server._read_skill(fname)))
+
+
+def _expected_before(before):
     calls = ["get_project_rules()", "get_project_rules(part=2)"]
-    for fname in skills:
-        name = fname[:-3]
-        n = len(server._split_markdown_parts(server._read_skill(fname)))
+    for fname in before:
+        name, n = fname[:-3], _parts(fname)
         calls += [f"get_project_rules(section='{name}')"] if n == 1 else [
             f"get_project_rules(section='{name}', part={i})" for i in range(1, n + 1)
         ]
     return calls
 
 
-def _run(call):
-    """Run one listed call: get_project_rules(...) with its literal arguments."""
-    args = dict(re.findall(r"(\w+)=('[^']*'|\d+)", call))
-    kwargs = {k: (v.strip("'") if v.startswith("'") else int(v)) for k, v in args.items()}
-    return server.get_project_rules(**kwargs)
+def _expected_line(fname):
+    name, text, n = fname[:-3], server._read_skill(fname), _parts(fname)
+    desc = dict((s, d) for s, _, d in server.RULES_SECTIONS).get(name)
+    if desc is None:
+        desc = next(line[2:].strip() for line in text.split("\n") if line.startswith("# "))
+    size = f"{n} part{'s' if n > 1 else ''}, {_bytes(text):,} bytes"
+    call = (f"Call: `get_project_rules(section='{name}')`." if n == 1
+            else f"First call: `get_project_rules(section='{name}', part=1)`.")
+    return f"- `{name}` ({size}): {desc}. {call}"
 
 
 def _answer(name, **extra):
-    args, _, _ = TOOLS[name]
+    args = TOOLS[name][0]
     return getattr(server, name)(**args, **extra)
+
+
+def _groups(name):
+    out = _answer(name)
+    heading = TOOLS[name][3]
+    context = out[out.index(heading):]
+    before = context[context.index("### Before you write code"):context.index("### When the task needs it")]
+    later = context[context.index("### When the task needs it"):]
+    return out, context, before, later
 
 
 @pytest.mark.parametrize("name", TOOLS)
@@ -77,32 +103,56 @@ def test_the_default_answer_fits_the_cap(name):
 
 
 @pytest.mark.parametrize("name", TOOLS)
-def test_the_context_lists_the_core_then_every_part_of_each_skill_in_order(name):
-    _, skills, heading = TOOLS[name]
-    out = _answer(name)
-    assert out.count(heading) == 1
-    context = out[out.index(heading):]
-    assert CALL.findall(context) == _expected_calls(skills)
-    assert "Skip a call whose answer is already in your context" in context
-    for fname in skills:  # nothing is inlined
-        assert server._read_skill(fname)[:2000] not in out, fname
+def test_the_skip_line_and_the_two_groups_in_order(name):
+    out, context, _, _ = _groups(name)
+    assert out.count(TOOLS[name][3]) == 1
+    assert context.count(SKIP) == 1
+    assert context.index(SKIP) < context.index("### Before you write code") < context.index("### When the task needs it")
 
 
 @pytest.mark.parametrize("name", TOOLS)
-def test_every_listed_call_runs_and_fits_the_cap(name):
+def test_before_code_names_every_call_of_the_core_and_the_minimum_skills(name):
+    _, _, before, _ = _groups(name)
+    assert CALL.findall(before) == _expected_before(TOOLS[name][2])
+
+
+@pytest.mark.parametrize("name", TOOLS)
+def test_one_line_per_other_skill_in_the_list_order(name):
+    _, _, before, later = _groups(name)
+    _, skills, first, _ = TOOLS[name]
+    expected = [f for f in skills if f not in first]
+    assert LINE.findall(later) == [f[:-3] for f in expected]
+    lines = [line for line in later.split("\n") if line.startswith("- `")]
+    assert lines == [_expected_line(f) for f in expected]
+    assert not CALL.findall(later)  # the later skills are one line each, not every part
+
+
+@pytest.mark.parametrize("name", TOOLS)
+def test_every_named_call_runs_and_fits_the_cap(name):
     out = _answer(name)
-    for call in CALL.findall(out):
-        answer = _run(call)
+    calls = re.findall(r"`(get_project_rules\([^`]*\))`", out)
+    assert calls
+    for call in calls:
+        args = dict(re.findall(r"(\w+)=('[^']*'|\d+)", call))
+        kwargs = {k: (v.strip("'") if v.startswith("'") else int(v)) for k, v in args.items()}
+        answer = server.get_project_rules(**kwargs)
         assert _bytes(answer) <= CAP, (call, _bytes(answer))
 
 
 @pytest.mark.parametrize("name", TOOLS)
+def test_nothing_is_inlined(name):
+    out = _answer(name)
+    for fname in TOOLS[name][1] + TOOLS[name][2]:
+        assert server._read_skill(fname)[:2000] not in out, fname
+
+
+@pytest.mark.parametrize("name", TOOLS)
 def test_full_true_is_the_one_shot_answer(name):
-    _, skills, heading = TOOLS[name]
+    _, skills, _, heading = TOOLS[name]
     full = _answer(name, full=True)
     frame = _answer(name).split(heading)[0]
     assert full == frame + heading + "\n\n" + server._read_skills(*skills)
-    assert _bytes(full) > CAP  # why the default lists calls
+    assert _bytes(full) > CAP  # why the default names calls
 
 
 @pytest.mark.parametrize("name", TOOLS)
@@ -127,31 +177,28 @@ def _node(requests):
     return [replies[i] for i in range(1, len(requests) + 1)]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
-def test_node_lists_the_same_calls_and_each_fits_the_cap():
-    names = list(TOOLS)
-    answers = _node([(n, TOOLS[n][0]) for n in names])
-    calls = []
-    for name, result in zip(names, answers):
-        text = result["content"][0]["text"]
-        assert _bytes(text) <= CAP, (name, _bytes(text))
-        listed = CALL.findall(text)
-        assert listed == CALL.findall(_answer(name)), name  # the Python list, the Python order
-        calls += [c for c in listed if c not in calls]
-    # every listed call runs on the Node server and fits the cap
-    def args_of(call):
-        found = dict(re.findall(r"(\w+)=('[^']*'|\d+)", call))
-        return {k: (v.strip("'") if v.startswith("'") else int(v)) for k, v in found.items()}
-    for call, result in zip(calls, _node([("get_project_rules", args_of(c)) for c in calls])):
-        assert not result.get("isError"), (call, result["content"][0]["text"][:200])
-        assert _bytes(result["content"][0]["text"]) <= CAP, call
+# Inputs with the characters a port can get wrong: backticks, `${`, a backslash.
+ODD = {
+    "generate_component": [{"description": "A `card` with ${price} and a \\ slash", "component_name": "PriceCard"},
+                           {"description": "no name given"}],
+    "generate_page": [{"description": "A `page` with ${x}", "page_name": "pricing"}, {"description": "no name"}],
+    "convert_react": [{"source_code": "export const A = () => <div className={`x ${y}`}>\\n</div>"}],
+    "convert_html": [{"source_code": "<p class='x'>${a} `b` \\c</p>"}],
+}
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
-def test_node_full_true_inlines_the_python_skill_lists():
-    names = list(TOOLS)
-    answers = _node([(n, {**TOOLS[n][0], "full": True}) for n in names])
-    for name, result in zip(names, answers):
-        _, skills, heading = TOOLS[name]
-        text = result["content"][0]["text"]
-        assert heading + "\n\n" + server._read_skills(*skills) in text, name
+def test_node_prints_the_same_bytes():
+    requests = [(n, a) for n in TOOLS for a in [TOOLS[n][0], *ODD[n]]]
+    for (name, args), result in zip(requests, _node(requests)):
+        assert len(result["content"]) == 1 and not result.get("isError"), (name, args)
+        assert result["content"][0]["text"] == getattr(server, name)(**args), (name, args)
+
+
+# One tool per run: a full=True answer is several hundred thousand chars.
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+@pytest.mark.parametrize("name", TOOLS)
+def test_node_full_true_is_the_same_bytes(name):
+    args = {**ODD[name][0], "full": True}
+    (result,) = _node([(name, args)])
+    assert result["content"][0]["text"] == getattr(server, name)(**args), name

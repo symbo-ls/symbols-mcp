@@ -36,19 +36,19 @@
     },
     {
       "name": "generate_component",
-      "description": "Generate a Symbols.app DOMQL component from a description: the task frame + the get_project_rules calls for its context (full=true inlines it)."
+      "description": "Generate a Symbols.app DOMQL component from a description: the task frame + the get_project_rules calls for its context, before code and when the task needs it (full=true inlines it)."
     },
     {
       "name": "generate_page",
-      "description": "Generate a Symbols.app page with routing integration: the task frame + the get_project_rules calls for its context (full=true inlines it)."
+      "description": "Generate a Symbols.app page with routing integration: the task frame + the get_project_rules calls for its context, before code and when the task needs it (full=true inlines it)."
     },
     {
       "name": "convert_react",
-      "description": "Convert React/JSX code to Symbols.app DOMQL: the conversion frame + the get_project_rules calls for its migration context (full=true inlines it)."
+      "description": "Convert React/JSX code to Symbols.app DOMQL: the conversion frame + the get_project_rules calls for its migration context, before code and when the task needs it (full=true inlines it)."
     },
     {
       "name": "convert_html",
-      "description": "Convert raw HTML/CSS to Symbols.app DOMQL components: the conversion frame + the get_project_rules calls for its context (full=true inlines it)."
+      "description": "Convert raw HTML/CSS to Symbols.app DOMQL components: the conversion frame + the get_project_rules calls for its context, before code and when the task needs it (full=true inlines it)."
     },
     {
       "name": "convert_to_json",

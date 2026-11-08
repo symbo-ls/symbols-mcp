@@ -156,8 +156,10 @@ mcp = FastMCP(
         "parts follow. Minimum for code: both core parts + SYNTAX + COMPONENTS + FRANKABILITY. `full=True` is "
         "the legacy one-shot of all 16 sections (several hundred thousand bytes) — only for clients with no "
         "tool-output cap.\n"
-        "3. **`generate_component` / `generate_page`** for new code — these return the task frame + the exact "
-        "`get_project_rules` calls for its context (skip the ones already in your context).\n"
+        "3. **`generate_component` / `generate_page`** for new code — these return the task frame + the "
+        "`get_project_rules` calls for its context: every call to make before you write code (the 2 core parts, "
+        "SYNTAX, COMPONENTS, FRANKABILITY), then one line per skill to fetch when the task needs it. Skip a call "
+        "that you already made in this session.\n"
         "4. **`audit_component(code, file_path)`** after each file you write — inline validator, returns ~1K of "
         "violations. Pass `file_path` (e.g. `'functions/listQuerySet.js'`) so the folder-dependent rules apply where "
         "the file lives; without it the code is audited as a component. "
@@ -1421,7 +1423,7 @@ async def search_symbols_docs(
 
 # The skills each generate_* / convert_* tool gives as its context, in read
 # order. Inlined, each set is several hundred thousand bytes — far above
-# RULES_SAFE_BYTES — so the default answer lists the get_project_rules calls
+# RULES_SAFE_BYTES — so the default answer names the get_project_rules calls
 # that serve them (_context_section); full=True inlines them in one answer.
 # bin/symbols-mcp.cjs uses the same lists (this server is canonical).
 GENERATE_COMPONENT_SKILLS = (
@@ -1442,47 +1444,94 @@ CONVERT_HTML_SKILLS = (
     "FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md",
     "FRANKABILITY.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md",
 )
+# What every generate_* / convert_* answer lists under "Before you write code",
+# after the 2 core parts: the NEXT STEP table's minimum for any code-writing
+# task. convert_react adds the migration guide. Every other skill of the tool's
+# list goes under "When the task needs it", one line each.
+BEFORE_CODE_SKILLS = ("SYNTAX.md", "COMPONENTS.md", "FRANKABILITY.md")
+CONVERT_REACT_BEFORE_CODE = BEFORE_CODE_SKILLS + ("MIGRATION.md",)
+# The line every answer that names calls carries, word for word.
+SKIP_CALL_LINE = "Skip a call that you already made in this session."
+
+
+def _part_calls(fname: str) -> list[tuple[str, str]]:
+    """(call, what it serves) for every part of one skill, from the splitter at
+    call time. A missing skill file has no calls."""
+    if not (SKILLS_PATH / fname).exists():
+        return []
+    name = fname[:-3]
+    total = len(_split_markdown_parts(_read_skill(fname)))
+    if total == 1:
+        return [(f"get_project_rules(section='{name}')", fname)]
+    return [
+        (f"get_project_rules(section='{name}', part={i})", f"{fname}, part {i} of {total}")
+        for i in range(1, total + 1)
+    ]
 
 
 def _context_calls(skills: tuple[str, ...]) -> list[tuple[str, str]]:
-    """(call, what it serves) for the context of a generate_* / convert_* tool:
-    the 2 core parts, then every part of each skill in `skills`, in order. The
-    parts come from the splitter at call time, so the list always matches what
-    the calls serve. A skill file that is missing is skipped, as _read_skills
-    skips it."""
+    """(call, what it serves): the 2 core parts, then every part of each skill
+    in `skills`, in order — the "Before you write code" calls."""
     calls = [
         ("get_project_rules()", f"the core, part 1 of {RULES_CORE_PARTS}"),
         ("get_project_rules(part=2)", f"the core, part 2 of {RULES_CORE_PARTS}"),
     ]
     for fname in skills:
-        if not (SKILLS_PATH / fname).exists():
-            continue
-        name = fname[:-3]
-        total = len(_split_markdown_parts(_read_skill(fname)))
-        if total == 1:
-            calls.append((f"get_project_rules(section='{name}')", fname))
-            continue
-        calls.extend(
-            (f"get_project_rules(section='{name}', part={i})", f"{fname}, part {i} of {total}")
-            for i in range(1, total + 1)
-        )
+        calls.extend(_part_calls(fname))
     return calls
 
 
-def _context_section(title: str, skills: tuple[str, ...]) -> str:
-    """The Context section of a generate_* / convert_* answer: the calls that
-    serve its context, in order, instead of the context itself."""
-    rows = "\n".join(
-        f"{i}. `{call}` — {what}" for i, (call, what) in enumerate(_context_calls(skills), 1)
+def _numbered_calls(calls: list[tuple[str, str]]) -> str:
+    return "\n".join(f"{i}. `{call}` — {what}" for i, (call, what) in enumerate(calls, 1))
+
+
+def _skill_desc(fname: str) -> str:
+    """One line on what a skill holds: its RULES_SECTIONS description, else the
+    skill file's own `# ` title (the skill file stays the source of truth)."""
+    entry = _RULES_SECTION_BY_NAME.get(fname[:-3])
+    if entry:
+        return entry[1]
+    for line in _read_skill(fname).split("\n"):
+        if line.startswith("# "):
+            return line[2:].strip()
+    return fname
+
+
+def _skill_line(fname: str) -> str:
+    """One line per skill: its name, its parts and bytes, what it holds, and its
+    first exact call (each part names the next)."""
+    name = fname[:-3]
+    text = _read_skill(fname)
+    total = len(_split_markdown_parts(text))
+    size = f"{total} part{'s' if total > 1 else ''}, {_utf8_len(text):,} bytes"
+    call = (
+        f"Call: `get_project_rules(section='{name}')`." if total == 1
+        else f"First call: `get_project_rules(section='{name}', part=1)`."
     )
+    return f"- `{name}` ({size}): {_skill_desc(fname)}. {call}"
+
+
+def _skill_lines(skills: tuple[str, ...]) -> str:
+    return "\n".join(_skill_line(f) for f in skills if (SKILLS_PATH / f).exists())
+
+
+def _context_section(title: str, before: tuple[str, ...], skills: tuple[str, ...]) -> str:
+    """The Context section of a generate_* / convert_* answer, instead of the
+    context itself: "Before you write code" — every call for the 2 core parts
+    and every part of `before`; "When the task needs it" — one line per other
+    skill of `skills`, in their order."""
+    later = tuple(f for f in skills if f not in before)
     return (
         f"## Context — {title}\n\n"
-        "The context is not inlined: as one answer it is far above the size a client passes to "
-        "the model inline. Make these calls in this order, one call each, before you write code. "
-        "Skip a call whose answer is already in your context — for example the core parts you got "
-        "at the start of the session. On a client with no tool-output cap, call this tool again "
-        "with `full=True` to get the whole context in one answer.\n\n"
-        f"{rows}\n"
+        f"{SKIP_CALL_LINE}\n\n"
+        "The context is not inlined: in one answer it is far above what a client passes to the "
+        "model inline. On a client with no tool-output cap, call this tool again with `full=True` "
+        "to get it in one answer.\n\n"
+        "### Before you write code\n\n"
+        f"{_numbered_calls(_context_calls(before))}\n\n"
+        "### When the task needs it\n\n"
+        "Fetch a skill when the task needs it. Each part names the next call.\n\n"
+        f"{_skill_lines(later)}\n"
     )
 
 
@@ -1495,13 +1544,16 @@ def generate_component(
     """Generate a Symbols.app DOMQL component from a description.
 
     Returns the task frame (description, name, the STRICT requirements) and a
-    Context section: the exact `get_project_rules` calls that serve the rules,
+    Context section that names the `get_project_rules` calls for the rules,
     syntax reference, component catalog, cookbook examples and default library
-    reference, in read order (the 2 core parts first). Inlined, that context is
-    several hundred thousand bytes, above what a client passes to the model
-    inline (Claude Code saves an answer over 50,000 chars to a file), so the
-    answer lists the calls; skip the ones already in your context. The calling
-    LLM uses this context to generate a correct, compliant component.
+    reference, in two groups. "Before you write code": every call for the 2
+    core parts, SYNTAX, COMPONENTS and FRANKABILITY. "When the task needs it":
+    one line per other skill (its parts and bytes, what it holds, its first
+    call; each part names the next). Inlined, that context is several hundred
+    thousand bytes, above what a client passes to the model inline (Claude Code
+    saves an answer over 50,000 chars to a file). Skip a call that you already
+    made in this session. The calling LLM uses this context to generate a
+    correct, compliant component.
 
     Args:
         description: What the component should do and look like.
@@ -1563,7 +1615,7 @@ def generate_component(
     title = "Rules, Syntax & Examples"
     if full:
         return frame + f"## Context — {title}\n\n" + _read_skills(*GENERATE_COMPONENT_SKILLS)
-    return frame + _context_section(title, GENERATE_COMPONENT_SKILLS)
+    return frame + _context_section(title, BEFORE_CODE_SKILLS, GENERATE_COMPONENT_SKILLS)
 
 
 @mcp.tool(structured_output=False)
@@ -1575,11 +1627,13 @@ def generate_page(
     """Generate a Symbols.app DOMQL page with routing + helmet metadata + fetch integration.
 
     Returns the task frame (description, name, the STRICT requirements) and a
-    Context section: the exact `get_project_rules` calls that serve the rules,
-    project structure, patterns, snippets and default library reference, in
-    read order (the 2 core parts first). Inlined, that context is several
-    hundred thousand bytes, above what a client passes to the model inline, so
-    the answer lists the calls; skip the ones already in your context.
+    Context section that names the `get_project_rules` calls for the rules,
+    project structure, patterns, snippets and default library reference, in two
+    groups. "Before you write code": every call for the 2 core parts, SYNTAX,
+    COMPONENTS and FRANKABILITY. "When the task needs it": one line per other
+    skill (its parts and bytes, what it holds, its first call). Inlined, that
+    context is several hundred thousand bytes, above what a client passes to
+    the model inline. Skip a call that you already made in this session.
 
     Args:
         description: What the page should contain and do.
@@ -1633,7 +1687,7 @@ def generate_page(
     title = "Rules, Structure, Patterns & Snippets"
     if full:
         return frame + f"## Context — {title}\n\n" + _read_skills(*GENERATE_PAGE_SKILLS)
-    return frame + _context_section(title, GENERATE_PAGE_SKILLS)
+    return frame + _context_section(title, BEFORE_CODE_SKILLS, GENERATE_PAGE_SKILLS)
 
 
 @mcp.tool(structured_output=False)
@@ -1641,12 +1695,14 @@ def convert_react(source_code: str, full: bool = False) -> str:
     """Convert React/JSX code to Symbols.app DOMQL.
 
     Provide React component code and receive the conversion frame (the source,
-    the STRICT conversion rules) and a Context section: the exact
-    `get_project_rules` calls that serve the migration guide, syntax reference,
-    rules and examples, in read order (the 2 core parts first). Inlined, that
-    context is several hundred thousand bytes, above what a client passes to
-    the model inline, so the answer lists the calls; skip the ones already in
-    your context.
+    the STRICT conversion rules) and a Context section that names the
+    `get_project_rules` calls for the migration guide, syntax reference, rules
+    and examples, in two groups. "Before you write code": every call for the 2
+    core parts, SYNTAX, COMPONENTS, FRANKABILITY and MIGRATION. "When the task
+    needs it": one line per other skill (its parts and bytes, what it holds, its
+    first call). Inlined, that context is several hundred thousand bytes, above
+    what a client passes to the model inline. Skip a call that you already made
+    in this session.
 
     Args:
         source_code: The React/JSX source code to convert.
@@ -1689,7 +1745,7 @@ def convert_react(source_code: str, full: bool = False) -> str:
     title = "Migration Guide, Syntax & Rules"
     if full:
         return frame + f"## Context — {title}\n\n" + _read_skills(*CONVERT_REACT_SKILLS)
-    return frame + _context_section(title, CONVERT_REACT_SKILLS)
+    return frame + _context_section(title, CONVERT_REACT_BEFORE_CODE, CONVERT_REACT_SKILLS)
 
 
 @mcp.tool(structured_output=False)
@@ -1697,11 +1753,13 @@ def convert_html(source_code: str, full: bool = False) -> str:
     """Convert raw HTML/CSS to Symbols.app DOMQL components.
 
     Provide HTML code and receive the conversion frame (the source, the STRICT
-    conversion rules) and a Context section: the exact `get_project_rules`
-    calls that serve the component catalog, syntax reference and design system
-    tokens, in read order (the 2 core parts first). Inlined, that context is
-    several hundred thousand bytes, above what a client passes to the model
-    inline, so the answer lists the calls; skip the ones already in your context.
+    conversion rules) and a Context section that names the `get_project_rules`
+    calls for the component catalog, syntax reference and design system tokens,
+    in two groups. "Before you write code": every call for the 2 core parts,
+    SYNTAX, COMPONENTS and FRANKABILITY. "When the task needs it": one line per
+    other skill (its parts and bytes, what it holds, its first call). Inlined,
+    that context is several hundred thousand bytes, above what a client passes
+    to the model inline. Skip a call that you already made in this session.
 
     Args:
         source_code: The HTML/CSS source code to convert.
@@ -1744,7 +1802,7 @@ def convert_html(source_code: str, full: bool = False) -> str:
     title = "Syntax, Components & Design System"
     if full:
         return frame + f"## Context — {title}\n\n" + _read_skills(*CONVERT_HTML_SKILLS)
-    return frame + _context_section(title, CONVERT_HTML_SKILLS)
+    return frame + _context_section(title, BEFORE_CODE_SKILLS, CONVERT_HTML_SKILLS)
 
 
 @mcp.tool(structured_output=False)

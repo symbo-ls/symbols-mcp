@@ -27,10 +27,10 @@ No API keys required for documentation tools. Project management tools require a
 
 | Tool | Description |
 |------|-------------|
-| `generate_component` | Generate a DOMQL component from a natural language description. Returns the task frame + the exact `get_project_rules` calls for its context (the 2 core parts, then each skill part, in read order; skip the ones already in context). `full=true` inlines the whole context (several hundred KB, capless clients only). |
-| `generate_page` | Generate a full page with routing, helmet metadata, and declarative `fetch:` integration. Returns the task frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
-| `convert_react` | Convert React/JSX code to Symbols DOMQL (modern smbls stack). Returns the conversion frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
-| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL components. Returns the conversion frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
+| `generate_component` | Generate a DOMQL component from a natural language description. Returns the task frame + the `get_project_rules` calls for its context in two groups: **Before you write code** (every call for the 2 core parts, SYNTAX, COMPONENTS, FRANKABILITY) and **When the task needs it** (one line per other skill: its parts and bytes, what it holds, its first call). Skip a call that you already made in this session. `full=true` inlines the whole context (several hundred KB, capless clients only). |
+| `generate_page` | Generate a full page with routing, helmet metadata, and declarative `fetch:` integration. Returns the task frame + the `get_project_rules` calls for its context, in the same two groups; `full=true` inlines it. |
+| `convert_react` | Convert React/JSX code to Symbols DOMQL (modern smbls stack). Returns the conversion frame + the `get_project_rules` calls for its context, in the same two groups (MIGRATION is in **Before you write code**); `full=true` inlines it. |
+| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL components. Returns the conversion frame + the `get_project_rules` calls for its context, in the same two groups; `full=true` inlines it. |
 | `convert_to_json` | Convert DOMQL JS source to platform JSON (mirrors frank's toJSON pipeline). Use after `generate_component` / `generate_page` to feed `save_to_project`. |
 
 ### Audit

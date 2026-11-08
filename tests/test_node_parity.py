@@ -74,11 +74,9 @@ def test_the_core_is_two_parts_in_both_servers():
     ])
     p1, p2 = server.get_project_rules(), server.get_project_rules(part=2)
     assert _text(one) == p1  # the same bytes, the same STRICT rules in part 1
-    node_p2 = _text(two)
-    assert _bytes(node_p2) <= CAP
-    # Part 2's index rows carry each server's own section descriptions; the
-    # STRICT rules and the heading index before them are the same bytes.
-    cut = p2.index("# SECTION INDEX")
-    assert node_p2[:cut] == p2[:cut]
+    # Part 2 too, the SECTION INDEX included: both servers carry the same
+    # section descriptions (RULES_SECTIONS).
+    assert _text(two) == p2
+    assert _bytes(p2) <= CAP
     for result in (zero, three):
         assert result.get("isError") and "out of range" in _text(result)

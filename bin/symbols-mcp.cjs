@@ -88,20 +88,20 @@ const RULES_CORE_PARTS = 2
 const RULES_SECTIONS = [
   ['FRAMEWORK', 'FRAMEWORK.md', 'authoritative — project structure, plugins, theming, SSR, publish'],
   ['DESIGN_SYSTEM', 'DESIGN_SYSTEM.md', 'authoritative — design-system contract + token catalog'],
-  ['RULES', 'RULES.md', 'the full strict rule list (Rule 0–70)'],
-  ['COMPONENTS', 'COMPONENTS.md', 'built-in component catalog — REUSE via bare PascalCase keys; never redefine'],
-  ['DEFAULT_COMPONENTS', 'DEFAULT_COMPONENTS.md', 'full source/structure of every built-in'],
-  ['SYNTAX', 'SYNTAX.md', 'DOMQL v3.14 syntax reference'],
+  ['RULES', 'RULES.md', 'the full strict rule list (Rule 0–70) — flat API, signal reactivity, tokens, polyglot, fetch, helmet, theme, reuse, icons'],
+  ['COMPONENTS', 'COMPONENTS.md', 'built-in component catalog from @symbo.ls/default-config — REUSE via bare PascalCase keys; never redefine'],
+  ['DEFAULT_COMPONENTS', 'DEFAULT_COMPONENTS.md', 'full source/structure of every built-in — props they expose, how to compose them'],
+  ['SYNTAX', 'SYNTAX.md', 'DOMQL v3.14 syntax reference — flat element API, signal reactivity, state, router, fetch, polyglot, helmet'],
   ['PATTERNS', 'PATTERNS.md', 'canonical compositional patterns'],
   ['SNIPPETS', 'SNIPPETS.md', 'project-level snippet patterns'],
   ['SHARED_LIBRARIES', 'SHARED_LIBRARIES.md', 'when to read / never edit cross-package code'],
-  ['WORKSPACE', 'WORKSPACE.md', 'multi-app monorepo topology'],
-  ['FRANKABILITY', 'FRANKABILITY.md', 'every @symbo.ls/frank-audit rule with wrong vs canonical examples'],
-  ['FRANKABILITY_CATALOG', 'FRANKABILITY_CATALOG.md', 'the FA rule catalog in full'],
-  ['FRANK_FIX_WORKFLOW', 'FRANK_FIX_WORKFLOW.md', 'prescription → edit-op flow reference card'],
-  ['COMMON_MISTAKES', 'COMMON_MISTAKES.md', 'hard-won failure cases'],
+  ['WORKSPACE', 'WORKSPACE.md', 'multi-app monorepo topology — two project shapes, two-file contract, onboarding checklist'],
+  ['FRANKABILITY', 'FRANKABILITY.md', 'every @symbo.ls/frank-audit rule with wrong vs canonical examples — code that survives frank.toJSON'],
+  ['FRANKABILITY_CATALOG', 'FRANKABILITY_CATALOG.md', 'the FA rule catalog (FA0xx–FA9xx) in full'],
+  ['FRANK_FIX_WORKFLOW', 'FRANK_FIX_WORKFLOW.md', 'LLM reference card for the prescription → edit-op flow (apply_frankability_edit_ops contract)'],
+  ['COMMON_MISTAKES', 'COMMON_MISTAKES.md', 'hard-won failure cases — read before replaying them'],
   ['LEARNINGS', 'LEARNINGS.md', 'more hard-won failure cases'],
-  ['DEFAULT_PROJECT', 'DEFAULT_PROJECT.md', 'recommended baseline design-system values + default-library catalog']
+  ['DEFAULT_PROJECT', 'DEFAULT_PROJECT.md', 'recommended baseline design-system values + the default-library catalog']
 ]
 const RULES_NEXT_STEP = [
   ['write or edit ANY DOMQL element/component/page', 'SYNTAX, then COMPONENTS'],
@@ -386,43 +386,268 @@ function sdkReference(part) {
 
 // The skills each generate_* / convert_* tool gives as its context, in read
 // order — the lists in server.py (GENERATE_COMPONENT_SKILLS, …), which is
-// canonical; tests/test_generate_context_calls.py checks both servers name the
-// same calls. Inlined, each set is several hundred thousand bytes, so the
-// default answer lists the get_project_rules calls that serve them;
+// canonical; tests/test_generate_context_calls.py checks both servers print
+// the same bytes. Inlined, each set is several hundred thousand bytes, so the
+// default answer names the get_project_rules calls that serve them;
 // full=true inlines them in one answer.
 const GENERATE_COMPONENT_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'COMMON_MISTAKES.md', 'COMPONENTS.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COOKBOOK.md', 'DEFAULT_PROJECT.md']
 const GENERATE_PAGE_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'WORKSPACE.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'PATTERNS.md', 'SNIPPETS.md', 'COMPONENTS.md', 'DEFAULT_PROJECT.md']
 const CONVERT_REACT_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'MIGRATION.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COMPONENTS.md', 'LEARNINGS.md', 'DEFAULT_PROJECT.md']
 const CONVERT_HTML_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COMPONENTS.md', 'SNIPPETS.md', 'LEARNINGS.md', 'DEFAULT_PROJECT.md']
+// What every generate_* / convert_* answer lists under "Before you write code",
+// after the 2 core parts: the NEXT STEP table's minimum for any code-writing
+// task. convert_react adds the migration guide. Every other skill of the tool's
+// list goes under "When the task needs it", one line each. Mirrors server.py.
+const BEFORE_CODE_SKILLS = ['SYNTAX.md', 'COMPONENTS.md', 'FRANKABILITY.md']
+const CONVERT_REACT_BEFORE_CODE = BEFORE_CODE_SKILLS.concat(['MIGRATION.md'])
+// The line every answer that names calls carries, word for word.
+const SKIP_CALL_LINE = 'Skip a call that you already made in this session.'
 
-// [call, what it serves] for the context of a generate_* / convert_* tool: the
-// 2 core parts, then every part of each skill, in order, from the splitter at
-// call time. A missing skill file is skipped. Mirrors server.py _context_calls.
-function contextCalls(skills) {
+// [call, what it serves] for every part of one skill, from the splitter at call
+// time. A missing skill file has no calls. Mirrors server.py _part_calls.
+function partCalls (file) {
+  if (!fs.existsSync(path.join(SKILLS_DIR, file))) return []
+  const name = file.slice(0, -3)
+  const total = splitMarkdownParts(readSkill(file)).length
+  if (total === 1) return [[`get_project_rules(section='${name}')`, file]]
+  const calls = []
+  for (let i = 1; i <= total; i++) calls.push([`get_project_rules(section='${name}', part=${i})`, `${file}, part ${i} of ${total}`])
+  return calls
+}
+
+// [call, what it serves]: the 2 core parts, then every part of each skill, in
+// order — the "Before you write code" calls. Mirrors server.py _context_calls.
+function contextCalls (skills) {
   const calls = [
     ['get_project_rules()', `the core, part 1 of ${RULES_CORE_PARTS}`],
     ['get_project_rules(part=2)', `the core, part 2 of ${RULES_CORE_PARTS}`]
   ]
-  for (const file of skills) {
-    if (!fs.existsSync(path.join(SKILLS_DIR, file))) continue
-    const name = file.slice(0, -3)
-    const total = splitMarkdownParts(readSkill(file)).length
-    if (total === 1) { calls.push([`get_project_rules(section='${name}')`, file]); continue }
-    for (let i = 1; i <= total; i++) calls.push([`get_project_rules(section='${name}', part=${i})`, `${file}, part ${i} of ${total}`])
-  }
+  for (const file of skills) calls.push(...partCalls(file))
   return calls
 }
 
-// The Context section of a generate_* / convert_* answer: the calls that serve
-// its context, in order, instead of the context. Mirrors server.py _context_section.
-function contextSection(title, skills) {
-  const rows = contextCalls(skills).map(([call, what], i) => `${i + 1}. \`${call}\` — ${what}`).join('\n')
+function numberedCalls (calls) {
+  return calls.map(([call, what], i) => `${i + 1}. \`${call}\` — ${what}`).join('\n')
+}
+
+// One line on what a skill holds: its RULES_SECTIONS description, else the
+// skill file's own `# ` title. Mirrors server.py _skill_desc.
+function skillDesc (file) {
+  const entry = RULES_SECTION_BY_NAME[file.slice(0, -3)]
+  if (entry) return entry.desc
+  for (const line of readSkill(file).split('\n')) {
+    if (line.startsWith('# ')) return line.slice(2).trim()
+  }
+  return file
+}
+
+// One line per skill: its name, its parts and bytes, what it holds, and its
+// first exact call (each part names the next). Mirrors server.py _skill_line.
+function skillLine (file) {
+  const name = file.slice(0, -3)
+  const text = readSkill(file)
+  const total = splitMarkdownParts(text).length
+  const size = `${total} part${total > 1 ? 's' : ''}, ${groupDigits(utf8Len(text))} bytes`
+  const call = total === 1
+    ? `Call: \`get_project_rules(section='${name}')\`.`
+    : `First call: \`get_project_rules(section='${name}', part=1)\`.`
+  return `- \`${name}\` (${size}): ${skillDesc(file)}. ${call}`
+}
+
+function skillLines (skills) {
+  return skills.filter(f => fs.existsSync(path.join(SKILLS_DIR, f))).map(skillLine).join('\n')
+}
+
+// The Context section of a generate_* / convert_* answer, instead of the
+// context itself: "Before you write code" — every call for the 2 core parts and
+// every part of `before`; "When the task needs it" — one line per other skill
+// of `skills`, in their order. Mirrors server.py _context_section.
+function contextSection (title, before, skills) {
+  const later = skills.filter(f => !before.includes(f))
   return `## Context — ${title}\n\n` +
-    'The context is not inlined: as one answer it is far above the size a client passes to the model inline. ' +
-    'Make these calls in this order, one call each, before you write code. ' +
-    'Skip a call whose answer is already in your context — for example the core parts you got at the start of the session. ' +
-    'On a client with no tool-output cap, call this tool again with `full=True` to get the whole context in one answer.\n\n' +
-    `${rows}\n`
+    `${SKIP_CALL_LINE}\n\n` +
+    'The context is not inlined: in one answer it is far above what a client passes to the model inline. ' +
+    'On a client with no tool-output cap, call this tool again with `full=True` to get it in one answer.\n\n' +
+    '### Before you write code\n\n' +
+    `${numberedCalls(contextCalls(before))}\n\n` +
+    '### When the task needs it\n\n' +
+    'Fetch a skill when the task needs it. Each part names the next call.\n\n' +
+    `${skillLines(later)}\n`
+}
+
+// The task frames of generate_* / convert_*: the same bytes as server.py's
+// (server.py is canonical; tests/test_generate_context_calls.py compares
+// the two servers' answers byte for byte).
+function generateComponentFrame (description, componentName) {
+  return `# Generate Component: ${componentName}
+
+## Description
+${description}
+
+## Requirements (STRICT — read FRAMEWORK.md and DESIGN_SYSTEM.md before generating)
+
+### Identity & syntax
+- Named export: \`export const ${componentName} = { ... }\`. Plain object — never function/class.
+- Flat element API: props on the element (no \`props: {}\` wrapper). Event handlers flat top-level (\`onClick\`, \`onInit\`, NEVER \`on: {}\`). Reactive prop functions take \`(el, s)\` — NEVER \`({ props, state })\`.
+- ⚠️ **PascalCase child keys ONLY** — lowercase keys (\`h1:\`, \`nav:\`, \`form:\`, \`hgroup:\`) NEVER render. #1 cause of "missing content" (Rule 6).
+- NO imports between project files — PascalCase keys auto-extend registered components, functions called via \`el.call('fnName', …)\` (Rule 2/8/33).
+
+### Reusability — MANDATORY (Rule 6 / Rule 61)
+- **Auto-extend by key.** A key that names a registered component IS that component when it has no \`extends\`: \`Navbar: {}\`, not \`Navbar: { extends: 'Navbar' }\`. Multi-instance → \`Navbar_1\`, \`Navbar_2\` (the part before \`_\` auto-extends; never \`Navbar1\`). A key WITH \`extends\` is a role name, and that is right (\`SidebarNav: { extends: 'Navbar' }\`, \`TabHome: { extends: 'Button' }\`) — unless the name misleads: it names a DIFFERENT registered component (\`Title: { extends: 'PageHeaderTitle' }\`), or it is an HTML tag name, a generic word or a placeholder (\`Header\`, \`Row\`, \`Foo\`). Name it for its role; never rename it to the base. Other forms: multi-base composition (\`extends: ['Hgroup', 'Form']\`) and nested-child chains (\`extends: 'AppShell > Sidebar'\`).
+- **Extract every duplicated shape** to \`components/<Name>.js\`. Repeated PascalCase blocks = candidates for extraction.
+- For lists/groups of similar children → \`childExtends: 'Name'\` (+ \`childrenAs: 'state'\` if data-driven; preferred for reusability).
+- For shared per-child overrides → \`childProps: { … }\` on the parent.
+- NEVER inline-object \`childExtends: { tag: 'button', ... }\` — must be a quoted string referencing a registered component (frank serialization breaks otherwise).
+
+### Design system — STRICT (Rules 27/28)
+- ALL values MUST use design system tokens. ZERO px, ZERO hex/rgb/hsl, ZERO raw ms.
+- **Sequence families share letter alphabets but NOT values.** Typography (\`fontSize\`), spacing (\`padding\`/\`margin\`/\`gap\`/\`width\`/\`height\`/etc.), and timing (\`transition\` duration) each generate their own sequence from \`{ base, ratio }\`. \`fontSize: 'B'\` ≈ 25px, \`padding: 'B'\` ≈ 26px, \`transition: 'B'\` ≈ 200ms — same letter, different values per family. There are NO custom-named spacing/typography/timing tokens — only the generated sequence + sub-tokens (\`A1\`, \`A2\`, \`B1\`, etc.).
+- Name-based families: colors (\`'primary'\`, \`'surface'\`, \`'gray.5'\`, \`'blue.7'\`, \`'gray+20'\`), themes, gradients, shadows, icons.
+- Color modifiers: \`.N\` is alpha (\`'white.5'\` = 50% opacity), \`+N\` lightens, \`-N\` darkens (both lightness, NOT raw RGB), \`=N\` absolute lightness %.
+- **Icons (Rule 29 / Rule 62 — CRITICAL):** ALWAYS render via the \`Icon\` component referencing \`designSystem.icons\` by name (\`{ extends: 'Icon', icon: 'name' }\`). NEVER \`html: '<svg ...>'\` (BANNED — bypasses design system, breaks Brender SSR, breaks theme color resolution, breaks sprite deduping). NEVER \`tag: 'svg'\`, NEVER \`tag: 'path'\` / \`tag: 'circle'\` / \`tag: 'rect'\`. NEVER \`extends: 'Svg'\` for an icon (\`Svg\` is reserved for non-icon backgrounds). Every SVG, no exceptions, lives in \`designSystem/icons.js\`.
+
+### Modern stack — MANDATORY
+- **Polyglot (Rule 48):** All user-facing text via \`'{{ key | polyglot }}'\` template (reactive). Imperative: \`(el) => el.call('polyglot', 'key')\`. **NO \`t\` or \`tr\` function exists** — only \`polyglot\`. No exceptions for short strings (Submit/OK/Cancel/Loading).
+- **Fetch (Rule 47):** Declarative \`fetch:\` prop (\`@symbo.ls/fetch\`). NEVER \`window.fetch\`/\`axios\` in components.
+- **Helmet (Rule 49):** Page-level \`metadata: { title, description, ... }\`. NEVER \`document.title = …\`.
+- **Router (Rule 42):** \`el.router(path, el.getRoot())\`. NEVER \`window.location.*\`.
+- **Theme (Rule 50):** \`changeGlobalTheme(theme, targetConfig?)\` imported from \`smbls\`. NEVER \`setAttribute('data-theme', …)\`.
+
+### DOM manipulation — BANNED (Rules 30/32/40)
+- NEVER: \`document.querySelector\`, \`getElementById\`, \`addEventListener\`, \`classList.toggle\`, \`innerHTML =\`, \`setAttribute\`, \`parentNode\` traversal, \`el.node.style.X = …\`, \`XMLHttpRequest\`, \`EventSource\`/\`WebSocket\` at top level.
+- Element traversal: \`el.lookdown('Key')\`, \`el.lookup('Key')\`, \`el.lookdownAll('Key')\`, \`el.getRoot()\` — NEVER browser DOM queries.
+
+### Conditional rendering / animation
+- For tabs/views use \`show:\`/\`hide:\` (keeps in DOM). For conditional content use \`if:\` (removes from DOM, **destructive — kills CSS transitions, focus, scroll, video playback**).
+- Use \`.isX\` + \`'.isX'\` block for grouped conditional CSS (fully reactive — block re-applies when \`isX\` state changes).
+
+### Layout
+- \`flow:\` / \`align:\` are valid shorthands (\`flow: 'y'\` ≡ \`flexFlow: 'column'\`).
+- Built-in atoms (Box, Flex, Grid, Hgroup, Form, Text, Img, Iframe, Svg, Picture, Video, Link, Button, Input, etc.) auto-apply when key matches — NEVER \`extends: 'Flex'\` / \`'Box'\` / \`'Text'\` (just name the key \`Flex: {...}\` etc.).
+- Include responsive breakpoints (\`@tabletS\`, \`@mobileL\`, \`@dark\`, \`@light\`).
+
+### Aesthetics
+- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load.
+
+`
+}
+
+function generatePageFrame (description, pageName) {
+  return `# Generate Page: ${pageName}
+
+## Description
+${description}
+
+## Requirements (STRICT — read FRAMEWORK.md and DESIGN_SYSTEM.md before generating)
+
+### Identity & registration
+- Export: \`export const ${pageName} = { ... }\`, extending \`'Page'\` (NEVER \`'Flex'\` / \`'Box'\`).
+- Add to \`pages/index.js\` route map: \`'/${pageName}': ${pageName}\`. (\`pages/index.js\` is the ONLY file allowed to import siblings.)
+- Page is a plain object composing components by PascalCase key — no imports between project files.
+
+### Syntax (same rules as components)
+- Flat element API; reactive prop functions \`(el, s)\`; flat \`onX\` events; lowercase child keys NEVER render.
+- NO \`props: {}\` / \`on: {}\` / \`({ props, state })\` destructured signatures.
+
+### Reusability — MANDATORY (Rule 6 / Rule 61)
+- **Auto-extend by key.** A key that names a registered component IS that component when it has no \`extends\` (\`Navbar: {}\`). Multi-instance → \`Navbar_1\`, \`Navbar_2\`. A key WITH \`extends\` is a role name (\`SidebarNav: { extends: 'Navbar' }\`) — right unless it names a different registered component or is a tag name, a generic word or a placeholder (\`Header\`, \`Row\`, \`Foo\`): name it for its role, never rename it to the base.
+- Extract every duplicated shape across pages to \`components/<Name>.js\`. NEVER duplicate inline.
+- \`childExtends: 'Name'\` for lists/groups; \`childProps: { … }\` for shared per-child overrides.
+
+### Design system — STRICT
+- ALL values from design system tokens. ZERO px, hex, rgb, hsl, raw durations.
+- **Icons (Rule 29 / Rule 62 — CRITICAL):** every SVG goes in \`designSystem/icons.js\` and is rendered via \`{ extends: 'Icon', icon: 'name' }\`. NEVER \`html: '<svg ...>'\`, NEVER \`tag: 'svg'\` / \`tag: 'path'\`, NEVER \`extends: 'Svg'\` for an icon.
+
+### Modern stack — MANDATORY
+- **Helmet (Rule 49):** \`metadata: { title, description, 'og:image', ... }\` (or \`metadata: (el, s) => ({ ... })\` for dynamic). NEVER \`document.title = …\`.
+- **Fetch (Rule 47):** Declarative \`fetch: { from: 'table', cache: '5m', ... }\` (or array for parallel). Configure adapter once in \`config.js\`: \`db: { adapter: 'supabase', url, key }\`. NEVER \`window.fetch\`/\`axios\`.
+- **Polyglot (Rule 48):** ALL user-facing text via \`'{{ heading | polyglot }}'\` template. Imperative: \`el.call('polyglot', 'key')\`. NO \`t\` or \`tr\` function — only \`polyglot\`.
+- **Router (Rule 42):** \`el.router(path, el.getRoot())\`. NEVER \`window.location\`. Param routes (\`/blog/:id\`) populate \`state.params\`.
+- **Theme (Rule 50):** \`changeGlobalTheme(theme, targetConfig?)\` imported from \`smbls\`. NEVER \`setAttribute('data-theme')\`.
+
+### DOM bans (Rules 30/40/42)
+- NEVER \`document.*\`, \`addEventListener\`, \`classList\`, \`innerHTML\`, \`setAttribute\`, \`parentNode\`, \`el.node.style.X = …\`, \`XMLHttpRequest\`, raw \`EventSource\`/\`WebSocket\`.
+
+### Conditional rendering
+- Tabs/views: \`show:\` / \`hide:\` (keeps in DOM). Conditional content: \`if:\` (removes from DOM — destructive: kills CSS transitions, focus, scroll, video).
+- Grouped reactive CSS: \`isX: (el, s) => …\` + \`'.isX': { … }\` block (re-applies when state changes).
+
+### Layout / responsive
+- \`flow:\` / \`align:\` valid; built-in atoms auto-apply by key. Responsive breakpoints \`@tabletS\`, \`@mobileL\`, \`@dark\`, \`@light\`.
+
+`
+}
+
+function convertReactFrame (sourceCode) {
+  return `# Convert React → Symbols DOMQL
+
+## Source Code to Convert
+\`\`\`jsx
+${sourceCode}
+\`\`\`
+
+## Conversion Rules (DOMQL — STRICT)
+- Function/class components → plain object exports (\`export const X = { ... }\`)
+- JSX → nested object children (PascalCase keys auto-extend registered components)
+- import/export between project files → REMOVE (reference by string key, call functions via \`el.call('fn', …)\`)
+- useState → \`state: { key: val }\`; updates via \`s.update({ key: newVal })\`
+- useReducer → \`s.apply(fn)\` / \`s.applyFunction(fn)\`
+- useEffect mount → \`onInit\` (before DOM) or \`onRender\` (after DOM). For data-loading effects, prefer the declarative \`fetch:\` prop (Rule 47).
+- useEffect deps → \`onStateUpdate(changes, el, s, ctx)\` or signal-based reactive prop functions (the framework auto-tracks reads).
+- useMemo / useCallback → not needed; reactive prop functions are memoized by signal subscription.
+- props → flat on the component (NO \`props: {}\` wrapper — FORBIDDEN)
+- onClick={handler} → \`onClick: (e, el, s) => { … }\` (flat top-level, NEVER \`on: { click }\`)
+- className / styled-components → DOMQL CSS-in-props with **design system tokens only** (Rule 27/28). ZERO px, hex, rgb, hsl.
+- .map() → \`children: (el, s) => s.items, childExtends: 'ItemName', childrenAs: 'state'\`
+- conditional rendering → \`if: (el, s) => boolean\` (removes from DOM) or \`show:\`/\`hide:\` (keeps in DOM, for tabs)
+- React.Fragment / \`<>...</>\` → not needed; just nest object keys.
+- React Router \`<Link>\` / \`useNavigate()\` → \`extends: 'Link'\` with \`href\`; programmatic navigation via \`el.router(path, el.getRoot())\` (Rule 41/42)
+- React Helmet / Next \`<Head>\` → page-level \`metadata: { title, description, ... }\` via @symbo.ls/helmet (Rule 49)
+- fetch / axios / SWR / TanStack Query → declarative \`fetch: { from, cache, transform, … }\` via @symbo.ls/fetch (Rule 47). Caching/dedup/retry/refetch-on-focus are built in — DO NOT reimplement them.
+- i18next / react-intl → \`@symbo.ls/polyglot\` with \`'{{ key | polyglot }}'\` template, \`el.call('polyglot', 'key')\`, \`el.call('setLang', 'ka')\` (Rule 48)
+- localStorage state → state + fetch plugin's \`local\` adapter, or polyglot's \`setLang\` for language. NEVER raw \`localStorage.setItem\` in components.
+- Theme switcher / dark mode → \`changeGlobalTheme()\` from @symbo.ls/scratch (Rule 50). NEVER \`setAttribute('data-theme', …)\` directly.
+- **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl
+- Use \`Icon\` component for SVGs — never inline SVG markup, never \`tag: 'svg'\` (Rule 29)
+- NO direct DOM manipulation — banned: \`document.*\`, \`addEventListener\`, \`classList\`, \`innerHTML\`, \`setAttribute\`, \`el.node.style.X = …\`, \`parentNode\`/\`children\` traversal (Rule 30/32/40)
+
+`
+}
+
+function convertHtmlFrame (sourceCode) {
+  return `# Convert HTML → Symbols DOMQL
+
+## Source Code to Convert
+\`\`\`html
+${sourceCode}
+\`\`\`
+
+## Conversion Rules (DOMQL — STRICT)
+- \`<div>\` with flex/grid → drop the wrapper; use \`flow: 'x'\`/\`flow: 'y'\` (replaces \`extends: 'Flex'\`) or \`display: 'grid'\` directly. Plain wrappers don't need \`extends: 'Box'\`.
+- \`<span>\`, \`<p>\`, \`<h1>\`-\`<h6>\` → keep semantic via \`tag\` (\`P\`, \`H1\`–\`H6\` exist as default-library components).
+- \`<a>\` → \`extends: 'Link'\` with \`href\` at root (NEVER inside \`attr: {}\`). For SPA navigation: \`onClick: (e, el) => { e.preventDefault(); el.router(href, el.getRoot()) }\`.
+- \`<button>\` → \`extends: 'Button'\` (supports \`icon\` + \`text\`).
+- \`<input>\` → \`Input\`, \`Radio\`, \`Checkbox\` based on type. Standard HTML attrs (placeholder, type, name, value, disabled) flat at root — NOT inside \`attr: {}\`.
+- \`<img>\` → \`Img\` (or \`Picture\` containing \`Img\`; \`<picture>\` does NOT support \`src\`).
+- \`<form>\` → \`Form\` (or \`tag: 'form'\`).
+- \`<ul>\`/\`<ol>\` + \`<li>\` → \`children\` array + \`childExtends: 'ItemName'\`.
+- CSS classes → flatten as CSS-in-props on the component (no className prop).
+- CSS px values → design-system sequence tokens. **\`fontSize\` uses the typography sequence; \`padding\`/\`margin\`/\`gap\`/\`width\`/\`height\`/etc. use the spacing sequence; \`transition\` duration uses the timing sequence — same letters, DIFFERENT values per family.** Default mappings: spacing \`A\`≈16px, \`B\`≈26px, \`C\`≈42px (golden ratio); typography \`A\`≈16px, \`B\`≈20px, \`C\`≈25px (major-third). Sub-tokens (\`Z1\`, \`Z2\`, \`A1\`, \`A2\`, etc.) are minor increments within each family. NO custom-named spacing tokens.
+- CSS colors → theme color tokens (\`primary\`, \`surface\`, \`gray.5\`, \`blue+20\`, \`white.7\`). NEVER hex/rgb/hsl.
+- Durations → \`designSystem.timing\` tokens.
+- Media queries → \`@tabletS\`, \`@mobileL\`, \`@screenS\`, \`@dark\`, \`@light\` (NEVER chain selectors — Rule 44).
+- id/class attributes → not needed (PascalCase keys serve as identifiers; cases.js handles conditional classes).
+- inline styles → flatten as component properties (or \`style: {…}\` only for raw CSS escape hatches).
+- \`<style>\` blocks → distribute to component-level CSS-in-props.
+- \`<svg>\` icons → \`Icon\` component + \`designSystem/icons\` — NEVER \`tag: 'svg'\`, NEVER inline SVG markup, NEVER nest \`<path>\` (Rule 29).
+- Hardcoded user-facing text → polyglot \`'{{ key | polyglot }}'\` template (Rule 48).
+- jQuery / vanilla JS event listeners → flat \`onClick\`/\`onInput\`/\`onSubmit\` props on the element. NO \`addEventListener\`.
+- Hardcoded data fetches → declarative \`fetch:\` prop via @symbo.ls/fetch (Rule 47).
+- \`<head>\` \`<title>\`, \`<meta>\` → page/app-level \`metadata: {…}\` via @symbo.ls/helmet (Rule 49).
+- **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl, ZERO raw durations.
+- NO direct DOM manipulation — all structure via DOMQL declarative syntax (Rule 30/32/40).
+
+`
 }
 
 function loadAgentInstructions(args = {}) {
@@ -1094,7 +1319,7 @@ const TOOLS = [
   },
   {
     name: 'generate_component',
-    description: 'Generate a Symbols.app DOMQL v3 component from a description. Returns the task frame and a Context section: the exact get_project_rules calls that serve the rules, syntax, cookbook and default library, in read order (the 2 core parts first). Inlined, that context is far above what a client passes to the model inline, so the answer lists the calls; skip the ones already in your context. full=true inlines the whole context (capless clients only).',
+    description: 'Generate a Symbols.app DOMQL v3 component from a description. Returns the task frame and a Context section that names the get_project_rules calls for the rules, syntax, cookbook and default library, in two groups: "Before you write code" (every call for the 2 core parts, SYNTAX, COMPONENTS and FRANKABILITY) and "When the task needs it" (one line per other skill: its parts and bytes, what it holds, its first call). Inlined, that context is far above what a client passes to the model inline. Skip a call that you already made in this session. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1107,7 +1332,7 @@ const TOOLS = [
   },
   {
     name: 'generate_page',
-    description: 'Generate a Symbols.app page with routing integration. Returns the task frame and a Context section: the exact get_project_rules calls that serve the rules, project structure, patterns and snippets, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
+    description: 'Generate a Symbols.app page with routing integration. Returns the task frame and a Context section that names the get_project_rules calls for the rules, project structure, patterns and snippets, in two groups: "Before you write code" (every call for the 2 core parts, SYNTAX, COMPONENTS and FRANKABILITY) and "When the task needs it" (one line per other skill). Skip a call that you already made in this session. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1120,7 +1345,7 @@ const TOOLS = [
   },
   {
     name: 'convert_react',
-    description: 'Convert React/JSX code to Symbols.app DOMQL v3. Returns the conversion frame and a Context section: the exact get_project_rules calls that serve the migration guide, syntax and rules, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
+    description: 'Convert React/JSX code to Symbols.app DOMQL v3. Returns the conversion frame and a Context section that names the get_project_rules calls for the migration guide, syntax and rules, in two groups: "Before you write code" (every call for the 2 core parts, SYNTAX, COMPONENTS, FRANKABILITY and MIGRATION) and "When the task needs it" (one line per other skill). Skip a call that you already made in this session. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1132,7 +1357,7 @@ const TOOLS = [
   },
   {
     name: 'convert_html',
-    description: 'Convert raw HTML/CSS to Symbols.app DOMQL v3 components. Returns the conversion frame and a Context section: the exact get_project_rules calls that serve the syntax, components and design system, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
+    description: 'Convert raw HTML/CSS to Symbols.app DOMQL v3 components. Returns the conversion frame and a Context section that names the get_project_rules calls for the syntax, components and design system, in two groups: "Before you write code" (every call for the 2 core parts, SYNTAX, COMPONENTS and FRANKABILITY) and "When the task needs it" (one line per other skill). Skip a call that you already made in this session. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1301,32 +1526,31 @@ async function handleTool(name, args) {
     return filenames.map(f => readSkill(f)).filter(c => !c.startsWith('Skill ')).join('\n\n---\n\n')
   }
 
-  // generate_* / convert_*: the task frame, then the get_project_rules calls
-  // that serve its context (full=true: the context inlined in one answer).
-  const withContext = (frame, title, skills) => (args.full === true || args.full === 'true')
+  // generate_* / convert_*: the task frame (server.py's bytes), then the
+  // Context section — the calls before code, one line per other skill
+  // (full=true: the context inlined in one answer).
+  const withContext = (frame, title, before, skills) => (args.full === true || args.full === 'true')
     ? frame + `## Context — ${title}\n\n` + readSkills(...skills)
-    : frame + contextSection(title, skills)
+    : frame + contextSection(title, before, skills)
+  // server.py's defaults: a missing argument gets the default, an empty one stays empty
+  const arg = (v, d) => (v === undefined || v === null ? d : String(v))
 
-  // generate_component
   if (name === 'generate_component') {
-    const componentName = args.component_name || 'MyComponent'
-    return withContext(`# Generate Component: ${componentName}\n\n## Description\n${args.description}\n\n## Requirements\n- Named export: \`export const ${componentName} = { ... }\`\n- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- NO imports between files — PascalCase keys auto-extend registered components\n- Include responsive breakpoints where appropriate (@tabletS, @mobileL)\n- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load\n\n`, 'Rules, Syntax & Examples', GENERATE_COMPONENT_SKILLS)
+    const frame = generateComponentFrame(arg(args.description, ''), arg(args.component_name, 'MyComponent'))
+    return withContext(frame, 'Rules, Syntax & Examples', BEFORE_CODE_SKILLS, GENERATE_COMPONENT_SKILLS)
   }
 
-  // generate_page
   if (name === 'generate_page') {
-    const pageName = args.page_name || 'home'
-    return withContext(`# Generate Page: ${pageName}\n\n## Description\n${args.description}\n\n## Requirements\n- Export as: \`export const ${pageName} = { ... }\`\n- Page is a plain object composing components\n- Add to pages/index.js route map: \`'/${pageName}': ${pageName}\`\n- Use components by PascalCase key (Header, Footer, Hero, etc.)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Include responsive layout adjustments\n\n`, 'Rules, Structure, Patterns & Snippets', GENERATE_PAGE_SKILLS)
+    const frame = generatePageFrame(arg(args.description, ''), arg(args.page_name, 'home'))
+    return withContext(frame, 'Rules, Structure, Patterns & Snippets', BEFORE_CODE_SKILLS, GENERATE_PAGE_SKILLS)
   }
 
-  // convert_react
   if (name === 'convert_react') {
-    return withContext(`# Convert React → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`jsx\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- Function/class components → plain object exports\n- JSX → nested object children (PascalCase keys auto-extend)\n- import/export between files → REMOVE (reference by key name)\n- useState → state: { key: val } + s.update({ key: newVal })\n- useEffect → onRender (mount), onStateUpdate (deps)\n- props → flattened directly on component (no props wrapper)\n- onClick={handler} → onClick: (event, el, state) => {}\n- className → use design tokens and theme directly\n- map() → children: (el, s) => s.items, childExtends, childProps\n- conditional rendering → if: (el, s) => boolean\n- CSS modules/styled → CSS-in-props with design tokens\n- React.Fragment → not needed, just nest children\n\n`, 'Migration Guide, Syntax & Rules', CONVERT_REACT_SKILLS)
+    return withContext(convertReactFrame(arg(args.source_code, '')), 'Migration Guide, Syntax & Rules', CONVERT_REACT_BEFORE_CODE, CONVERT_REACT_SKILLS)
   }
 
-  // convert_html
   if (name === 'convert_html') {
-    return withContext(`# Convert HTML → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`html\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- <div> → Box, Flex, or Grid (based on layout purpose)\n- <span>, <p>, <h1>-<h6> → Text, P, H with tag property\n- <a> → Link (has built-in SPA router)\n- <button> → Button (has icon/text support)\n- <input> → Input, Radio, Checkbox (based on type)\n- <img> → Img\n- <form> → Form (extends Box with tag: 'form')\n- <ul>/<ol> + <li> → children array with childExtends\n- CSS classes → flatten as CSS-in-props on the component\n- CSS px values → design tokens (16px → 'A', 26px → 'B', 42px → 'C')\n- CSS colors → theme color tokens\n- media queries → @tabletS, @mobileL, @screenS breakpoints\n- id/class attributes → not needed (use key names and themes)\n- inline styles → flatten as component properties\n- <style> blocks → distribute to component-level properties\n\n`, 'Syntax, Components & Design System', CONVERT_HTML_SKILLS)
+    return withContext(convertHtmlFrame(arg(args.source_code, '')), 'Syntax, Components & Design System', BEFORE_CODE_SKILLS, CONVERT_HTML_SKILLS)
   }
 
   // detect_environment
