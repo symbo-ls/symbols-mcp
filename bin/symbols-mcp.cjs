@@ -70,12 +70,12 @@ function readSkill(filename) {
 // - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
 //   to <file>".
 // Either way the text never reaches the model. So every answer of the docs
-// tools — each core part, each section part, each CLI / SDK reference part —
-// stays at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the
-// client receives it (head and continuation lines included). Bytes, not chars:
-// a byte count is never below the char count. This server answers every tool
-// with one text block and no structuredContent, so the string the client
-// receives is the answer itself.
+// tools — each core part, each section part, each CLI / SDK reference part,
+// each generate_* / convert_* answer — stays at or under RULES_SAFE_BYTES UTF-8
+// bytes, the whole answer as the client receives it (head and continuation
+// lines included). Bytes, not chars: a byte count is never below the char
+// count. This server answers every tool with one text block and no
+// structuredContent, so the string the client receives is the answer itself.
 // ---------------------------------------------------------------------------
 const RULES_SAFE_BYTES = 45000
 // A served part is a head line + its body + (when more parts follow) a
@@ -382,6 +382,47 @@ function cliReference(part) {
 
 function sdkReference(part) {
   return referencePart('SDK', 'SDK.md', 'get_sdk_reference', part)
+}
+
+// The skills each generate_* / convert_* tool gives as its context, in read
+// order — the lists in server.py (GENERATE_COMPONENT_SKILLS, …), which is
+// canonical; tests/test_generate_context_calls.py checks both servers name the
+// same calls. Inlined, each set is several hundred thousand bytes, so the
+// default answer lists the get_project_rules calls that serve them;
+// full=true inlines them in one answer.
+const GENERATE_COMPONENT_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'COMMON_MISTAKES.md', 'COMPONENTS.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COOKBOOK.md', 'DEFAULT_PROJECT.md']
+const GENERATE_PAGE_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'WORKSPACE.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'PATTERNS.md', 'SNIPPETS.md', 'COMPONENTS.md', 'DEFAULT_PROJECT.md']
+const CONVERT_REACT_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'MIGRATION.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COMPONENTS.md', 'LEARNINGS.md', 'DEFAULT_PROJECT.md']
+const CONVERT_HTML_SKILLS = ['FRAMEWORK.md', 'DESIGN_SYSTEM.md', 'RULES.md', 'SYNTAX.md', 'MODERN_STACK.md', 'FRANKABILITY.md', 'COMPONENTS.md', 'SNIPPETS.md', 'LEARNINGS.md', 'DEFAULT_PROJECT.md']
+
+// [call, what it serves] for the context of a generate_* / convert_* tool: the
+// 2 core parts, then every part of each skill, in order, from the splitter at
+// call time. A missing skill file is skipped. Mirrors server.py _context_calls.
+function contextCalls(skills) {
+  const calls = [
+    ['get_project_rules()', `the core, part 1 of ${RULES_CORE_PARTS}`],
+    ['get_project_rules(part=2)', `the core, part 2 of ${RULES_CORE_PARTS}`]
+  ]
+  for (const file of skills) {
+    if (!fs.existsSync(path.join(SKILLS_DIR, file))) continue
+    const name = file.slice(0, -3)
+    const total = splitMarkdownParts(readSkill(file)).length
+    if (total === 1) { calls.push([`get_project_rules(section='${name}')`, file]); continue }
+    for (let i = 1; i <= total; i++) calls.push([`get_project_rules(section='${name}', part=${i})`, `${file}, part ${i} of ${total}`])
+  }
+  return calls
+}
+
+// The Context section of a generate_* / convert_* answer: the calls that serve
+// its context, in order, instead of the context. Mirrors server.py _context_section.
+function contextSection(title, skills) {
+  const rows = contextCalls(skills).map(([call, what], i) => `${i + 1}. \`${call}\` — ${what}`).join('\n')
+  return `## Context — ${title}\n\n` +
+    'The context is not inlined: as one answer it is far above the size a client passes to the model inline. ' +
+    'Make these calls in this order, one call each, before you write code. ' +
+    'Skip a call whose answer is already in your context — for example the core parts you got at the start of the session. ' +
+    'On a client with no tool-output cap, call this tool again with `full=True` to get the whole context in one answer.\n\n' +
+    `${rows}\n`
 }
 
 function loadAgentInstructions(args = {}) {
@@ -1053,46 +1094,50 @@ const TOOLS = [
   },
   {
     name: 'generate_component',
-    description: 'Generate a Symbols.app DOMQL v3 component from a description with full context (rules, syntax, cookbook, default library).',
+    description: 'Generate a Symbols.app DOMQL v3 component from a description. Returns the task frame and a Context section: the exact get_project_rules calls that serve the rules, syntax, cookbook and default library, in read order (the 2 core parts first). Inlined, that context is far above what a client passes to the model inline, so the answer lists the calls; skip the ones already in your context. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
         description: { type: 'string', description: 'What the component should do and look like' },
-        component_name: { type: 'string', description: 'PascalCase name for the component', default: 'MyComponent' }
+        component_name: { type: 'string', description: 'PascalCase name for the component', default: 'MyComponent' },
+        full: { type: 'boolean', description: 'Inline the whole context in this one answer instead of the calls. Only for a client with no tool-output cap.', default: false }
       },
       required: ['description']
     }
   },
   {
     name: 'generate_page',
-    description: 'Generate a Symbols.app page with routing integration and full context.',
+    description: 'Generate a Symbols.app page with routing integration. Returns the task frame and a Context section: the exact get_project_rules calls that serve the rules, project structure, patterns and snippets, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
         description: { type: 'string', description: 'What the page should contain and do' },
-        page_name: { type: 'string', description: 'camelCase name for the page', default: 'home' }
+        page_name: { type: 'string', description: 'camelCase name for the page', default: 'home' },
+        full: { type: 'boolean', description: 'Inline the whole context in this one answer instead of the calls. Only for a client with no tool-output cap.', default: false }
       },
       required: ['description']
     }
   },
   {
     name: 'convert_react',
-    description: 'Convert React/JSX code to Symbols.app DOMQL v3 with migration context.',
+    description: 'Convert React/JSX code to Symbols.app DOMQL v3. Returns the conversion frame and a Context section: the exact get_project_rules calls that serve the migration guide, syntax and rules, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
-        source_code: { type: 'string', description: 'The React/JSX source code to convert' }
+        source_code: { type: 'string', description: 'The React/JSX source code to convert' },
+        full: { type: 'boolean', description: 'Inline the whole context in this one answer instead of the calls. Only for a client with no tool-output cap.', default: false }
       },
       required: ['source_code']
     }
   },
   {
     name: 'convert_html',
-    description: 'Convert raw HTML/CSS to Symbols.app DOMQL v3 components with full context.',
+    description: 'Convert raw HTML/CSS to Symbols.app DOMQL v3 components. Returns the conversion frame and a Context section: the exact get_project_rules calls that serve the syntax, components and design system, in read order (the 2 core parts first); skip the ones already in your context. full=true inlines the whole context (capless clients only).',
     inputSchema: {
       type: 'object',
       properties: {
-        source_code: { type: 'string', description: 'The HTML/CSS source code to convert' }
+        source_code: { type: 'string', description: 'The HTML/CSS source code to convert' },
+        full: { type: 'boolean', description: 'Inline the whole context in this one answer instead of the calls. Only for a client with no tool-output cap.', default: false }
       },
       required: ['source_code']
     }
@@ -1256,30 +1301,32 @@ async function handleTool(name, args) {
     return filenames.map(f => readSkill(f)).filter(c => !c.startsWith('Skill ')).join('\n\n---\n\n')
   }
 
+  // generate_* / convert_*: the task frame, then the get_project_rules calls
+  // that serve its context (full=true: the context inlined in one answer).
+  const withContext = (frame, title, skills) => (args.full === true || args.full === 'true')
+    ? frame + `## Context — ${title}\n\n` + readSkills(...skills)
+    : frame + contextSection(title, skills)
+
   // generate_component
   if (name === 'generate_component') {
     const componentName = args.component_name || 'MyComponent'
-    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'COMPONENTS.md', 'SYNTAX.md', 'COOKBOOK.md', 'DEFAULT_PROJECT.md')
-    return `# Generate Component: ${componentName}\n\n## Description\n${args.description}\n\n## Requirements\n- Named export: \`export const ${componentName} = { ... }\`\n- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- NO imports between files — PascalCase keys auto-extend registered components\n- Include responsive breakpoints where appropriate (@tabletS, @mobileL)\n- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load\n\n## Context — Rules, Syntax & Examples\n\n${context}`
+    return withContext(`# Generate Component: ${componentName}\n\n## Description\n${args.description}\n\n## Requirements\n- Named export: \`export const ${componentName} = { ... }\`\n- DOMQL v3 syntax only (extends, childExtends, flattened props, onX events)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- NO imports between files — PascalCase keys auto-extend registered components\n- Include responsive breakpoints where appropriate (@tabletS, @mobileL)\n- Use the default library components (Button, Avatar, Icon, Field, etc.) via extends\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load\n\n`, 'Rules, Syntax & Examples', GENERATE_COMPONENT_SKILLS)
   }
 
   // generate_page
   if (name === 'generate_page') {
     const pageName = args.page_name || 'home'
-    const context = readSkills('RULES.md', 'COMMON_MISTAKES.md', 'PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md', 'PATTERNS.md', 'SNIPPETS.md', 'DEFAULT_PROJECT.md', 'COMPONENTS.md')
-    return `# Generate Page: ${pageName}\n\n## Description\n${args.description}\n\n## Requirements\n- Export as: \`export const ${pageName} = { ... }\`\n- Page is a plain object composing components\n- Add to pages/index.js route map: \`'/${pageName}': ${pageName}\`\n- Use components by PascalCase key (Header, Footer, Hero, etc.)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Include responsive layout adjustments\n\n## Context — Rules, Structure, Patterns & Snippets\n\n${context}`
+    return withContext(`# Generate Page: ${pageName}\n\n## Description\n${args.description}\n\n## Requirements\n- Export as: \`export const ${pageName} = { ... }\`\n- Page is a plain object composing components\n- Add to pages/index.js route map: \`'/${pageName}': ${pageName}\`\n- Use components by PascalCase key (Header, Footer, Hero, etc.)\n- **MANDATORY: ALL values MUST use design system tokens** — spacing (A, B, C, D), colors (primary, surface, white, gray.5), typography (fontSize: 'B'). ZERO px values, ZERO hex colors, ZERO rgb/hsl.\n- Use Icon component for SVGs — store icons in designSystem/icons\n- NO direct DOM manipulation — all structure via DOMQL declarative syntax\n- Include responsive layout adjustments\n\n`, 'Rules, Structure, Patterns & Snippets', GENERATE_PAGE_SKILLS)
   }
 
   // convert_react
   if (name === 'convert_react') {
-    const context = readSkills('RULES.md', 'MIGRATION.md', 'SYNTAX.md', 'COMPONENTS.md', 'LEARNINGS.md')
-    return `# Convert React → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`jsx\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- Function/class components → plain object exports\n- JSX → nested object children (PascalCase keys auto-extend)\n- import/export between files → REMOVE (reference by key name)\n- useState → state: { key: val } + s.update({ key: newVal })\n- useEffect → onRender (mount), onStateUpdate (deps)\n- props → flattened directly on component (no props wrapper)\n- onClick={handler} → onClick: (event, el, state) => {}\n- className → use design tokens and theme directly\n- map() → children: (el, s) => s.items, childExtends, childProps\n- conditional rendering → if: (el, s) => boolean\n- CSS modules/styled → CSS-in-props with design tokens\n- React.Fragment → not needed, just nest children\n\n## Context — Migration Guide, Syntax & Rules\n\n${context}`
+    return withContext(`# Convert React → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`jsx\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- Function/class components → plain object exports\n- JSX → nested object children (PascalCase keys auto-extend)\n- import/export between files → REMOVE (reference by key name)\n- useState → state: { key: val } + s.update({ key: newVal })\n- useEffect → onRender (mount), onStateUpdate (deps)\n- props → flattened directly on component (no props wrapper)\n- onClick={handler} → onClick: (event, el, state) => {}\n- className → use design tokens and theme directly\n- map() → children: (el, s) => s.items, childExtends, childProps\n- conditional rendering → if: (el, s) => boolean\n- CSS modules/styled → CSS-in-props with design tokens\n- React.Fragment → not needed, just nest children\n\n`, 'Migration Guide, Syntax & Rules', CONVERT_REACT_SKILLS)
   }
 
   // convert_html
   if (name === 'convert_html') {
-    const context = readSkills('RULES.md', 'SYNTAX.md', 'COMPONENTS.md', 'DESIGN_SYSTEM.md', 'SNIPPETS.md', 'LEARNINGS.md')
-    return `# Convert HTML → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`html\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- <div> → Box, Flex, or Grid (based on layout purpose)\n- <span>, <p>, <h1>-<h6> → Text, P, H with tag property\n- <a> → Link (has built-in SPA router)\n- <button> → Button (has icon/text support)\n- <input> → Input, Radio, Checkbox (based on type)\n- <img> → Img\n- <form> → Form (extends Box with tag: 'form')\n- <ul>/<ol> + <li> → children array with childExtends\n- CSS classes → flatten as CSS-in-props on the component\n- CSS px values → design tokens (16px → 'A', 26px → 'B', 42px → 'C')\n- CSS colors → theme color tokens\n- media queries → @tabletS, @mobileL, @screenS breakpoints\n- id/class attributes → not needed (use key names and themes)\n- inline styles → flatten as component properties\n- <style> blocks → distribute to component-level properties\n\n## Context — Syntax, Components & Design System\n\n${context}`
+    return withContext(`# Convert HTML → Symbols DOMQL v3\n\n## Source Code to Convert\n\`\`\`html\n${args.source_code}\n\`\`\`\n\n## Conversion Rules\n- <div> → Box, Flex, or Grid (based on layout purpose)\n- <span>, <p>, <h1>-<h6> → Text, P, H with tag property\n- <a> → Link (has built-in SPA router)\n- <button> → Button (has icon/text support)\n- <input> → Input, Radio, Checkbox (based on type)\n- <img> → Img\n- <form> → Form (extends Box with tag: 'form')\n- <ul>/<ol> + <li> → children array with childExtends\n- CSS classes → flatten as CSS-in-props on the component\n- CSS px values → design tokens (16px → 'A', 26px → 'B', 42px → 'C')\n- CSS colors → theme color tokens\n- media queries → @tabletS, @mobileL, @screenS breakpoints\n- id/class attributes → not needed (use key names and themes)\n- inline styles → flatten as component properties\n- <style> blocks → distribute to component-level properties\n\n`, 'Syntax, Components & Design System', CONVERT_HTML_SKILLS)
   }
 
   // detect_environment

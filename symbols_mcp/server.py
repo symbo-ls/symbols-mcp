@@ -943,10 +943,11 @@ def _convert_findings_to_legacy(payload: dict) -> dict:
 # - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
 #   to <file>".
 # Either way the text never reaches the model. So every answer of the docs
-# tools — each core part, each section part, each CLI / SDK reference part —
-# stays at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the
-# client receives it (head and continuation lines included). Bytes, not
-# chars: a byte count is never below the char count.
+# tools — each core part, each section part, each CLI / SDK reference part,
+# each generate_* / convert_* answer — stays at or under RULES_SAFE_BYTES
+# UTF-8 bytes, the whole answer as the client receives it (head and
+# continuation lines included). Bytes, not chars: a byte count is never below
+# the char count.
 # Every tool whose answer is Markdown text is registered with
 # `@mcp.tool(structured_output=False)`: with FastMCP's automatic output schema
 # the answer also goes out as structuredContent `{"result": "…"}`, and Claude
@@ -1413,23 +1414,97 @@ async def search_symbols_docs(
     return f"No results found for '{query}'. Try a different search term."
 
 
+# The skills each generate_* / convert_* tool gives as its context, in read
+# order. Inlined, each set is several hundred thousand bytes — far above
+# RULES_SAFE_BYTES — so the default answer lists the get_project_rules calls
+# that serve them (_context_section); full=True inlines them in one answer.
+# bin/symbols-mcp.cjs uses the same lists (this server is canonical).
+GENERATE_COMPONENT_SKILLS = (
+    "FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md",
+    "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COOKBOOK.md", "DEFAULT_PROJECT.md",
+)
+GENERATE_PAGE_SKILLS = (
+    "FRAMEWORK.md", "DESIGN_SYSTEM.md",
+    "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md", "WORKSPACE.md",
+    "MODERN_STACK.md", "FRANKABILITY.md",
+    "PATTERNS.md", "SNIPPETS.md", "COMPONENTS.md", "DEFAULT_PROJECT.md",
+)
+CONVERT_REACT_SKILLS = (
+    "FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "MIGRATION.md", "SYNTAX.md",
+    "MODERN_STACK.md", "FRANKABILITY.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md",
+)
+CONVERT_HTML_SKILLS = (
+    "FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md",
+    "FRANKABILITY.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md",
+)
+
+
+def _context_calls(skills: tuple[str, ...]) -> list[tuple[str, str]]:
+    """(call, what it serves) for the context of a generate_* / convert_* tool:
+    the 2 core parts, then every part of each skill in `skills`, in order. The
+    parts come from the splitter at call time, so the list always matches what
+    the calls serve. A skill file that is missing is skipped, as _read_skills
+    skips it."""
+    calls = [
+        ("get_project_rules()", f"the core, part 1 of {RULES_CORE_PARTS}"),
+        ("get_project_rules(part=2)", f"the core, part 2 of {RULES_CORE_PARTS}"),
+    ]
+    for fname in skills:
+        if not (SKILLS_PATH / fname).exists():
+            continue
+        name = fname[:-3]
+        total = len(_split_markdown_parts(_read_skill(fname)))
+        if total == 1:
+            calls.append((f"get_project_rules(section='{name}')", fname))
+            continue
+        calls.extend(
+            (f"get_project_rules(section='{name}', part={i})", f"{fname}, part {i} of {total}")
+            for i in range(1, total + 1)
+        )
+    return calls
+
+
+def _context_section(title: str, skills: tuple[str, ...]) -> str:
+    """The Context section of a generate_* / convert_* answer: the calls that
+    serve its context, in order, instead of the context itself."""
+    rows = "\n".join(
+        f"{i}. `{call}` — {what}" for i, (call, what) in enumerate(_context_calls(skills), 1)
+    )
+    return (
+        f"## Context — {title}\n\n"
+        "The context is not inlined: as one answer it is far above the size a client passes to "
+        "the model inline. Make these calls in this order, one call each, before you write code. "
+        "Skip a call whose answer is already in your context — for example the core parts you got "
+        "at the start of the session. On a client with no tool-output cap, call this tool again "
+        "with `full=True` to get the whole context in one answer.\n\n"
+        f"{rows}\n"
+    )
+
+
 @mcp.tool(structured_output=False)
 def generate_component(
     description: str,
     component_name: str = "MyComponent",
+    full: bool = False,
 ) -> str:
     """Generate a Symbols.app DOMQL component from a description.
 
-    Returns the rules, syntax reference, component catalog, cookbook examples,
-    and default library reference as context. The calling LLM uses this context
-    to generate a correct, compliant component.
+    Returns the task frame (description, name, the STRICT requirements) and a
+    Context section: the exact `get_project_rules` calls that serve the rules,
+    syntax reference, component catalog, cookbook examples and default library
+    reference, in read order (the 2 core parts first). Inlined, that context is
+    several hundred thousand bytes, above what a client passes to the model
+    inline (Claude Code saves an answer over 50,000 chars to a file), so the
+    answer lists the calls; skip the ones already in your context. The calling
+    LLM uses this context to generate a correct, compliant component.
 
     Args:
         description: What the component should do and look like.
         component_name: PascalCase name for the component.
+        full: Inline the whole context in this one answer instead of the calls.
+            Only for a client with no tool-output cap. Default False.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "COMMON_MISTAKES.md", "COMPONENTS.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COOKBOOK.md", "DEFAULT_PROJECT.md")
-    return f"""# Generate Component: {component_name}
+    frame = f"""# Generate Component: {component_name}
 
 ## Description
 {description}
@@ -1479,32 +1554,35 @@ def generate_component(
 ### Aesthetics
 - Follow modern UI/UX: visual hierarchy, confident typography, minimal cognitive load.
 
-## Context — Rules, Syntax & Examples
-
-{context}"""
+"""
+    title = "Rules, Syntax & Examples"
+    if full:
+        return frame + f"## Context — {title}\n\n" + _read_skills(*GENERATE_COMPONENT_SKILLS)
+    return frame + _context_section(title, GENERATE_COMPONENT_SKILLS)
 
 
 @mcp.tool(structured_output=False)
 def generate_page(
     description: str,
     page_name: str = "home",
+    full: bool = False,
 ) -> str:
     """Generate a Symbols.app DOMQL page with routing + helmet metadata + fetch integration.
 
-    Returns rules, project structure, patterns, snippets, and default library
-    reference as context for page generation.
+    Returns the task frame (description, name, the STRICT requirements) and a
+    Context section: the exact `get_project_rules` calls that serve the rules,
+    project structure, patterns, snippets and default library reference, in
+    read order (the 2 core parts first). Inlined, that context is several
+    hundred thousand bytes, above what a client passes to the model inline, so
+    the answer lists the calls; skip the ones already in your context.
 
     Args:
         description: What the page should contain and do.
         page_name: camelCase name for the page (used in route map).
+        full: Inline the whole context in this one answer instead of the calls.
+            Only for a client with no tool-output cap. Default False.
     """
-    context = _read_skills(
-        "FRAMEWORK.md", "DESIGN_SYSTEM.md",
-        "RULES.md", "COMMON_MISTAKES.md", "PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md", "WORKSPACE.md",
-        "MODERN_STACK.md", "FRANKABILITY.md",
-        "PATTERNS.md", "SNIPPETS.md", "COMPONENTS.md", "DEFAULT_PROJECT.md",
-    )
-    return f"""# Generate Page: {page_name}
+    frame = f"""# Generate Page: {page_name}
 
 ## Description
 {description}
@@ -1546,23 +1624,31 @@ def generate_page(
 ### Layout / responsive
 - `flow:` / `align:` valid; built-in atoms auto-apply by key. Responsive breakpoints `@tabletS`, `@mobileL`, `@dark`, `@light`.
 
-## Context — Rules, Structure, Patterns & Snippets
-
-{context}"""
+"""
+    title = "Rules, Structure, Patterns & Snippets"
+    if full:
+        return frame + f"## Context — {title}\n\n" + _read_skills(*GENERATE_PAGE_SKILLS)
+    return frame + _context_section(title, GENERATE_PAGE_SKILLS)
 
 
 @mcp.tool(structured_output=False)
-def convert_react(source_code: str) -> str:
+def convert_react(source_code: str, full: bool = False) -> str:
     """Convert React/JSX code to Symbols.app DOMQL.
 
-    Provide React component code and receive the conversion context including
-    migration rules, syntax reference, and examples.
+    Provide React component code and receive the conversion frame (the source,
+    the STRICT conversion rules) and a Context section: the exact
+    `get_project_rules` calls that serve the migration guide, syntax reference,
+    rules and examples, in read order (the 2 core parts first). Inlined, that
+    context is several hundred thousand bytes, above what a client passes to
+    the model inline, so the answer lists the calls; skip the ones already in
+    your context.
 
     Args:
         source_code: The React/JSX source code to convert.
+        full: Inline the whole context in this one answer instead of the calls.
+            Only for a client with no tool-output cap. Default False.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "MIGRATION.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COMPONENTS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
-    return f"""# Convert React → Symbols DOMQL
+    frame = f"""# Convert React → Symbols DOMQL
 
 ## Source Code to Convert
 ```jsx
@@ -1594,23 +1680,30 @@ def convert_react(source_code: str) -> str:
 - Use `Icon` component for SVGs — never inline SVG markup, never `tag: 'svg'` (Rule 29)
 - NO direct DOM manipulation — banned: `document.*`, `addEventListener`, `classList`, `innerHTML`, `setAttribute`, `el.node.style.X = …`, `parentNode`/`children` traversal (Rule 30/32/40)
 
-## Context — Migration Guide, Syntax & Rules
-
-{context}"""
+"""
+    title = "Migration Guide, Syntax & Rules"
+    if full:
+        return frame + f"## Context — {title}\n\n" + _read_skills(*CONVERT_REACT_SKILLS)
+    return frame + _context_section(title, CONVERT_REACT_SKILLS)
 
 
 @mcp.tool(structured_output=False)
-def convert_html(source_code: str) -> str:
+def convert_html(source_code: str, full: bool = False) -> str:
     """Convert raw HTML/CSS to Symbols.app DOMQL components.
 
-    Provide HTML code and receive the conversion context including component
-    catalog, syntax reference, and design system tokens.
+    Provide HTML code and receive the conversion frame (the source, the STRICT
+    conversion rules) and a Context section: the exact `get_project_rules`
+    calls that serve the component catalog, syntax reference and design system
+    tokens, in read order (the 2 core parts first). Inlined, that context is
+    several hundred thousand bytes, above what a client passes to the model
+    inline, so the answer lists the calls; skip the ones already in your context.
 
     Args:
         source_code: The HTML/CSS source code to convert.
+        full: Inline the whole context in this one answer instead of the calls.
+            Only for a client with no tool-output cap. Default False.
     """
-    context = _read_skills("FRAMEWORK.md", "DESIGN_SYSTEM.md", "RULES.md", "SYNTAX.md", "MODERN_STACK.md", "FRANKABILITY.md", "COMPONENTS.md", "SNIPPETS.md", "LEARNINGS.md", "DEFAULT_PROJECT.md")
-    return f"""# Convert HTML → Symbols DOMQL
+    frame = f"""# Convert HTML → Symbols DOMQL
 
 ## Source Code to Convert
 ```html
@@ -1642,9 +1735,11 @@ def convert_html(source_code: str) -> str:
 - **MANDATORY: ALL values MUST use design system tokens** — ZERO px values, ZERO hex colors, ZERO rgb/hsl, ZERO raw durations.
 - NO direct DOM manipulation — all structure via DOMQL declarative syntax (Rule 30/32/40).
 
-## Context — Syntax, Components & Design System
-
-{context}"""
+"""
+    title = "Syntax, Components & Design System"
+    if full:
+        return frame + f"## Context — {title}\n\n" + _read_skills(*CONVERT_HTML_SKILLS)
+    return frame + _context_section(title, CONVERT_HTML_SKILLS)
 
 
 @mcp.tool(structured_output=False)
