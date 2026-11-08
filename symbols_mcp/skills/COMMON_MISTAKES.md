@@ -1092,12 +1092,12 @@ See `SHARED_LIBRARIES.md` for the full mode model + drift detector.
 
 ---
 
-## 35. `el.warn()` / `el.error()` and lifecycle throws now flow through the analyze plugin
+## 35. `el.warn()` / `el.error()`, lifecycle and event handler throws flow through the analyze plugin
 
 If `analyze: true` is set on `create()`:
 
 - `el.warn(...)` and `el.error(...)` emit through `context.analyze` BEFORE falling through to env-gated `console.warn` / throw.
-- Lifecycle handler throws (`onClick`, `onUpdate`, etc.) emit through `triggerLifecycle('error', element, { hook, error })` instead of bare `console.error`. The framework still falls back to `console.error` when no plugin handled the hook.
+- A lifecycle hook (`onRender`, `onUpdate`, …) that throws or rejects reaches the plugin `error` hook, `error(el, { hook, error })`, instead of a bare `console.error`. An event handler (`onClick`, `onDocumentKeydown`, the router's `onRouteChanged`, …) does too since element 3.14.834 / utils 3.14.867; before, its throw was only logged and analyze never saw it. The framework still prints the console line when no plugin took the error — and analyze does not take it when it is off or paused (its hook returns `false`; MODERN_STACK.md → analyze → Element-core integration).
 
 This means the `try/catch + console.error` cargo cult that some legacy code used to "make sure errors show up" is actively counterproductive — it bypasses the analyze pipeline. Just let exceptions bubble; analyze captures them.
 
