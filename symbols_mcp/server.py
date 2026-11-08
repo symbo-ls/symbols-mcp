@@ -934,20 +934,33 @@ def _convert_findings_to_legacy(payload: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# get_project_rules — compact core + on-demand sections
+# get_project_rules — the core in 2 parts + on-demand sections
 # ---------------------------------------------------------------------------
-# Harness caps: Claude Code truncates any MCP tool result above
-# MAX_MCP_OUTPUT_TOKENS (default 25 000 tokens ≈ 100 000 chars) to a file
-# path — the text never reaches the model. The legacy one-shot bundle was
-# ~590 000 chars. Every response this tool emits (core, any section part)
-# stays under RULES_SAFE_CHARS so it survives that cap with margin.
+# The inline cap. Measured live in Claude Code 2.1.319 with default settings:
+# - a tool answer longer than 50,000 (the client constant `mC=50000`, measured
+#   on the string the client receives) is saved to a file, and the model gets
+#   a 2,000-char preview ("Output too large (48.9KB). Full output saved to …");
+# - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
+#   to <file>".
+# Either way the text never reaches the model. So every answer of the docs
+# tools — each core part, each section part, each CLI reference part — stays
+# at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the client
+# receives it (head and continuation lines included). Bytes, not chars: a
+# byte count is never below the char count.
 # Every tool whose answer is Markdown text is registered with
 # `@mcp.tool(structured_output=False)`: with FastMCP's automatic output schema
 # the answer also goes out as structuredContent `{"result": "…"}`, and Claude
 # Code shows the model that escaped JSON (every newline and quote escaped). So
 # the string the client receives is the answer itself, one TextContent block.
 # The tools whose answer is JSON data keep their output schema.
-RULES_SAFE_CHARS = 80_000
+RULES_SAFE_BYTES = 45_000
+# A served part is a head line + its body + (when more parts follow) a
+# continuation line. The splitter packs bodies to RULES_PART_BUDGET bytes, so
+# that frame always fits inside RULES_SAFE_BYTES.
+RULES_PART_FRAME_BYTES = 300
+RULES_PART_BUDGET = RULES_SAFE_BYTES - RULES_PART_FRAME_BYTES
+# get_project_rules() with no section: the core, always exactly 2 parts.
+RULES_CORE_PARTS = 2
 
 # The 16 bundle sections, in canonical read order. (name, file, description)
 RULES_SECTIONS: tuple[tuple[str, str, str], ...] = (
@@ -979,7 +992,7 @@ RULES_NEXT_STEP: tuple[tuple[str, str], ...] = (
     ("run the frank fix loop (prescribe/apply edit ops)", "FRANK_FIX_WORKFLOW"),
     ("project layout, plugins, SSR, publish, theming internals", "FRAMEWORK"),
     ("multi-app monorepo / shared libraries", "WORKSPACE, SHARED_LIBRARIES"),
-    ("read the full rule list beyond the STRICT subset", "RULES (part=1, then part=2)"),
+    ("read the full rule list beyond the STRICT subset", "RULES (every part: part=1, then the call each part names)"),
     ("a result looks wrong and you do not know why", "COMMON_MISTAKES, LEARNINGS"),
 )
 
@@ -995,35 +1008,75 @@ def _normalize_section_name(raw: str) -> str:
     return name.replace("-", "_")
 
 
-def _split_markdown_parts(text: str, limit: int = RULES_SAFE_CHARS) -> list[str]:
-    """Split markdown into parts ≤ limit chars, cutting only at `## ` headings.
+def _utf8_len(text: str) -> int:
+    """The size the cap counts: UTF-8 bytes."""
+    return len(text.encode("utf-8"))
 
-    A single heading block larger than the limit is emitted as its own
-    part (never truncated) — the size test guards that this never happens
-    for the shipped skills.
-    """
-    if len(text) <= limit:
-        return [text]
-    blocks: list[str] = []
+
+# The start of a fenced code block: 3+ backticks or tildes, after any indent.
+# A backtick run followed by another backtick on the line is inline code, not
+# a fence (a backtick fence's info string holds no backtick).
+_FENCE_RUN = re.compile(r"^\s*(`{3,}|~{3,})")
+
+
+def _markdown_blocks(lines: list[str], level: int, limit: int) -> list[str]:
+    """Cut `lines` before every heading line of `level` (2 → `## `, 3 → `### `,
+    4 → `#### `) that is outside a fenced code block — a heading line inside a
+    fence is no cut point. A block above `limit` bytes is cut again at the next
+    level, down to `#### `; a block with no cut point left stays whole. A
+    heading line is never a table row, so no cut falls inside a table."""
+    marker = "#" * level + " "
+    blocks: list[list[str]] = []
     cur: list[str] = []
-    for line in text.split("\n"):
-        if line.startswith("## ") and cur:
-            blocks.append("\n".join(cur))
-            cur = []
+    fence: tuple[str, int] | None = None  # (char, run length) of the open fence
+    for line in lines:
+        if fence is None:
+            if line.startswith(marker) and cur:
+                blocks.append(cur)
+                cur = []
+            m = _FENCE_RUN.match(line)
+            if m and not (m.group(1)[0] == "`" and "`" in line[m.end():]):
+                fence = (m.group(1)[0], len(m.group(1)))
+        else:
+            mark = line.strip()
+            if len(mark) >= fence[1] and mark == fence[0] * len(mark):
+                fence = None
         cur.append(line)
     if cur:
-        blocks.append("\n".join(cur))
-    parts: list[str] = []
-    acc = ""
-    for b in blocks:
-        candidate = b if not acc else acc + "\n" + b
-        if acc and len(candidate) > limit:
-            parts.append(acc)
-            acc = b
+        blocks.append(cur)
+    out: list[str] = []
+    for block in blocks:
+        text = "\n".join(block)
+        if level < 4 and _utf8_len(text) > limit:
+            out.extend(_markdown_blocks(block, level + 1, limit))
         else:
-            acc = candidate
+            out.append(text)
+    return out
+
+
+def _split_markdown_parts(text: str, limit: int = RULES_PART_BUDGET) -> list[str]:
+    """Split markdown into parts of at most `limit` UTF-8 bytes each.
+
+    Cuts only before a heading line outside a fenced code block: at `## `, and
+    inside a `## ` block above the limit at `### `, then `#### `. The blocks are
+    packed greedily, in order; "\\n".join(parts) is the text exactly. Nothing is
+    ever truncated: a block above the limit with no cut point left is served
+    whole (the size tests fail on it, never a client).
+    """
+    if _utf8_len(text) <= limit:
+        return [text]
+    parts: list[str] = []
+    acc: list[str] = []
+    size = 0
+    for block in _markdown_blocks(text.split("\n"), 2, limit):
+        n = _utf8_len(block)
+        if acc and size + 1 + n > limit:
+            parts.append("\n".join(acc))
+            acc, size = [], 0
+        size = size + 1 + n if acc else n
+        acc.append(block)
     if acc:
-        parts.append(acc)
+        parts.append("\n".join(acc))
     return parts
 
 
@@ -1032,50 +1085,55 @@ def _rules_section_parts(name: str) -> list[str]:
     return _split_markdown_parts(_read_skill(fname))
 
 
+def _part_head(name: str, body: str, part: int, total: int) -> str:
+    if total == 1:
+        return f"<!-- section {name} ({_utf8_len(body):,} bytes) -->\n"
+    return f"<!-- section {name} part {part} of {total} ({_utf8_len(body):,} bytes) -->\n"
+
+
 def _skill_part_response(name: str, parts: list[str], part: int, call: Callable[[int], str]) -> str:
     """One part of a skill split by _split_markdown_parts: a head line, the body
     and, when more parts follow, a continuation line naming `call(part + 1)` —
-    the next call in the tool the caller used (get_project_rules,
-    get_cli_reference). An out-of-range part raises a ValueError naming the
-    valid range."""
-    if part < 1 or part > len(parts):
+    the exact next call in the tool the caller used (get_project_rules,
+    get_cli_reference). An out-of-range part raises a
+    ValueError naming the valid range."""
+    total = len(parts)
+    if part < 1 or part > total:
         raise ValueError(
-            f"Section '{name}' has {len(parts)} part(s); part={part} is out of range. "
-            f"Use part=1..{len(parts)}."
+            f"Section '{name}' has {total} part(s); part={part} is out of range. "
+            f"Use part=1..{total}."
         )
     body = parts[part - 1]
-    if len(parts) == 1:
-        head = f"<!-- section {name} ({len(body):,} chars) -->\n"
-    else:
-        head = f"<!-- section {name} part {part}/{len(parts)} ({len(body):,} chars) -->\n"
     tail = ""
-    if part < len(parts):
-        tail = f"\n\n<!-- continues: {call(part + 1)} (of {len(parts)}) -->\n"
-    return head + body + tail
+    if part < total:
+        tail = f"\n\n<!-- continues: {call(part + 1)} (part {part + 1} of {total}) -->\n"
+    return _part_head(name, body, part, total) + body + tail
 
 
 def _rules_section_index() -> str:
     rows = []
     for name, fname, desc in RULES_SECTIONS:
-        size = len(_read_skill(fname))
-        parts = len(_split_markdown_parts(_read_skill(fname)))
+        text = _read_skill(fname)
+        parts = len(_split_markdown_parts(text))
         how = f"section='{name}'" + (f", part=1..{parts}" if parts > 1 else "")
-        rows.append(f"| {name} | {size:,} | {parts} | {desc} | `get_project_rules({how})` |")
+        rows.append(f"| {name} | {_utf8_len(text):,} | {parts} | {desc} | `get_project_rules({how})` |")
     others = sorted(
         p.stem for p in SKILLS_PATH.glob("*.md")
         if p.stem not in _RULES_SECTION_BY_NAME
     )
     return (
         "# SECTION INDEX — fetch on demand\n\n"
-        f"Every response of this tool stays under {RULES_SAFE_CHARS:,} characters so it survives "
-        "client tool-output caps (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens). "
-        "Fetch one section per call; sections with more than one part need one call per part.\n\n"
-        "| Section | Chars | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n"
+        f"Every answer of this tool stays at or under {RULES_SAFE_BYTES:,} UTF-8 bytes, head and "
+        "continuation lines included, so it reaches the model inline (Claude Code saves an answer "
+        "above 50,000 chars or 25,000 tokens to a file instead). Fetch one section per call; a "
+        "section with more than one part needs one call per part, and each part names the next call.\n\n"
+        "| Section | Bytes | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n"
         + "\n".join(rows)
-        + "\n\nAlso fetchable by name (not part of the core bundle): "
+        + "\n\nAlso fetchable by name (not one of the 16 sections): "
         + ", ".join(f"`{o}`" for o in others)
-        + ".\n\n`get_project_rules(full=True)` returns the legacy one-shot concatenation "
-        "(~590k chars) — only for clients with no tool-output cap.\n"
+        + ".\n\n`get_project_rules(full=True)` returns the legacy one-shot concatenation of the 16 "
+        f"sections ({_utf8_len(_rules_full_bundle()):,} bytes) — only for clients with no "
+        "tool-output cap.\n"
     )
 
 
@@ -1083,46 +1141,37 @@ def _rules_next_step() -> str:
     rows = "\n".join(f"| {task} | {secs} |" for task, secs in RULES_NEXT_STEP)
     return (
         "# NEXT STEP — which sections to pull for your task\n\n"
-        "This core bundle is NOT the full ruleset. Before you write code, pull the sections "
-        "your task needs (one call each):\n\n"
+        "The 2 core parts are NOT the full ruleset. Before you write code, pull the sections "
+        "your task needs (one call per part):\n\n"
         "| Your task | Call `get_project_rules(section=...)` for |\n|---|---|\n"
         + rows
         + "\n\nMinimum for any code-writing task: `SYNTAX` + `COMPONENTS` + `FRANKABILITY`.\n"
     )
 
 
-def _rules_essentials() -> str:
-    """RULES.md preamble + every STRICT rule in full + an index of all rule headings.
-
-    Derived from RULES.md at call time — the skill file stays the single
-    source of truth; nothing is hand-duplicated here.
-    """
+def _rules_md_split() -> tuple[str, list[tuple[str, str]], list[str]]:
+    """RULES.md cut for the core, at call time — the skill file stays the single
+    source of truth; nothing is hand-copied here. Returns the preamble, every
+    STRICT rule as (heading, full text) in file order, and one index row per
+    rule heading (STRICT ones in bold)."""
     text = _read_skill("RULES.md")
     lines = text.split("\n")
     heads = [i for i, l in enumerate(lines) if l.startswith("## Rule ")]
     if not heads:
-        return text
+        return text.rstrip(), [], []
     preamble = "\n".join(lines[: heads[0]]).rstrip()
     bounds = heads + [len(lines)]
-    strict_bodies = []
-    index_rows = []
+    strict: list[tuple[str, str]] = []
+    index_rows: list[str] = []
     for n, start in enumerate(heads):
         body_lines = lines[start: bounds[n + 1]]
         heading = body_lines[0][3:].strip()
-        is_strict = "STRICT" in heading
-        index_rows.append(f"- {'**' if is_strict else ''}{heading}{'**' if is_strict else ''}"
-                          + ("" if is_strict else " — full text: `section='RULES'`"))
-        if is_strict:
-            strict_bodies.append("\n".join(body_lines).rstrip())
-    return (
-        "# RULES — ESSENTIALS (preamble + every STRICT rule, from RULES.md)\n\n"
-        + preamble
-        + "\n\n---\n\n# RULES — ALL RULE HEADINGS (STRICT ones in bold are reproduced in full below; "
-        "the rest are in `section='RULES'`)\n\n"
-        + "\n".join(index_rows)
-        + "\n\n---\n\n# RULES — STRICT RULES IN FULL\n\n"
-        + "\n\n".join(strict_bodies)
-    )
+        if "STRICT" in heading:
+            index_rows.append(f"- **{heading}**")
+            strict.append((heading, "\n".join(body_lines).rstrip()))
+        else:
+            index_rows.append(f"- {heading} — full text: `section='RULES'`")
+    return preamble, strict, index_rows
 
 
 def _frankability_checklist() -> str:
@@ -1154,29 +1203,100 @@ def _runtime_checked_line() -> str:
     )
 
 
-def _rules_core_bundle() -> str:
-    header = (
-        "# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n"
-        "This is the compact core of the mandatory ruleset: the reuse directive, the RULES "
-        "preamble + every STRICT rule, the frankability checklist, a SECTION INDEX, and a "
-        "NEXT STEP table. The full skills are fetched per section: "
-        "`get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … "
-        "Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n"
-        + _runtime_checked_line()
+_CORE_SEP = "\n\n---\n\n"
+_CORE_CONTINUES = "\n\n<!-- continues: get_project_rules(part=2) (part 2 of 2) -->\n"
+
+
+def _rules_core_parts() -> list[str]:
+    """The core of the ruleset as exactly RULES_CORE_PARTS (2) answers, binding first.
+
+    Part 1: a short header, the list of every STRICT rule heading (each marked
+    with the part that holds its full text), the reuse directive, the
+    frankability checklist, the RULES preamble, then the STRICT rules in
+    RULES.md order, each whole, as many as fit in RULES_SAFE_BYTES; it ends with
+    the call for part 2. Part 2: the remaining STRICT rules (binding too), then
+    the reference: all rule headings, the SECTION INDEX and the NEXT STEP table.
+    """
+    preamble, strict, index_rows = _rules_md_split()
+    fixed = [
+        _builtin_directive(),
+        _frankability_checklist(),
+        "# RULES — PREAMBLE (from RULES.md)\n\n" + preamble,
+    ]
+    runtime = _runtime_checked_line()
+
+    def part1(k: int) -> str:
+        # k = how many STRICT rules part 1 holds in full. "(part 1)" and
+        # "(part 2)" are the same length, so k does not change the list's size.
+        holds = (
+            'carries binding rules too — the STRICT rules marked "(part 2)" in the list below — '
+            "and then the reference"
+            if k < len(strict) else "holds the reference"
+        )
+        header = (
+            "# SYMBOLS / DOMQL RULES — CORE, PART 1 OF 2\n\n"
+            "The core of the mandatory ruleset comes in 2 parts; read both before you write code. "
+            f"Part 2 (`get_project_rules(part=2)`) {holds}: all rule headings, the SECTION INDEX "
+            "(every section, its size and parts) and the NEXT STEP table (which sections your task "
+            "needs).\n\n"
+            + runtime
+            + "---\n\n"
+        )
+        listing = (
+            f"# STRICT RULES — all {len(strict)} (from RULES.md; each in full in the part named)\n\n"
+            + "\n".join(f"- (part {1 if i < k else 2}) {h}" for i, (h, _) in enumerate(strict))
+        )
+        blocks = [listing, *fixed]
+        if k:
+            blocks.append(
+                "# RULES — STRICT RULES IN FULL (part 1 of 2)\n\n"
+                + "\n\n".join(body for _, body in strict[:k])
+            )
+        return header + _CORE_SEP.join(blocks) + _CORE_CONTINUES
+
+    k = 0
+    while k < len(strict) and _utf8_len(part1(k + 1)) <= RULES_SAFE_BYTES:
+        k += 1
+    rest = strict[k:]
+    header2 = (
+        "# SYMBOLS / DOMQL RULES — CORE, PART 2 OF 2\n\n"
+        + (
+            "Binding: the STRICT rules below are as mandatory as those in part 1 "
+            "(`get_project_rules()`). Then the reference: all rule headings, the SECTION INDEX "
+            "and the NEXT STEP table.\n\n"
+            if rest else
+            "The reference: all rule headings, the SECTION INDEX and the NEXT STEP table. Part 1 "
+            "(`get_project_rules()`) holds every STRICT rule in full.\n\n"
+        )
         + "---\n\n"
     )
-    return (
-        header
-        + _builtin_directive()
-        + "\n\n---\n\n" + _rules_essentials()
-        + "\n\n---\n\n" + _frankability_checklist()
-        + "\n\n---\n\n" + _rules_section_index()
-        + "\n\n---\n\n" + _rules_next_step()
-    )
+    blocks2 = []
+    if rest:
+        blocks2.append(
+            "# RULES — STRICT RULES IN FULL (part 2 of 2)\n\n"
+            + "\n\n".join(body for _, body in rest)
+        )
+    blocks2 += [
+        "# RULES — ALL RULE HEADINGS (STRICT ones in bold: their full text is in the 2 core "
+        "parts; the rest are in `section='RULES'`)\n\n" + "\n".join(index_rows),
+        _rules_section_index(),
+        _rules_next_step(),
+    ]
+    return [part1(k), header2 + _CORE_SEP.join(blocks2)]
+
+
+def _rules_core_response(part: int) -> str:
+    if part < 1 or part > RULES_CORE_PARTS:
+        raise ValueError(
+            f"The core has {RULES_CORE_PARTS} parts; part={part} is out of range. Use "
+            "get_project_rules() for part 1 and get_project_rules(part=2) for part 2."
+        )
+    return _rules_core_parts()[part - 1]
 
 
 def _rules_full_bundle() -> str:
-    """Legacy one-shot concatenation of all 16 sections (~590k chars)."""
+    """Legacy one-shot concatenation of all 16 sections (several hundred thousand bytes,
+    far above RULES_SAFE_BYTES — only for clients with no tool-output cap)."""
     return _builtin_directive() + "\n\n---\n\n" + "\n\n---\n\n".join(
         _read_skill(fname) for _, fname, _ in RULES_SECTIONS
     )
@@ -1197,7 +1317,8 @@ def _rules_section_response(raw_sections: str, part: int) -> str:
             raise ValueError(
                 f"Unknown section '{name}'. Valid bundle sections: {valid}. "
                 f"Other fetchable skills: {extra}. Call get_project_rules() with no "
-                "arguments for the core bundle + section index."
+                "arguments for part 1 of the core; part 2 (get_project_rules(part=2)) "
+                "holds the section index."
             )
     if len(resolved) > 1:
         multi = [n for n, parts in resolved if len(parts) > 1]
@@ -1206,16 +1327,14 @@ def _rules_section_response(raw_sections: str, part: int) -> str:
                 f"Section(s) {', '.join(multi)} have more than one part and must be fetched "
                 "alone: get_project_rules(section='<name>', part=N)."
             )
-        total = sum(len(parts[0]) for _, parts in resolved)
-        if total > RULES_SAFE_CHARS:
-            sizes = ", ".join(f"{n}={len(parts[0]):,}" for n, parts in resolved)
+        out = _CORE_SEP.join(_part_head(n, parts[0], 1, 1) + parts[0] for n, parts in resolved)
+        if _utf8_len(out) > RULES_SAFE_BYTES:
+            sizes = ", ".join(f"{n}={_utf8_len(parts[0]):,}" for n, parts in resolved)
             raise ValueError(
-                f"Requested sections total {total:,} chars, above the {RULES_SAFE_CHARS:,}-char "
-                f"safe cap ({sizes}). Fetch them one call at a time."
+                f"Requested sections total {_utf8_len(out):,} bytes, above the "
+                f"{RULES_SAFE_BYTES:,}-byte cap ({sizes}). Fetch them one call at a time."
             )
-        return "\n\n---\n\n".join(
-            f"<!-- section {n} ({len(parts[0]):,} chars) -->\n" + parts[0] for n, parts in resolved
-        )
+        return out
     name, parts = resolved[0]
     return _skill_part_response(
         name, parts, part, lambda n: f"get_project_rules(section='{name}', part={n})"
@@ -1226,31 +1345,37 @@ def _rules_section_response(raw_sections: str, part: int) -> str:
 def get_project_rules(section: str = "", part: int = 1, full: bool = False) -> str:
     """ALWAYS call this first before any generate_* tool — the mandatory Symbols.app rules.
 
-    Call with NO arguments first. That returns the compact CORE bundle (well under
-    80k chars — it survives every client's tool-output cap):
-    - the built-in-reuse directive (Atoms/Components catalog — REUSE via bare PascalCase keys),
-    - RULES essentials: the RULES.md preamble (canonical-syntax table, flat API) + EVERY
-      STRICT rule in full + an index of all rule headings,
-    - the FRANKABILITY hard checklist (patterns that survive frank.toJSON),
-    - a SECTION INDEX (all 16 sections, sizes, parts, how to fetch),
-    - a NEXT STEP table telling you which sections to pull for your task.
+    The CORE comes in 2 parts. Read both before you write code:
+      get_project_rules()        → part 1: the list of every STRICT rule (each marked
+                                   with the part that holds its full text), the
+                                   built-in-reuse directive, the FRANKABILITY hard
+                                   checklist, the RULES.md preamble (canonical-syntax
+                                   table, flat API) and the first STRICT rules in full
+      get_project_rules(part=2)  → part 2: the remaining STRICT rules in full (binding
+                                   too), every rule heading, a SECTION INDEX (all 16
+                                   sections, sizes, parts, how to fetch) and a NEXT
+                                   STEP table (which sections your task needs)
+    Every answer of this tool is at most 45,000 UTF-8 bytes, head and continuation
+    lines included: Claude Code saves a longer answer (over 50,000 chars or 25,000
+    tokens) to a file, and the text never reaches the model. An answer with a next
+    part ends with the exact call for it.
 
-    Then fetch sections on demand, one call each:
-      get_project_rules(section="SYNTAX")              → DOMQL v3.14 syntax reference
+    Then fetch sections on demand, one call per part:
+      get_project_rules(section="SYNTAX")              → DOMQL v3.14 syntax reference, part 1
       get_project_rules(section="COMPONENTS")          → built-in component catalog
       get_project_rules(section="RULES", part=2)       → large sections come in parts
       get_project_rules(section="FRANKABILITY_CATALOG")
     Sections: FRAMEWORK, DESIGN_SYSTEM, RULES, COMPONENTS, DEFAULT_COMPONENTS, SYNTAX,
     PATTERNS, SNIPPETS, SHARED_LIBRARIES, WORKSPACE, FRANKABILITY, FRANKABILITY_CATALOG,
     FRANK_FIX_WORKFLOW, COMMON_MISTAKES, LEARNINGS, DEFAULT_PROJECT (case-insensitive,
-    `.md` optional; several small sections may be comma-separated if they fit the cap).
-    Unknown section names raise a clear error listing the valid names.
+    `.md` optional; several one-part sections may be comma-separated if they fit the cap
+    together). Unknown section names and parts out of range raise a clear error.
 
-    full=True returns the legacy one-shot concatenation of all 16 sections (~590k chars).
-    Use it ONLY on a client with no tool-output cap — Claude Code truncates it to a file
-    path and the rules never reach the model.
+    full=True returns the legacy one-shot concatenation of all 16 sections (several
+    hundred thousand bytes). Use it ONLY on a client with no tool-output cap — Claude
+    Code saves it to a file and the rules never reach the model.
 
-    Minimum for any code-writing task: core + SYNTAX + COMPONENTS + FRANKABILITY.
+    Minimum for any code-writing task: both core parts + SYNTAX + COMPONENTS + FRANKABILITY.
     Violations cause silent failures — black page, nothing renders, or a working app
     with degraded UX you'll later have to rebuild. The single most-violated rule is
     reusing built-in components: a bare `Avatar: {}` renders the canonical built-in.
@@ -1259,7 +1384,7 @@ def get_project_rules(section: str = "", part: int = 1, full: bool = False) -> s
         return _rules_full_bundle()
     if section and section.strip():
         return _rules_section_response(section, part)
-    return _rules_core_bundle()
+    return _rules_core_response(part)
 
 
 @mcp.tool()
@@ -2026,10 +2151,11 @@ def explain_frankability_rule(rule_id: str) -> str:
 def get_cli_reference(part: int = 1) -> str:
     """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`), in parts.
 
-    The whole reference is larger than one tool result can carry: Claude Code
-    replaces any result above MAX_MCP_OUTPUT_TOKENS (default 25 000 tokens,
-    about 100 000 chars) with a file path, and the text never reaches the model.
-    So it comes in parts of at most 80 000 chars, cut only at `## ` headings.
+    The whole reference is larger than one tool result can carry inline: Claude
+    Code saves an answer over 50,000 chars (or 25,000 tokens) to a file, and the
+    text never reaches the model. So it comes in parts of at most 45,000 UTF-8
+    bytes each, head and continuation lines included, cut at `## ` headings (at
+    `### `, then `#### `, inside a larger block), never inside a code block.
     Call with no arguments for part 1. Every part except the last ends with the
     call for the next one: `get_cli_reference(part=2)`, and so on. The same
     parts also come from `get_project_rules(section="CLI", part=N)`.
@@ -2586,9 +2712,10 @@ def get_project_context(cwd: str = "") -> str:
             "tools directly — pass owner/key from this context."
         )
     result["next_step"] += (
-        " Before writing ANY DOMQL code: call `get_project_rules()` (no arguments — compact core "
-        "bundle, under 80k chars) and follow its NEXT STEP table to pull the sections your task "
-        "needs (`get_project_rules(section='SYNTAX')`, `section='COMPONENTS'`, `section='FRANKABILITY'`, …)."
+        " Before writing ANY DOMQL code: call `get_project_rules()` (no arguments — part 1 of the "
+        "2-part core) and `get_project_rules(part=2)` (the rest of the STRICT rules + the NEXT STEP "
+        "table), then follow the NEXT STEP table to pull the sections your task needs "
+        "(`get_project_rules(section='SYNTAX')`, `section='COMPONENTS'`, `section='FRANKABILITY'`, …)."
     )
 
     return json.dumps(result, indent=2)

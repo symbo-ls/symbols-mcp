@@ -1,14 +1,20 @@
-"""get_project_rules — compact core + on-demand sections.
+"""get_project_rules — the core in 2 parts + on-demand sections.
 
-Guards MCP-RULES-BUNDLE-EXCEEDS-TOOL-LIMIT-1: the legacy one-shot bundle
-(~590k chars) exceeded Claude Code's MAX_MCP_OUTPUT_TOKENS cap (25 000
-tokens ≈ 100k chars) and was truncated to a file path, so the rules never
-reached the model. Every response of the tool must now stay under
-RULES_SAFE_CHARS, every section must be fetchable, and the legacy full
-bundle must still be available behind `full=True`."""
+Guards MCP-RULES-BUNDLE-EXCEEDS-TOOL-LIMIT-1 and its follow-up. The legacy
+one-shot bundle (~590k chars) was saved to a file by Claude Code, so the rules
+never reached the model. The 80,000-char cap that replaced it was still too
+high: measured live in Claude Code 2.1.319, an answer over 50,000 (the client
+constant `mC=50000`, on the string the client receives) is saved to a file with
+a 2,000-char preview, and one over 25,000 tokens gets "exceeds maximum allowed
+tokens". The 78,066-char core and the 74,073-char RULES part 1 got that notice.
+Every answer of the tool now stays at or under RULES_SAFE_BYTES (45,000 UTF-8
+bytes), head and continuation lines included; every section is fetchable; the
+legacy full bundle is still there behind `full=True`. The core itself is
+tests/test_core_parts.py; the splitter is tests/test_markdown_parts.py."""
 
 import asyncio
 import importlib
+import json
 
 import pytest
 
@@ -21,45 +27,49 @@ EXPECTED_SECTIONS = [
     "COMMON_MISTAKES", "LEARNINGS", "DEFAULT_PROJECT",
 ]
 
-
-def test_safe_cap_is_below_claude_code_default():
-    # Claude Code MAX_MCP_OUTPUT_TOKENS default = 25 000 tokens ≈ 100 000 chars.
-    assert server.RULES_SAFE_CHARS <= 80_000
+CAP = server.RULES_SAFE_BYTES
 
 
-def test_core_bundle_under_cap_and_has_required_parts():
-    core = server.get_project_rules()
-    assert len(core) <= server.RULES_SAFE_CHARS, len(core)
-    assert "BUILT-IN COMPONENTS — REUSE" in core          # reuse directive (skills/REUSE.md)
-    assert "CRITICAL: Canonical syntax" in core            # RULES preamble
-    assert "RULES — STRICT RULES IN FULL" in core
-    assert "## Rule 27 — STRICT" in core                   # a STRICT rule body
-    assert "FRANKABILITY — HARD CHECKLIST" in core
-    assert "SECTION INDEX" in core
-    assert "NEXT STEP" in core
-    assert "get_project_rules(section='SYNTAX')" in core
+def _bytes(text):
+    return len(text.encode("utf-8"))
+
+
+def test_the_cap_is_45000_bytes_under_both_client_limits():
+    # Claude Code saves an answer over 50,000 chars (or 25,000 tokens) to a file.
+    assert server.RULES_SAFE_BYTES == 45_000
+    # The splitter packs a part's body to the budget; the head and continuation
+    # lines get the rest, so the whole answer fits the cap.
+    assert server.RULES_PART_BUDGET + server.RULES_PART_FRAME_BYTES == server.RULES_SAFE_BYTES
+    assert not hasattr(server, "RULES_SAFE_CHARS")
 
 
 def test_index_lists_all_16_sections():
-    core = server.get_project_rules()
     names = [n for n, _, _ in server.RULES_SECTIONS]
     assert names == EXPECTED_SECTIONS
+    reference = server.get_project_rules(part=2)  # the SECTION INDEX is in core part 2
     for name in EXPECTED_SECTIONS:
-        assert f"| {name} |" in core, name
+        assert f"| {name} |" in reference, name
+
+
+def test_index_states_sizes_in_bytes_and_the_real_part_counts():
+    reference = server.get_project_rules(part=2)
+    assert "| Section | Bytes | Parts |" in reference
+    for name, fname, _ in server.RULES_SECTIONS:
+        text = server._read_skill(fname)
+        parts = len(server._split_markdown_parts(text))
+        assert f"| {name} | {_bytes(text):,} | {parts} |" in reference, name
 
 
 @pytest.mark.parametrize("name", EXPECTED_SECTIONS)
 def test_every_section_fetchable_under_cap(name):
     parts = server._rules_section_parts(name)
-    joined = []
     for i in range(1, len(parts) + 1):
         out = server.get_project_rules(section=name, part=i)
-        assert len(out) <= server.RULES_SAFE_CHARS + 200, (name, i, len(out))
-        assert f"<!-- section {name}" in out
-        joined.append(parts[i - 1])
+        assert _bytes(out) <= CAP, (name, i, _bytes(out))
+        assert out.startswith(f"<!-- section {name}")
     fname = server._RULES_SECTION_BY_NAME[name][0]
-    # parts re-assemble to the original skill text (split only at '## ' lines)
-    assert "\n".join(joined) == server._read_skill(fname)
+    # the parts re-join to the skill text exactly
+    assert "\n".join(parts) == server._read_skill(fname)
 
 
 def test_section_name_is_case_insensitive_and_md_optional():
@@ -70,11 +80,14 @@ def test_section_name_is_case_insensitive_and_md_optional():
 
 def test_multi_part_section_continuation_hint():
     parts = server._rules_section_parts("RULES")
-    assert len(parts) >= 2  # RULES.md is above the cap and is served in parts
+    n = len(parts)
+    assert n >= 2  # RULES.md is above the cap and is served in parts
     first = server.get_project_rules(section="RULES", part=1)
-    assert "part=2" in first
-    last = server.get_project_rules(section="RULES", part=len(parts))
-    assert "continues" not in last
+    assert first.endswith(
+        f"\n\n<!-- continues: get_project_rules(section='RULES', part=2) (part 2 of {n}) -->\n"
+    )
+    last = server.get_project_rules(section="RULES", part=n)
+    assert "<!-- continues:" not in last
 
 
 def test_unknown_section_is_a_clear_error():
@@ -91,22 +104,24 @@ def test_part_out_of_range_is_a_clear_error():
         server.get_project_rules(section="SYNTAX", part=9)
 
 
-def test_multi_section_request_refuses_over_cap():
-    small = server.get_project_rules(section="COMPONENTS, SNIPPETS")
-    assert "<!-- section COMPONENTS" in small and "<!-- section SNIPPETS" in small
-    with pytest.raises(ValueError, match="safe cap|more than one part"):
+def test_multi_section_request_fits_the_cap_or_refuses():
+    small = server.get_project_rules(section="SNIPPETS, DEFAULT_PROJECT")
+    assert "<!-- section SNIPPETS (" in small and "<!-- section DEFAULT_PROJECT (" in small
+    assert _bytes(small) <= CAP
+    # two one-part sections whose sum is above the cap
+    with pytest.raises(ValueError, match="45,000-byte cap"):
+        server.get_project_rules(section="COMPONENTS, PATTERNS")
+    with pytest.raises(ValueError, match="more than one part"):
         server.get_project_rules(section="FRAMEWORK,DESIGN_SYSTEM,RULES")
 
 
 def test_other_skills_fetchable_by_name():
     out = server.get_project_rules(section="CLI")
-    assert "<!-- section CLI" in out
+    assert out.startswith("<!-- section CLI part 1 of ")
 
 
 # The skills outside the 16 bundle sections (CLI, SDK, MODERN_STACK, AUDIT, …)
-# are fetchable by name too, so they get the same cap. The splitter cuts only at
-# `## ` lines and never truncates: a single `## ` block above the cap is served
-# whole, and must fail here, not in a client.
+# are fetchable by name too, so they get the same cap.
 OTHER_SKILLS = sorted(
     p.stem for p in server.SKILLS_PATH.glob("*.md") if p.stem not in server._RULES_SECTION_BY_NAME
 )
@@ -121,8 +136,8 @@ def test_every_other_skill_fetchable_under_cap(name):
     parts = server._split_markdown_parts(server._read_skill(f"{name}.md"))
     for i in range(1, len(parts) + 1):
         out = server.get_project_rules(section=name, part=i)
-        assert len(out) <= server.RULES_SAFE_CHARS + 200, (name, i, len(out))
-        assert f"<!-- section {name}" in out
+        assert _bytes(out) <= CAP, (name, i, _bytes(out))
+        assert out.startswith(f"<!-- section {name}")
 
 
 def test_legacy_full_bundle_still_works():
@@ -130,6 +145,8 @@ def test_legacy_full_bundle_still_works():
     assert len(full) > 400_000
     for name, fname, _ in server.RULES_SECTIONS:
         assert server._read_skill(fname) in full, name
+    # the index names its real size
+    assert f"({_bytes(full):,} bytes)" in server.get_project_rules(part=2)
 
 
 def test_tool_schema_is_backward_compatible():
@@ -140,9 +157,10 @@ def test_tool_schema_is_backward_compatible():
     assert not tool.inputSchema.get("required")  # zero-arg call still valid
 
 
-def test_project_context_next_step_points_to_compact_rules(tmp_path):
+def test_project_context_next_step_names_both_core_parts(tmp_path):
     (tmp_path / "symbols.json").write_text('{"owner":"o","key":"k"}')
-    import json
     res = json.loads(server.get_project_context(str(tmp_path)))
     assert "get_project_rules()" in res["next_step"]
+    assert "get_project_rules(part=2)" in res["next_step"]
     assert "section='SYNTAX'" in res["next_step"]
+    assert "80k" not in res["next_step"]

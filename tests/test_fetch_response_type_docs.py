@@ -7,7 +7,7 @@ per-call `headers` over the configured ones. An agent that never reads this
 concludes the plugin cannot stream or upload and reaches for a raw `fetch`
 (FA402). The skills every tool serves must name the contract where an agent
 looks for it: SYNTAX → Data Fetching, FRAMEWORK → Imperative, and Rule 47 —
-which is STRICT, so it ships in the core bundle.
+which is STRICT, so it ships in full in one of the 2 core parts.
 
 The skills are customer-facing: the new text carries no internal tracking
 names."""
@@ -100,9 +100,10 @@ def test_rule_47_sends_streaming_binary_multipart_through_the_plugin():
     assert "responseType" in rule and "FormData" in rule
 
 
-def test_core_bundle_carries_the_rule_47_contract():
-    # Rule 47 is STRICT, so an agent sees it in the first get_project_rules() reply.
-    rule = _rule_47(server.get_project_rules())
+def test_the_core_carries_the_rule_47_contract():
+    # Rule 47 is STRICT, so an agent sees it in full in the core:
+    # get_project_rules() and get_project_rules(part=2).
+    rule = _rule_47(server.get_project_rules() + "\n" + server.get_project_rules(part=2))
     assert "responseType" in rule
     assert "multipart" in rule.lower()
 

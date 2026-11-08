@@ -59,12 +59,32 @@ function readSkill(filename) {
 }
 
 // ---------------------------------------------------------------------------
-// get_project_rules — compact core + on-demand sections (mirrors
-// symbols_mcp/server.py: RULES_SAFE_CHARS / RULES_SECTIONS / _rules_core_bundle).
-// Every response stays under RULES_SAFE_CHARS so it survives client
-// tool-output caps (Claude Code MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens).
+// get_project_rules — the core in 2 parts + on-demand sections. Mirrors
+// symbols_mcp/server.py (RULES_SAFE_BYTES / _split_markdown_parts /
+// _rules_core_parts): both servers print the same bytes for every part.
+//
+// The inline cap. Measured live in Claude Code 2.1.319 with default settings:
+// - a tool answer longer than 50,000 (the client constant `mC=50000`, measured
+//   on the string the client receives) is saved to a file, and the model gets a
+//   2,000-char preview ("Output too large (48.9KB). Full output saved to …");
+// - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
+//   to <file>".
+// Either way the text never reaches the model. So every answer of the docs
+// tools — each core part, each section part, each CLI reference part — stays
+// at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the client
+// receives it (head and continuation lines included). Bytes, not chars: a byte
+// count is never below the char count. This server answers every tool with one
+// text block and no structuredContent, so the string the client receives is
+// the answer itself.
 // ---------------------------------------------------------------------------
-const RULES_SAFE_CHARS = 80000
+const RULES_SAFE_BYTES = 45000
+// A served part is a head line + its body + (when more parts follow) a
+// continuation line. The splitter packs bodies to RULES_PART_BUDGET bytes, so
+// that frame always fits inside RULES_SAFE_BYTES.
+const RULES_PART_FRAME_BYTES = 300
+const RULES_PART_BUDGET = RULES_SAFE_BYTES - RULES_PART_FRAME_BYTES
+// get_project_rules() with no section: the core, always exactly 2 parts.
+const RULES_CORE_PARTS = 2
 const RULES_SECTIONS = [
   ['FRAMEWORK', 'FRAMEWORK.md', 'authoritative — project structure, plugins, theming, SSR, publish'],
   ['DESIGN_SYSTEM', 'DESIGN_SYSTEM.md', 'authoritative — design-system contract + token catalog'],
@@ -91,7 +111,7 @@ const RULES_NEXT_STEP = [
   ['run the frank fix loop (prescribe/apply edit ops)', 'FRANK_FIX_WORKFLOW'],
   ['project layout, plugins, SSR, publish, theming internals', 'FRAMEWORK'],
   ['multi-app monorepo / shared libraries', 'WORKSPACE, SHARED_LIBRARIES'],
-  ['read the full rule list beyond the STRICT subset', 'RULES (part=1, then part=2)'],
+  ['read the full rule list beyond the STRICT subset', 'RULES (every part: part=1, then the call each part names)'],
   ['a result looks wrong and you do not know why', 'COMMON_MISTAKES, LEARNINGS']
 ]
 const RULES_SECTION_BY_NAME = Object.fromEntries(RULES_SECTIONS.map(([n, f, d]) => [n, { file: f, desc: d }]))
@@ -102,22 +122,70 @@ function normalizeSectionName(raw) {
   return n.replace(/-/g, '_')
 }
 
-function splitMarkdownParts(text, limit = RULES_SAFE_CHARS) {
-  if (text.length <= limit) return [text]
+// The size the cap counts: UTF-8 bytes.
+function utf8Len (text) {
+  return Buffer.byteLength(text, 'utf8')
+}
+
+// 45000 → "45,000", as Python's f"{n:,}" (no locale data needed).
+function groupDigits (n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+// The start of a fenced code block: 3+ backticks or tildes, after any indent.
+// A backtick run followed by another backtick on the line is inline code, not
+// a fence (a backtick fence's info string holds no backtick).
+const FENCE_RUN = /^\s*(`{3,}|~{3,})/
+
+// Cut `lines` before every heading line of `level` (2 → `## `, 3 → `### `,
+// 4 → `#### `) that is outside a fenced code block — a heading line inside a
+// fence is no cut point. A block above `limit` bytes is cut again at the next
+// level, down to `#### `; a block with no cut point left stays whole. A heading
+// line is never a table row, so no cut falls inside a table. Mirrors
+// server.py _markdown_blocks.
+function markdownBlocks (lines, level, limit) {
+  const marker = '#'.repeat(level) + ' '
   const blocks = []
   let cur = []
-  for (const line of text.split('\n')) {
-    if (line.startsWith('## ') && cur.length) { blocks.push(cur.join('\n')); cur = [] }
+  let fence = null // [char, run length] of the open fence
+  for (const line of lines) {
+    if (fence === null) {
+      if (line.startsWith(marker) && cur.length) { blocks.push(cur); cur = [] }
+      const m = FENCE_RUN.exec(line)
+      if (m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) fence = [m[1][0], m[1].length]
+    } else {
+      const mark = line.trim()
+      if (mark.length >= fence[1] && mark === fence[0].repeat(mark.length)) fence = null
+    }
     cur.push(line)
   }
-  if (cur.length) blocks.push(cur.join('\n'))
-  const parts = []
-  let acc = ''
-  for (const b of blocks) {
-    const candidate = acc ? acc + '\n' + b : b
-    if (acc && candidate.length > limit) { parts.push(acc); acc = b } else acc = candidate
+  if (cur.length) blocks.push(cur)
+  const out = []
+  for (const block of blocks) {
+    const text = block.join('\n')
+    if (level < 4 && utf8Len(text) > limit) out.push(...markdownBlocks(block, level + 1, limit))
+    else out.push(text)
   }
-  if (acc) parts.push(acc)
+  return out
+}
+
+// Split markdown into parts of at most `limit` UTF-8 bytes each: cut only
+// before a heading line outside a fenced code block (`## `, then `### ` and
+// `#### ` inside a larger block), packed greedily in order; parts.join('\n')
+// is the text exactly; nothing is ever truncated. Mirrors
+// server.py _split_markdown_parts.
+function splitMarkdownParts (text, limit = RULES_PART_BUDGET) {
+  if (utf8Len(text) <= limit) return [text]
+  const parts = []
+  let acc = []
+  let size = 0
+  for (const block of markdownBlocks(text.split('\n'), 2, limit)) {
+    const n = utf8Len(block)
+    if (acc.length && size + 1 + n > limit) { parts.push(acc.join('\n')); acc = []; size = 0 }
+    size = acc.length ? size + 1 + n : n
+    acc.push(block)
+  }
+  if (acc.length) parts.push(acc.join('\n'))
   return parts
 }
 
@@ -136,29 +204,32 @@ function rulesSectionIndex() {
     const text = readSkill(f)
     const parts = splitMarkdownParts(text).length
     const how = `section='${n}'` + (parts > 1 ? `, part=1..${parts}` : '')
-    return `| ${n} | ${text.length.toLocaleString('en-US')} | ${parts} | ${d} | \`get_project_rules(${how})\` |`
+    return `| ${n} | ${groupDigits(utf8Len(text))} | ${parts} | ${d} | \`get_project_rules(${how})\` |`
   })
   const others = Object.keys(otherSkills()).sort().map(o => `\`${o}\``).join(', ')
   return '# SECTION INDEX — fetch on demand\n\n' +
-    `Every response of this tool stays under ${RULES_SAFE_CHARS.toLocaleString('en-US')} characters so it survives client tool-output caps (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens). Fetch one section per call; sections with more than one part need one call per part.\n\n` +
-    '| Section | Chars | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n' + rows.join('\n') +
-    `\n\nAlso fetchable by name (not part of the core bundle): ${others}.\n\n` +
-    '`get_project_rules(full=true)` returns the legacy one-shot concatenation (~590k chars) — only for clients with no tool-output cap.\n'
+    `Every answer of this tool stays at or under ${groupDigits(RULES_SAFE_BYTES)} UTF-8 bytes, head and continuation lines included, so it reaches the model inline (Claude Code saves an answer above 50,000 chars or 25,000 tokens to a file instead). Fetch one section per call; a section with more than one part needs one call per part, and each part names the next call.\n\n` +
+    '| Section | Bytes | Parts | What it holds | How to fetch |\n|---|---:|---:|---|---|\n' + rows.join('\n') +
+    `\n\nAlso fetchable by name (not one of the 16 sections): ${others}.\n\n` +
+    `\`get_project_rules(full=True)\` returns the legacy one-shot concatenation of the 16 sections (${groupDigits(utf8Len(rulesFullBundle()))} bytes) — only for clients with no tool-output cap.\n`
 }
 
 function rulesNextStep() {
   return '# NEXT STEP — which sections to pull for your task\n\n' +
-    'This core bundle is NOT the full ruleset. Before you write code, pull the sections your task needs (one call each):\n\n' +
+    'The 2 core parts are NOT the full ruleset. Before you write code, pull the sections your task needs (one call per part):\n\n' +
     '| Your task | Call `get_project_rules(section=...)` for |\n|---|---|\n' +
     RULES_NEXT_STEP.map(([t, s]) => `| ${t} | ${s} |`).join('\n') +
     '\n\nMinimum for any code-writing task: `SYNTAX` + `COMPONENTS` + `FRANKABILITY`.\n'
 }
 
-function rulesEssentials() {
+// RULES.md cut for the core, at call time: the preamble, every STRICT rule as
+// [heading, full text] in file order, and one index row per rule heading.
+// Mirrors server.py _rules_md_split.
+function rulesMdSplit() {
   const text = readSkill('RULES.md')
   const lines = text.split('\n')
   const heads = lines.map((l, i) => (l.startsWith('## Rule ') ? i : -1)).filter(i => i >= 0)
-  if (!heads.length) return text
+  if (!heads.length) return [text.trimEnd(), [], []]
   const preamble = lines.slice(0, heads[0]).join('\n').trimEnd()
   const bounds = heads.concat([lines.length])
   const strict = []
@@ -166,13 +237,14 @@ function rulesEssentials() {
   heads.forEach((start, n) => {
     const body = lines.slice(start, bounds[n + 1])
     const heading = body[0].slice(3).trim()
-    const isStrict = heading.includes('STRICT')
-    index.push(`- ${isStrict ? '**' : ''}${heading}${isStrict ? '**' : ''}` + (isStrict ? '' : " — full text: `section='RULES'`"))
-    if (isStrict) strict.push(body.join('\n').trimEnd())
+    if (heading.includes('STRICT')) {
+      index.push(`- **${heading}**`)
+      strict.push([heading, body.join('\n').trimEnd()])
+    } else {
+      index.push(`- ${heading} — full text: \`section='RULES'\``)
+    }
   })
-  return '# RULES — ESSENTIALS (preamble + every STRICT rule, from RULES.md)\n\n' + preamble +
-    "\n\n---\n\n# RULES — ALL RULE HEADINGS (STRICT ones in bold are reproduced in full below; the rest are in `section='RULES'`)\n\n" +
-    index.join('\n') + '\n\n---\n\n# RULES — STRICT RULES IN FULL\n\n' + strict.join('\n\n')
+  return [preamble, strict, index]
 }
 
 function frankabilityChecklist() {
@@ -196,13 +268,61 @@ function runtimeCheckedLine() {
   }
 }
 
-function rulesCoreBundle() {
-  const header = '# SYMBOLS / DOMQL RULES — CORE BUNDLE (compact)\n\n' +
-    'This is the compact core of the mandatory ruleset: the reuse directive, the RULES preamble + every STRICT rule, the frankability checklist, a SECTION INDEX, and a NEXT STEP table. ' +
-    "The full skills are fetched per section: `get_project_rules(section='SYNTAX')`, `get_project_rules(section='RULES', part=2)`, … " +
-    'Read the NEXT STEP table at the end and pull what your task needs BEFORE writing code.\n\n' +
-    runtimeCheckedLine() + '---\n\n'
-  return header + readSkill('REUSE.md') + '\n\n---\n\n' + rulesEssentials() + '\n\n---\n\n' + frankabilityChecklist() + '\n\n---\n\n' + rulesSectionIndex() + '\n\n---\n\n' + rulesNextStep()
+const CORE_SEP = '\n\n---\n\n'
+const CORE_CONTINUES = '\n\n<!-- continues: get_project_rules(part=2) (part 2 of 2) -->\n'
+
+// The core of the ruleset as exactly RULES_CORE_PARTS (2) answers, binding
+// first. Part 1: a short header, the list of every STRICT rule heading (each
+// marked with the part that holds its full text), the reuse directive, the
+// frankability checklist, the RULES preamble, then the STRICT rules in RULES.md
+// order, each whole, as many as fit in RULES_SAFE_BYTES; it ends with the call
+// for part 2. Part 2: the remaining STRICT rules (binding too), then the
+// reference: all rule headings, the SECTION INDEX and the NEXT STEP table.
+// Mirrors server.py _rules_core_parts.
+function rulesCoreParts() {
+  const [preamble, strict, indexRows] = rulesMdSplit()
+  const fixed = [readSkill('REUSE.md'), frankabilityChecklist(), '# RULES — PREAMBLE (from RULES.md)\n\n' + preamble]
+  const runtime = runtimeCheckedLine()
+  // k = how many STRICT rules part 1 holds in full. "(part 1)" and "(part 2)"
+  // are the same length, so k does not change the list's size.
+  const part1 = (k) => {
+    const holds = k < strict.length
+      ? 'carries binding rules too — the STRICT rules marked "(part 2)" in the list below — and then the reference'
+      : 'holds the reference'
+    const header = '# SYMBOLS / DOMQL RULES — CORE, PART 1 OF 2\n\n' +
+      'The core of the mandatory ruleset comes in 2 parts; read both before you write code. ' +
+      `Part 2 (\`get_project_rules(part=2)\`) ${holds}: all rule headings, the SECTION INDEX ` +
+      '(every section, its size and parts) and the NEXT STEP table (which sections your task needs).\n\n' +
+      runtime + '---\n\n'
+    const listing = `# STRICT RULES — all ${strict.length} (from RULES.md; each in full in the part named)\n\n` +
+      strict.map(([h], i) => `- (part ${i < k ? 1 : 2}) ${h}`).join('\n')
+    const blocks = [listing, ...fixed]
+    if (k) blocks.push('# RULES — STRICT RULES IN FULL (part 1 of 2)\n\n' + strict.slice(0, k).map(([, b]) => b).join('\n\n'))
+    return header + blocks.join(CORE_SEP) + CORE_CONTINUES
+  }
+  let k = 0
+  while (k < strict.length && utf8Len(part1(k + 1)) <= RULES_SAFE_BYTES) k++
+  const rest = strict.slice(k)
+  const header2 = '# SYMBOLS / DOMQL RULES — CORE, PART 2 OF 2\n\n' +
+    (rest.length
+      ? 'Binding: the STRICT rules below are as mandatory as those in part 1 (`get_project_rules()`). Then the reference: all rule headings, the SECTION INDEX and the NEXT STEP table.\n\n'
+      : 'The reference: all rule headings, the SECTION INDEX and the NEXT STEP table. Part 1 (`get_project_rules()`) holds every STRICT rule in full.\n\n') +
+    '---\n\n'
+  const blocks2 = []
+  if (rest.length) blocks2.push('# RULES — STRICT RULES IN FULL (part 2 of 2)\n\n' + rest.map(([, b]) => b).join('\n\n'))
+  blocks2.push(
+    "# RULES — ALL RULE HEADINGS (STRICT ones in bold: their full text is in the 2 core parts; the rest are in `section='RULES'`)\n\n" + indexRows.join('\n'),
+    rulesSectionIndex(),
+    rulesNextStep()
+  )
+  return [part1(k), header2 + blocks2.join(CORE_SEP)]
+}
+
+function rulesCoreResponse(n) {
+  if (!Number.isInteger(n) || n < 1 || n > RULES_CORE_PARTS) {
+    throw new Error(`The core has ${RULES_CORE_PARTS} parts; part=${n} is out of range. Use get_project_rules() for part 1 and get_project_rules(part=2) for part 2.`)
+  }
+  return rulesCoreParts()[n - 1]
 }
 
 function rulesFullBundle() {
@@ -216,30 +336,36 @@ function rulesSectionResponse(rawSections, part) {
   for (const name of names) {
     if (RULES_SECTION_BY_NAME[name]) resolved.push([name, splitMarkdownParts(readSkill(RULES_SECTION_BY_NAME[name].file))])
     else if (others[name]) resolved.push([name, splitMarkdownParts(readSkill(others[name]))])
-    else throw new Error(`Unknown section '${name}'. Valid bundle sections: ${RULES_SECTIONS.map(r => r[0]).join(', ')}. Other fetchable skills: ${Object.keys(others).sort().join(', ')}. Call get_project_rules() with no arguments for the core bundle + section index.`)
+    else throw new Error(`Unknown section '${name}'. Valid bundle sections: ${RULES_SECTIONS.map(r => r[0]).join(', ')}. Other fetchable skills: ${Object.keys(others).sort().join(', ')}. Call get_project_rules() with no arguments for part 1 of the core; part 2 (get_project_rules(part=2)) holds the section index.`)
   }
   if (resolved.length > 1) {
     const multi = resolved.filter(([, p]) => p.length > 1).map(([n]) => n)
     if (multi.length) throw new Error(`Section(s) ${multi.join(', ')} have more than one part and must be fetched alone: get_project_rules(section='<name>', part=N).`)
-    const total = resolved.reduce((a, [, p]) => a + p[0].length, 0)
-    if (total > RULES_SAFE_CHARS) throw new Error(`Requested sections total ${total} chars, above the ${RULES_SAFE_CHARS}-char safe cap. Fetch them one call at a time.`)
-    return resolved.map(([n, p]) => `<!-- section ${n} (${p[0].length} chars) -->\n` + p[0]).join('\n\n---\n\n')
+    const out = resolved.map(([n, p]) => partHead(n, p[0], 1, 1) + p[0]).join(CORE_SEP)
+    if (utf8Len(out) > RULES_SAFE_BYTES) {
+      const sizes = resolved.map(([n, p]) => `${n}=${groupDigits(utf8Len(p[0]))}`).join(', ')
+      throw new Error(`Requested sections total ${groupDigits(utf8Len(out))} bytes, above the ${groupDigits(RULES_SAFE_BYTES)}-byte cap (${sizes}). Fetch them one call at a time.`)
+    }
+    return out
   }
   const [name, parts] = resolved[0]
   return skillPartResponse(name, parts, Number(part) || 1, k => `get_project_rules(section='${name}', part=${k})`)
 }
 
+function partHead (name, body, n, total) {
+  return total === 1
+    ? `<!-- section ${name} (${groupDigits(utf8Len(body))} bytes) -->\n`
+    : `<!-- section ${name} part ${n} of ${total} (${groupDigits(utf8Len(body))} bytes) -->\n`
+}
+
 // One part of a skill split by splitMarkdownParts: a head line, the body and,
-// when more parts follow, a continuation line naming call(n + 1) — the next
-// call in the tool the caller used. Mirrors server.py _skill_part_response.
+// when more parts follow, a continuation line naming call(n + 1) — the exact
+// next call in the tool the caller used. Mirrors server.py _skill_part_response.
 function skillPartResponse(name, parts, n, call) {
   if (!Number.isInteger(n) || n < 1 || n > parts.length) throw new Error(`Section '${name}' has ${parts.length} part(s); part=${n} is out of range. Use part=1..${parts.length}.`)
   const body = parts[n - 1]
-  const head = parts.length === 1
-    ? `<!-- section ${name} (${body.length} chars) -->\n`
-    : `<!-- section ${name} part ${n}/${parts.length} (${body.length} chars) -->\n`
-  const tail = n < parts.length ? `\n\n<!-- continues: ${call(n + 1)} (of ${parts.length}) -->\n` : ''
-  return head + body + tail
+  const tail = n < parts.length ? `\n\n<!-- continues: ${call(n + 1)} (part ${n + 1} of ${parts.length}) -->\n` : ''
+  return partHead(name, body, n, parts.length) + body + tail
 }
 
 // get_cli_reference: CLI.md is above the safe cap, so it is served in the
@@ -253,7 +379,7 @@ function cliReference(part) {
 function loadAgentInstructions(args = {}) {
   if (args.full === true || args.full === 'true') return rulesFullBundle()
   if (args.section && String(args.section).trim()) return rulesSectionResponse(args.section, args.part)
-  return rulesCoreBundle()
+  return rulesCoreResponse(args.part === undefined || args.part === null ? 1 : Number(args.part))
 }
 
 // Ranked section search — a port of symbols_mcp/docs_search.py (keep the two
@@ -875,13 +1001,13 @@ function auditCode(code, filePath) {
 const TOOLS = [
   {
     name: 'get_project_rules',
-    description: 'ALWAYS call this first before any generate_* tool. No arguments → the compact CORE bundle of the mandatory Symbols.app rules (RULES essentials + every STRICT rule + frankability checklist + SECTION INDEX + NEXT STEP table; under 80k chars so it fits every client tool-output cap). Then fetch sections one call each: section="SYNTAX", "COMPONENTS", "FRANKABILITY", "RULES" + part=N (16 sections; unknown names error with the valid list). full=true → legacy ~590k one-shot, capless clients only. Violations cause silent failures — black page, nothing renders.',
+    description: 'ALWAYS call this first before any generate_* tool. The CORE of the mandatory Symbols.app rules comes in 2 parts; read both before you write code. No arguments → part 1 (the list of every STRICT rule, the reuse directive, the frankability checklist, the RULES preamble and the first STRICT rules in full); part=2 → part 2 (the remaining STRICT rules, binding too, then every rule heading, the SECTION INDEX and the NEXT STEP table). Every answer is at most 45,000 UTF-8 bytes, head and continuation lines included (Claude Code saves a longer answer to a file and it never reaches the model), and an answer with a next part ends with the exact call for it. Then fetch sections one call per part: section="SYNTAX", "COMPONENTS", "FRANKABILITY", "RULES" + part=N (16 sections; unknown names error with the valid list). full=true → legacy one-shot of all 16 sections, capless clients only. Violations cause silent failures — black page, nothing renders.',
     inputSchema: {
       type: 'object',
       properties: {
-        section: { type: 'string', description: 'Section name (e.g. SYNTAX, COMPONENTS, FRANKABILITY, RULES). Empty → compact core bundle + section index. Several small sections may be comma-separated.' },
-        part: { type: 'number', description: 'Part number for sections larger than the safe cap (see the index: RULES has 2 parts). Default 1.', default: 1 },
-        full: { type: 'boolean', description: 'Legacy one-shot concatenation of all 16 sections (~590k chars). Only for clients with no tool-output cap.', default: false }
+        section: { type: 'string', description: 'Section name (e.g. SYNTAX, COMPONENTS, FRANKABILITY, RULES). Empty → the core (part 1 of 2; part=2 for part 2). Several one-part sections may be comma-separated if they fit the cap together.' },
+        part: { type: 'number', description: 'Part number. No section: the core part, 1 or 2. With a section: the part of a section larger than the cap (the SECTION INDEX in core part 2 gives each part count). Default 1.', default: 1 },
+        full: { type: 'boolean', description: 'Legacy one-shot concatenation of all 16 sections (several hundred thousand bytes). Only for clients with no tool-output cap.', default: false }
       }
     }
   },
@@ -899,7 +1025,7 @@ const TOOLS = [
   },
   {
     name: 'get_cli_reference',
-    description: 'Returns the complete Symbols CLI (@symbo.ls/cli) command reference — all smbls commands, options, and workflows — in parts. The whole reference is above the tool-output cap of MCP clients (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens ≈ 100k chars), so each answer is one part of at most 80k chars, cut at ## headings. No arguments → part 1; every part except the last ends with the call for the next one: get_cli_reference(part=2), and so on.',
+    description: 'Returns the complete Symbols CLI (@symbo.ls/cli) command reference — all smbls commands, options, and workflows — in parts. The whole reference is larger than one answer a client passes to the model inline (Claude Code saves an answer over 50,000 chars or 25,000 tokens to a file), so each answer is one part of at most 45,000 UTF-8 bytes, head and continuation lines included, cut at ## headings (### and #### inside a larger block), never inside a code block. No arguments → part 1; every part except the last ends with the call for the next one: get_cli_reference(part=2), and so on.',
     inputSchema: {
       type: 'object',
       properties: {

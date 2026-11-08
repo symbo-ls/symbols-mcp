@@ -2,7 +2,8 @@
 
 symbols_mcp/skills/runtime-checked.json is written by
 scripts/check-runtime-examples.sh only after tests/runtime_examples/run.mjs
-passes on a built smbls. Both core bundles (Python and Node) quote it.
+passes on a built smbls. Both servers (Python and Node) quote it in the
+header of core part 1.
 
 With SYMBOLS_SMBLS_TREE pointing at a smbls checkout whose
 packages/smbls/dist is built, the examples run here too, and a stamp that
@@ -39,16 +40,16 @@ def test_stamp_is_well_formed():
     assert {"isxRootState", "vars", "stateDeps"} <= set(stamp["examples"])
 
 
-def test_python_core_bundle_names_the_runtime():
+def test_python_core_names_the_runtime():
     stamp = _stamp()
-    core = server._rules_core_bundle()
+    core = server.get_project_rules()  # core part 1
     line = f"checked against smbls {stamp['smbls']} ({stamp['checked']})"
     assert line in core
-    assert core.index(line) < core.index("---")  # in the header, before the bundle
+    assert core.index(line) < core.index("---")  # in the header, before the rules
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
-def test_node_core_bundle_names_the_runtime():
+def test_node_core_names_the_runtime():
     stamp = _stamp()
     lines = [
         json.dumps({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-03-26"}}),

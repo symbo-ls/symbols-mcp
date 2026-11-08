@@ -1,7 +1,6 @@
 """The Node server (`bin/symbols-mcp.cjs`, the npm package and the .mcpb
 bundle) serves get_cli_reference in parts, like the Python server: CLI.md is
-above Claude Code's MAX_MCP_OUTPUT_TOKENS cap, so the whole file in one answer
-never reached the model.
+above the inline cap, so the whole file in one answer never reached the model.
 
 Driven over stdio JSON-RPC, the way an MCP client talks to it. Skipped when
 `node` is not installed.
@@ -19,7 +18,7 @@ SERVER = ROOT / "bin" / "symbols-mcp.cjs"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 
-CAP = 80_000 + 200  # RULES_SAFE_CHARS + the head and continuation lines
+CAP = 45_000  # RULES_SAFE_BYTES: the whole answer, head and continuation lines included
 
 
 def _rpc(*requests):
@@ -39,23 +38,24 @@ def _rpc(*requests):
     return replies
 
 
-def _call(arguments):
-    return ("tools/call", {"name": "get_cli_reference", "arguments": arguments})
+@pytest.mark.parametrize("tool,name", [("get_cli_reference", "CLI")])
+def test_the_reference_takes_a_part_and_each_part_fits_the_cap(tool, name):
+    def call(arguments):
+        return ("tools/call", {"name": tool, "arguments": arguments})
 
-
-def test_get_cli_reference_takes_a_part_and_each_part_fits_the_cap():
-    r = _rpc(("tools/list", {}), _call({}), _call({"part": 1}), _call({"part": 2}), _call({"part": 0}))
-    tool = next(t for t in r[1]["result"]["tools"] if t["name"] == "get_cli_reference")
-    part = tool["inputSchema"]["properties"]["part"]
+    r = _rpc(("tools/list", {}), call({}), call({"part": 1}), call({"part": 2}), call({"part": 0}))
+    spec = next(t for t in r[1]["result"]["tools"] if t["name"] == tool)
+    part = spec["inputSchema"]["properties"]["part"]
     assert part["type"] == "number" and part.get("default") == 1
-    assert not tool["inputSchema"].get("required")
+    assert not spec["inputSchema"].get("required")
 
     no_arg, first, second, zero = (r[i]["result"] for i in (2, 3, 4, 5))
     assert no_arg["content"][0]["text"] == first["content"][0]["text"]
-    assert "<!-- continues: get_cli_reference(part=2)" in first["content"][0]["text"]
+    assert f"<!-- continues: {tool}(part=2) (part 2 of " in first["content"][0]["text"]
     assert not second.get("isError")
-    text = second["content"][0]["text"]
-    assert text.startswith("<!-- section CLI part 2/")
-    assert len(text) <= CAP, len(text)
+    for result in (first, second):
+        text = result["content"][0]["text"]
+        assert len(text.encode("utf-8")) <= CAP, len(text.encode("utf-8"))
+    assert second["content"][0]["text"].startswith(f"<!-- section {name} part 2 of ")
     # part 0 is out of range here, as in the Python server
     assert zero.get("isError") and "out of range" in zero["content"][0]["text"]
