@@ -17,7 +17,12 @@ dependencies = [
     # That is not hypothetical: every `uvx symbols-mcp` since mcp 2.0 shipped
     # has been resolving 2.x against this unbounded spec. Lifting the bound is
     # a PORT (FastMCP -> MCPServer across 28 tools), not a version bump.
-    "mcp[cli]>=1.9.0,<2",
+    #
+    # FLOOR 1.10.0: the text tools register with
+    # `@mcp.tool(structured_output=False)`; FastMCP.tool takes that argument
+    # from 1.10.0 on, and on 1.9.x the server would die at import with a
+    # TypeError.
+    "mcp[cli]>=1.10.0,<2",
     "httpx>=0.27.0",
 
     # TRANSITIVE PIN, not a direct import. mcp[cli] -> pyjwt[crypto] ->

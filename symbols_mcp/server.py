@@ -941,6 +941,12 @@ def _convert_findings_to_legacy(payload: dict) -> dict:
 # path — the text never reaches the model. The legacy one-shot bundle was
 # ~590 000 chars. Every response this tool emits (core, any section part)
 # stays under RULES_SAFE_CHARS so it survives that cap with margin.
+# Every tool whose answer is Markdown text is registered with
+# `@mcp.tool(structured_output=False)`: with FastMCP's automatic output schema
+# the answer also goes out as structuredContent `{"result": "…"}`, and Claude
+# Code shows the model that escaped JSON (every newline and quote escaped). So
+# the string the client receives is the answer itself, one TextContent block.
+# The tools whose answer is JSON data keep their output schema.
 RULES_SAFE_CHARS = 80_000
 
 # The 16 bundle sections, in canonical read order. (name, file, description)
@@ -1216,7 +1222,7 @@ def _rules_section_response(raw_sections: str, part: int) -> str:
     )
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def get_project_rules(section: str = "", part: int = 1, full: bool = False) -> str:
     """ALWAYS call this first before any generate_* tool — the mandatory Symbols.app rules.
 
@@ -1282,7 +1288,7 @@ async def search_symbols_docs(
     return f"No results found for '{query}'. Try a different search term."
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def generate_component(
     description: str,
     component_name: str = "MyComponent",
@@ -1353,7 +1359,7 @@ def generate_component(
 {context}"""
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def generate_page(
     description: str,
     page_name: str = "home",
@@ -1420,7 +1426,7 @@ def generate_page(
 {context}"""
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def convert_react(source_code: str) -> str:
     """Convert React/JSX code to Symbols.app DOMQL.
 
@@ -1468,7 +1474,7 @@ def convert_react(source_code: str) -> str:
 {context}"""
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def convert_html(source_code: str) -> str:
     """Convert raw HTML/CSS to Symbols.app DOMQL components.
 
@@ -1516,7 +1522,7 @@ def convert_html(source_code: str) -> str:
 {context}"""
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def audit_component(component_code: str, include_playbook: bool = False, file_path: str = "") -> str:
     """Inline VALIDATOR for a single Symbols/DOMQL file (component, page, function, …).
 
@@ -2016,7 +2022,7 @@ def explain_frankability_rule(rule_id: str) -> str:
     return json.dumps(_run_frank_audit("explain", rule_id), indent=2)
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def get_cli_reference(part: int = 1) -> str:
     """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`), in parts.
 
@@ -2046,7 +2052,7 @@ def get_cli_reference(part: int = 1) -> str:
     )
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def get_sdk_reference() -> str:
     """Returns the complete `@symbo.ls/sdk` API reference (3.14.0).
 
@@ -2063,7 +2069,7 @@ def get_sdk_reference() -> str:
     return _read_skill("SDK.md")
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def audit_project(phase: str = "all") -> str:
     """Returns the multi-phase PROJECT AUDIT PLAYBOOK (instructions for the agent).
 
@@ -2154,7 +2160,7 @@ def audit_project(phase: str = "all") -> str:
     return f"# Symbols Project Audit — Phase {phase}\n\n{section}\n\n---\n\n> For the full playbook, call audit_project() with phase='all'."
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def convert_to_json(
     source_code: str,
     section: str = "components",
@@ -2227,7 +2233,7 @@ This JSON is ready to use with `save_to_project`. Pass the JSON object above as 
 4. `push` → deploy to environment (production/staging/dev)"""
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 def detect_environment(
     has_symbols_json: bool = False,
     has_symbols_dir: bool = False,
@@ -2743,7 +2749,7 @@ async def _resolve_project_id(project: str, token: str = "", api_key: str = "") 
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def login(
     email: str,
     password: str,
@@ -2784,7 +2790,7 @@ async def login(
         return f"Login failed: {error}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def list_projects(
     token: str = "",
     api_key: str = "",
@@ -2820,7 +2826,7 @@ async def list_projects(
         return f"Failed to list projects: {error}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def create_project(
     name: str,
     key: str = "",
@@ -2866,7 +2872,7 @@ async def create_project(
         return f"Create failed: {error}\n{message}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def get_project(
     project: str,
     token: str = "",
@@ -2919,7 +2925,7 @@ async def get_project(
         return f"Failed to get project data: {error}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def save_to_project(
     project: str,
     changes: str,
@@ -3036,7 +3042,7 @@ async def save_to_project(
         return f"Save failed: {error}\n{message_text}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def publish(
     project: str,
     token: str = "",
@@ -3083,7 +3089,7 @@ async def publish(
         return f"Publish failed: {error}\n{message}"
 
 
-@mcp.tool()
+@mcp.tool(structured_output=False)
 async def push(
     project: str,
     token: str = "",

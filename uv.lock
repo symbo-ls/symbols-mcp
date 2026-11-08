@@ -855,7 +855,7 @@ dev = [
 requires-dist = [
     { name = "cryptography", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "<49" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.9.0,<2" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.10.0,<2" },
 ]
 
 [package.metadata.requires-dev]
