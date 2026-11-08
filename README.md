@@ -17,9 +17,9 @@ No API keys required for documentation tools. Project management tools require a
 | Tool | Description |
 |------|-------------|
 | `get_project_context` | **CALL FIRST.** Walks up from cwd to find `symbols.json`, returns owner, key, dir, bundler, sharedLibraries, brender, env_type (local/cdn/json_runtime/remote_server), env_evidence, env_guidance, token_present, and a `next_step` hint telling the agent what to do (ask user, log in, or proceed). Replaces the older `detect_environment` for new code. |
-| `get_project_rules` | Mandatory ruleset. No arguments → compact CORE bundle (reuse directive + RULES essentials + every STRICT rule + frankability checklist + section index + next-step table, <80K chars — fits every client's tool-output cap). `section="SYNTAX"` (or `COMPONENTS`, `FRANKABILITY`, `RULES` + `part=N`, … 16 sections) fetches one section per call. `full=true` → legacy ~590K one-shot (capless clients only). Call before any code generation task. |
-| `get_cli_reference` | Complete Symbols CLI (`@symbo.ls/cli`) command reference, in parts: no arguments → part 1, `part=N` → part N (each <80K chars, so it fits every client's tool-output cap; every part but the last names the next call). |
-| `get_sdk_reference` | Complete Symbols SDK (`@symbo.ls/sdk`) API reference. |
+| `get_project_rules` | Mandatory ruleset. The CORE comes in 2 parts — read both: no arguments → part 1 (the list of every STRICT rule + reuse directive + frankability checklist + RULES preamble + the first STRICT rules in full), `part=2` → part 2 (the remaining STRICT rules, binding too + every rule heading + section index + next-step table). `section="SYNTAX"` (or `COMPONENTS`, `FRANKABILITY`, `RULES` + `part=N`, … 16 sections) fetches one section per call, one call per part. Every answer is at most 45,000 UTF-8 bytes (Claude Code saves a longer one to a file) and names the next call when more parts follow. `full=true` → legacy one-shot of all 16 sections (capless clients only). Call before any code generation task. |
+| `get_cli_reference` | Complete Symbols CLI (`@symbo.ls/cli`) command reference, in parts: no arguments → part 1, `part=N` → part N (each at most 45,000 UTF-8 bytes, so it reaches the model inline; every part but the last names the next call). |
+| `get_sdk_reference` | Complete Symbols SDK (`@symbo.ls/sdk`) API reference, in parts: no arguments → part 1, `part=N` → part N (each at most 45,000 UTF-8 bytes; every part but the last names the next call). |
 | `search_symbols_docs` | Keyword search across all bundled Symbols documentation files. |
 | `detect_environment` | _[Legacy]_ Caller-supplied flags variant of env classification. Prefer `get_project_context`. |
 
@@ -27,10 +27,10 @@ No API keys required for documentation tools. Project management tools require a
 
 | Tool | Description |
 |------|-------------|
-| `generate_component` | Generate a DOMQL component from a natural language description. Returns prompt + bundled context (≈300K chars). |
-| `generate_page` | Generate a full page with routing, helmet metadata, and declarative `fetch:` integration. |
-| `convert_react` | Convert React/JSX code to Symbols DOMQL (modern smbls stack). |
-| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL components. |
+| `generate_component` | Generate a DOMQL component from a natural language description. Returns the task frame + the exact `get_project_rules` calls for its context (the 2 core parts, then each skill part, in read order; skip the ones already in context). `full=true` inlines the whole context (several hundred KB, capless clients only). |
+| `generate_page` | Generate a full page with routing, helmet metadata, and declarative `fetch:` integration. Returns the task frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
+| `convert_react` | Convert React/JSX code to Symbols DOMQL (modern smbls stack). Returns the conversion frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
+| `convert_html` | Convert raw HTML/CSS to Symbols DOMQL components. Returns the conversion frame + the `get_project_rules` calls for its context; `full=true` inlines it. |
 | `convert_to_json` | Convert DOMQL JS source to platform JSON (mirrors frank's toJSON pipeline). Use after `generate_component` / `generate_page` to feed `save_to_project`. |
 
 ### Audit

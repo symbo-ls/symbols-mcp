@@ -8,9 +8,9 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 
 1. **Call `mcp__symbols-mcp__get_project_context` FIRST.** Walks up from cwd looking for `symbols.json`, returns owner/key/env_type/token_present and a `next_step` hint. Treat the next_step as authoritative. If owner / key / token is missing, surface a `🟢 ASK USER` block — NEVER hardcode.
 
-2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session (no arguments → compact core bundle, <80K chars: reuse directive + RULES essentials + every STRICT rule + frankability checklist + section index + next-step table). Then pull the sections your task needs, one call each: `get_project_rules(section="SYNTAX")`, `section="COMPONENTS"`, `section="FRANKABILITY"`, `section="RULES", part=2` … Minimum for code: core + SYNTAX + COMPONENTS + FRANKABILITY.
+2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session for each core part — the core comes in 2 parts, read both: no arguments → part 1 (the list of every STRICT rule + reuse directive + frankability checklist + RULES preamble + the first STRICT rules in full), `part=2` → part 2 (the remaining STRICT rules, binding too + every rule heading + section index + next-step table). Then pull the sections your task needs, one call per part: `get_project_rules(section="SYNTAX")`, `section="COMPONENTS"`, `section="FRANKABILITY"`, `section="RULES", part=2` … Each answer is at most 45,000 bytes and names the next call when more parts follow. Minimum for code: both core parts + SYNTAX + COMPONENTS + FRANKABILITY.
 
-3. **For new components/pages**, use `mcp__symbols-mcp__generate_component` / `mcp__symbols-mcp__generate_page` — these return a structured prompt + the right context.
+3. **For new components/pages**, use `mcp__symbols-mcp__generate_component` / `mcp__symbols-mcp__generate_page` — these return a structured prompt + the exact `get_project_rules` calls for its context (skip the ones already in your context).
 
 4. **After each component**, run `mcp__symbols-mcp__audit_component(code, file_path)` to validate inline. Compact response (~1K) with violations.
 

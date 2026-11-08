@@ -24,7 +24,8 @@ management tools need a Symbols.app account.
   runs key SYNTAX examples (`.isX`, `vars`, `stateDeps`, lifecycle
   signatures) on a built smbls and, when green, rewrites
   `symbols_mcp/skills/runtime-checked.json` — the "checked against smbls
-  X" line of the core bundle. Re-run on each smbls release;
+  X" line in the header of core part 1 (`get_project_rules()`). Re-run
+  on each smbls release;
   `SYMBOLS_SMBLS_TREE=<tree> scripts/test.sh` also fails on a stale stamp.
 - CLI bins shipped to consumers: `mcp` and `symbols-mcp` (the server,
   which also dispatches `symbols-audit` / `init-rules` subcommands),

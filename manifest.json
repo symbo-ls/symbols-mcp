@@ -28,7 +28,7 @@
   "tools": [
     {
       "name": "get_project_rules",
-      "description": "Returns mandatory Symbols.app rules. Call this first before any code generation."
+      "description": "Returns mandatory Symbols.app rules. Call this first before any code generation: the core comes in 2 parts (no arguments, then part=2), each answer at most 45,000 bytes."
     },
     {
       "name": "search_symbols_docs",
@@ -36,19 +36,19 @@
     },
     {
       "name": "generate_component",
-      "description": "Generate a Symbols.app DOMQL component from a description with full context."
+      "description": "Generate a Symbols.app DOMQL component from a description: the task frame + the get_project_rules calls for its context (full=true inlines it)."
     },
     {
       "name": "generate_page",
-      "description": "Generate a Symbols.app page with routing integration and full context."
+      "description": "Generate a Symbols.app page with routing integration: the task frame + the get_project_rules calls for its context (full=true inlines it)."
     },
     {
       "name": "convert_react",
-      "description": "Convert React/JSX code to Symbols.app DOMQL with migration context."
+      "description": "Convert React/JSX code to Symbols.app DOMQL: the conversion frame + the get_project_rules calls for its migration context (full=true inlines it)."
     },
     {
       "name": "convert_html",
-      "description": "Convert raw HTML/CSS to Symbols.app DOMQL components with full context."
+      "description": "Convert raw HTML/CSS to Symbols.app DOMQL components: the conversion frame + the get_project_rules calls for its context (full=true inlines it)."
     },
     {
       "name": "convert_to_json",
@@ -64,11 +64,11 @@
     },
     {
       "name": "get_cli_reference",
-      "description": "Returns the complete Symbols CLI (@symbo.ls/cli) command reference, in parts (part=N, each under the client tool-output cap)."
+      "description": "Returns the complete Symbols CLI (@symbo.ls/cli) command reference, in parts (part=N, each at most 45,000 bytes)."
     },
     {
       "name": "get_sdk_reference",
-      "description": "Returns the complete Symbols SDK (@symbo.ls/sdk) API reference."
+      "description": "Returns the complete Symbols SDK (@symbo.ls/sdk) API reference, in parts (part=N, each at most 45,000 bytes)."
     },
     {
       "name": "login",

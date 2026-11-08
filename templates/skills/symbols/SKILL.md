@@ -13,7 +13,7 @@ against the live rules via the `symbols-mcp` MCP server.
 ## Must-do sequence (every Symbols task)
 
 1. `mcp__symbols-mcp__get_project_context` — resolves owner/key/env from `symbols.json`. Run FIRST.
-2. `mcp__symbols-mcp__get_project_rules` — the full live ruleset (framework, design system, components, frankability). Load BEFORE generating or editing.
+2. `mcp__symbols-mcp__get_project_rules` — the live ruleset. The core comes in 2 parts, read both (no arguments, then `part=2`); then pull the sections your task needs (framework, design system, components, frankability), one call per part. Load BEFORE generating or editing.
 3. `mcp__symbols-mcp__generate_component` / `generate_page` — for new code.
 4. `mcp__symbols-mcp__audit_component` — after each component you write.
 5. `mcp__symbols-mcp__audit_and_fix_frankability` — before committing.
@@ -53,6 +53,8 @@ If the symbols-mcp server is not connected, say so and ask to add it
 
 ## Where the full docs live
 
-`get_project_rules` returns everything (rules, framework model, design-system
-contract, component catalog, frankability FA-rules). For targeted lookups use
-`mcp__symbols-mcp__search_symbols_docs`. Human docs: https://docs.symbols.app
+`get_project_rules` serves everything (rules, framework model, design-system
+contract, component catalog, frankability FA-rules): the 2 core parts, then
+each section on demand (part 2 of the core indexes every section). For
+targeted lookups use `mcp__symbols-mcp__search_symbols_docs`. Human docs:
+https://docs.symbols.app

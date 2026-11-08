@@ -10,7 +10,7 @@ This is a Symbols.app / Symbols project (smbls 3.14.0). The `symbols-mcp` MCP se
 ## Required workflow
 
 1. **Call `mcp__symbols-mcp__get_project_context` FIRST.** Resolves owner / key / env / token from cwd's `symbols.json`. Treat its `next_step` as authoritative. NEVER hardcode owner / key / creds.
-2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session.
+2. **Before generating ANY component or page**, call `mcp__symbols-mcp__get_project_rules` once per session for each of the 2 core parts (no arguments, then `part=2`).
 3. **For new code**, use `mcp__symbols-mcp__generate_component` / `generate_page`.
 4. **Validate every component** with `mcp__symbols-mcp__audit_component(code, file_path)` after writing.
 5. **For full audits**, run `mcp__symbols-mcp__audit_project()` (playbook) + `npx -y -p @symbo.ls/mcp symbols-audit ./symbols` (CLI).
