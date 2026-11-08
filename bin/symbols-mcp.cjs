@@ -475,6 +475,99 @@ function contextSection (title, before, skills) {
     `${skillLines(later)}\n`
 }
 
+// detect_environment: the text for each environment it detects and the
+// reference skills it names (it inlined them before) — server.py's bytes
+// (DETECT_ENVIRONMENT_SKILLS and detect_environment, which is canonical).
+const DETECT_ENVIRONMENT_SKILLS = {
+  local_project: ['PROJECT_STRUCTURE.md', 'SHARED_LIBRARIES.md'],
+  cdn: ['RUNNING_APPS.md'],
+  json_runtime: ['RUNNING_APPS.md'],
+  remote_server: ['RUNNING_APPS.md'],
+  unknown: ['RUNNING_APPS.md']
+}
+const DETECT_ENVIRONMENT_TEXT = {
+  local_project: `## Your Environment: Local Project
+
+You're working in a standard Symbols project with file-based structure.
+
+### Code Format
+- Components: \`export const Name = { extends: 'Flex', ... }\` in \`components/\`
+- Pages: \`export const pageName = { extends: 'Page', ... }\` in \`pages/\`
+- State: \`export default { key: value }\` in \`state.js\`
+- Functions: \`export const fn = function() {}\` in \`functions/\`
+- No imports between files (except pages/index.js)
+
+### Commands
+\`\`\`bash
+npm start          # dev server
+smbls build        # production build
+smbls push         # deploy to platform
+smbls deploy       # deploy to provider
+\`\`\`
+
+`,
+  cdn: `## Your Environment: CDN (Browser-Only)
+
+You're running Symbols directly in the browser via CDN import.
+
+### Code Format
+- Single HTML file with \`<script type="module">\`
+- Import: \`import { create } from 'https://esm.sh/smbls'\`
+- Define app as inline object tree
+- Mount: \`create(App, { designSystem, components, functions, state })\`
+- Components defined as JS variables (no file-based registry)
+
+### Limitations
+- No file-based routing (use tab/view switching)
+- No SSR
+- \`childExtends: 'Name'\` needs components passed to \`create()\`
+
+`,
+  json_runtime: `## Your Environment: JSON Runtime (Frank)
+
+You're running Symbols from serialized JSON project data.
+
+### Code Format
+- Project data is a JSON object with components, pages, designSystem, state, functions
+- Functions are serialized as strings
+- Convert with: \`smbls frank to-json ./symbols\` or \`toJSON({ entry: './symbols' })\`
+- Reverse with: \`smbls frank to-fs data.json -o ./output\` or \`toFS(data, './output')\`
+- Can be loaded by Mermaid server via JSON_PATH env var
+
+`,
+  remote_server: `## Your Environment: Remote Symbols Server (Mermaid)
+
+You're working with the Mermaid rendering server for hosted Symbols apps.
+
+### URL Patterns
+- Production: \`https://app.user.preview.symbols.app/\`
+- Development: \`https://app.user.preview.dev.symbols.app/\`
+- Staging: \`https://app.user.preview.staging.symbols.app/\`
+- Legacy: \`https://app.symbo.ls/\`
+- Custom domains supported
+
+### Deployment
+\`\`\`bash
+smbls push    # deploy to Symbols platform
+\`\`\`
+
+`,
+  unknown: `## Could Not Determine Environment
+
+Provide more details about your project files to get specific guidance.
+
+`
+}
+
+// The reference skills of an answer, named instead of inlined: one line each.
+// Mirrors server.py _references_block.
+function referencesBlock (skills) {
+  return '### References\n\n' +
+    `${SKIP_CALL_LINE}\n\n` +
+    'The reference files are not inlined. Fetch the ones the task needs. Each part names the next call.\n\n' +
+    `${skillLines(skills)}\n`
+}
+
 // The task frames of generate_* / convert_*: the same bytes as server.py's
 // (server.py is canonical; tests/test_generate_context_calls.py compares
 // the two servers' answers byte for byte).
@@ -1369,7 +1462,7 @@ const TOOLS = [
   },
   {
     name: 'detect_environment',
-    description: 'Detect project type (local, CDN, JSON runtime, or remote server) based on project indicators.',
+    description: 'Detect project type (local, CDN, JSON runtime, or remote server) based on project indicators. The answer names the get_project_rules calls for the reference skills of that environment (PROJECT_STRUCTURE and SHARED_LIBRARIES for a local project, RUNNING_APPS otherwise), one line each; it inlines none.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1566,9 +1659,8 @@ async function handleTool(name, args) {
       const files = args.file_list.toLowerCase()
       if (files.includes('index.html') && !files.includes('package.json') && !files.includes('symbols.json')) { envType = 'cdn'; confidence = 'medium' }
     }
-    const guide = readSkill('RUNNING_APPS.md')
-    const sharedLibsGuide = envType === 'local_project' ? '\n\n## Shared Libraries\n\n' + readSkill('SHARED_LIBRARIES.md') : ''
-    return `# Environment Detection\n\n**Detected: ${envType}** (confidence: ${confidence})\n\n${guide}${sharedLibsGuide}`
+    return `# Environment Detection\n\n**Detected: ${envType}** (confidence: ${confidence})\n\n` +
+      DETECT_ENVIRONMENT_TEXT[envType] + referencesBlock(DETECT_ENVIRONMENT_SKILLS[envType])
   }
 
   // audit_component (sync)

@@ -1535,6 +1535,29 @@ def _context_section(title: str, before: tuple[str, ...], skills: tuple[str, ...
     )
 
 
+# The reference skills detect_environment names for each environment it
+# detects (it inlined them before: up to 61,071 bytes per answer).
+DETECT_ENVIRONMENT_SKILLS = {
+    "local_project": ("PROJECT_STRUCTURE.md", "SHARED_LIBRARIES.md"),
+    "cdn": ("RUNNING_APPS.md",),
+    "json_runtime": ("RUNNING_APPS.md",),
+    "remote_server": ("RUNNING_APPS.md",),
+    "unknown": ("RUNNING_APPS.md",),
+}
+
+
+def _references_block(skills: tuple[str, ...]) -> str:
+    """The reference skills of an answer, named instead of inlined: one line
+    each (its parts and bytes, what it holds, its first call)."""
+    return (
+        "### References\n\n"
+        f"{SKIP_CALL_LINE}\n\n"
+        "The reference files are not inlined. Fetch the ones the task needs. Each part names the "
+        "next call.\n\n"
+        f"{_skill_lines(skills)}\n"
+    )
+
+
 @mcp.tool(structured_output=False)
 def generate_component(
     description: str,
@@ -2555,6 +2578,10 @@ def detect_environment(
     `env_evidence`, and `env_guidance` fields equivalent to this tool's output,
     plus `owner`, `key`, `token_present`, and `next_step` guidance.
 
+    The answer names the `get_project_rules` calls for the reference skills of
+    the detected environment (PROJECT_STRUCTURE and SHARED_LIBRARIES for a
+    local project, RUNNING_APPS otherwise), one line each; it inlines none.
+
     Args:
         has_symbols_json: Whether symbols.json exists in the project root.
         has_symbols_dir: Whether a symbols/ directory exists with components/, pages/, etc.
@@ -2592,12 +2619,9 @@ def detect_environment(
             env_type = "cdn"
             confidence = "medium"
 
-    full_guide = _read_skill("RUNNING_APPS.md")
     output = f"# Environment Detection\n\n**Detected: {env_type}** (confidence: {confidence})\n\n"
 
     if env_type == "local_project":
-        structure_guide = _read_skill("PROJECT_STRUCTURE.md")
-        shared_libs_guide = _read_skill("SHARED_LIBRARIES.md")
         output += "## Your Environment: Local Project\n\n"
         output += "You're working in a standard Symbols project with file-based structure.\n\n"
         output += "### Code Format\n"
@@ -2608,10 +2632,7 @@ def detect_environment(
         output += "- No imports between files (except pages/index.js)\n\n"
         output += "### Commands\n"
         output += "```bash\nnpm start          # dev server\nsmbls build        # production build\nsmbls push         # deploy to platform\nsmbls deploy       # deploy to provider\n```\n\n"
-        output += f"### Full Project Structure Reference\n\n{structure_guide}"
-        output += f"\n\n### Shared Libraries Reference\n\n{shared_libs_guide}"
     elif env_type == "cdn":
-        cdn_guide = _read_skill("RUNNING_APPS.md")
         output += "## Your Environment: CDN (Browser-Only)\n\n"
         output += "You're running Symbols directly in the browser via CDN import.\n\n"
         output += "### Code Format\n"
@@ -2624,7 +2645,6 @@ def detect_environment(
         output += "- No file-based routing (use tab/view switching)\n"
         output += "- No SSR\n"
         output += "- `childExtends: 'Name'` needs components passed to `create()`\n\n"
-        output += f"### Full CDN Reference\n\n{cdn_guide}"
     elif env_type == "json_runtime":
         output += "## Your Environment: JSON Runtime (Frank)\n\n"
         output += "You're running Symbols from serialized JSON project data.\n\n"
@@ -2634,7 +2654,6 @@ def detect_environment(
         output += "- Convert with: `smbls frank to-json ./symbols` or `toJSON({ entry: './symbols' })`\n"
         output += "- Reverse with: `smbls frank to-fs data.json -o ./output` or `toFS(data, './output')`\n"
         output += "- Can be loaded by Mermaid server via JSON_PATH env var\n\n"
-        output += f"### Full Reference\n\n{full_guide}"
     elif env_type == "remote_server":
         output += "## Your Environment: Remote Symbols Server (Mermaid)\n\n"
         output += "You're working with the Mermaid rendering server for hosted Symbols apps.\n\n"
@@ -2646,13 +2665,11 @@ def detect_environment(
         output += "- Custom domains supported\n\n"
         output += "### Deployment\n"
         output += "```bash\nsmbls push    # deploy to Symbols platform\n```\n\n"
-        output += f"### Full Reference\n\n{full_guide}"
     else:
         output += "## Could Not Determine Environment\n\n"
         output += "Provide more details about your project files to get specific guidance.\n\n"
-        output += f"### All 4 Ways to Run Symbols Apps\n\n{full_guide}"
 
-    return output
+    return output + _references_block(DETECT_ENVIRONMENT_SKILLS[env_type])
 
 
 # ---------------------------------------------------------------------------

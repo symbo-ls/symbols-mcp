@@ -21,7 +21,7 @@ No API keys required for documentation tools. Project management tools require a
 | `get_cli_reference` | Complete Symbols CLI (`@symbo.ls/cli`) command reference, in parts: no arguments → part 1, `part=N` → part N (each at most 45,000 UTF-8 bytes, so it reaches the model inline; every part but the last names the next call). |
 | `get_sdk_reference` | Complete Symbols SDK (`@symbo.ls/sdk`) API reference, in parts: no arguments → part 1, `part=N` → part N (each at most 45,000 UTF-8 bytes; every part but the last names the next call). |
 | `search_symbols_docs` | Keyword search across all bundled Symbols documentation files. |
-| `detect_environment` | _[Legacy]_ Caller-supplied flags variant of env classification. Prefer `get_project_context`. |
+| `detect_environment` | _[Legacy]_ Caller-supplied flags variant of env classification. Prefer `get_project_context`. Names the `get_project_rules` calls for the reference skills of the detected environment (PROJECT_STRUCTURE and SHARED_LIBRARIES for a local project, RUNNING_APPS otherwise); inlines none. |
 
 ### Generation & conversion
 

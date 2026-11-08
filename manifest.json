@@ -60,7 +60,7 @@
     },
     {
       "name": "detect_environment",
-      "description": "Detect project type: local, CDN, JSON runtime, or remote server."
+      "description": "Detect project type: local, CDN, JSON runtime, or remote server. Names the get_project_rules calls for the reference skills of that environment; inlines none."
     },
     {
       "name": "get_cli_reference",
