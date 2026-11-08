@@ -60,9 +60,9 @@ def _audit(code, file_path=None):
     if file_path is not None:
         args["file_path"] = file_path
     reply = _rpc(("tools/call", {"name": "audit_component", "arguments": args}))[1]
-    text = reply["result"]["content"][0]["text"]
-    # The findings end where the rules reference (AUDIT.md) begins.
-    return text.split("## Detailed Rules Reference")[0]
+    # Only the findings: the playbook calls come only with include_playbook=true
+    # (tests/test_audit_component_playbook.py).
+    return reply["result"]["content"][0]["text"]
 
 
 def test_schema_declares_the_optional_file_path():

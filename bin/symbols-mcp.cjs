@@ -568,6 +568,16 @@ function referencesBlock (skills) {
     `${skillLines(skills)}\n`
 }
 
+// audit_component(include_playbook=true): the AUDIT.md playbook, named instead
+// of inlined: every get_project_rules call for it, in order. Mirrors server.py
+// _playbook_block.
+function playbookBlock () {
+  return '\n---\n\n## Audit Playbook (AUDIT.md)\n\n' +
+    `${SKIP_CALL_LINE}\n\n` +
+    'The playbook is not inlined. Make these calls, in this order:\n\n' +
+    `${numberedCalls(partCalls('AUDIT.md'))}\n`
+}
+
 // The task frames of generate_* / convert_*: the same bytes as server.py's
 // (server.py is canonical; tests/test_generate_context_calls.py compares
 // the two servers' answers byte for byte).
@@ -1479,12 +1489,13 @@ const TOOLS = [
   },
   {
     name: 'audit_component',
-    description: 'Audit a Symbols/DOMQL file (component, page, function, …) for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Pass file_path so the checks that depend on the file\'s folder apply where it really lives; without it the code is audited as a component. Also warns on four STRICT shape rules: one condition repeated across 3+ CSS props (Rule 19 — use isX + \'.isX\'), an interactive element with \':hover\' but no \':active\' (Rule 65), a state-driven `if:` on an element in flow beside siblings (Rule 66 — keep it mounted, toggle visibility), a built-in Button call site overriding padding / height (Rule 68). Returns violations, warnings, and a score.',
+    description: 'Audit a Symbols/DOMQL file (component, page, function, …) for v3 compliance — checks for v2 syntax, raw px values, hardcoded colors, direct DOM manipulation, and more. Pass file_path so the checks that depend on the file\'s folder apply where it really lives; without it the code is audited as a component. Also warns on four STRICT shape rules: one condition repeated across 3+ CSS props (Rule 19 — use isX + \'.isX\'), an interactive element with \':hover\' but no \':active\' (Rule 65), a state-driven `if:` on an element in flow beside siblings (Rule 66 — keep it mounted, toggle visibility), a built-in Button call site overriding padding / height (Rule 68). Returns violations, warnings, and a score. By default it returns only the findings. Pass include_playbook=true when you do not already have the AUDIT.md playbook: the answer then also names the get_project_rules calls that fetch it (every part, in order). It does not inline it.',
     inputSchema: {
       type: 'object',
       properties: {
         component_code: { type: 'string', description: 'The JavaScript code to audit' },
-        file_path: { type: 'string', description: "Where the file lives, relative to the project's symbols folder: 'functions/listQuerySet.js', 'components/SiteCover.js', 'pages/main.js', 'app.js'. A folder ('functions/') names the kind. Empty → a component.", default: '' }
+        file_path: { type: 'string', description: "Where the file lives, relative to the project's symbols folder: 'functions/listQuerySet.js', 'components/SiteCover.js', 'pages/main.js', 'app.js'. A folder ('functions/') names the kind. Empty → a component.", default: '' },
+        include_playbook: { type: 'boolean', description: 'Append the get_project_rules calls for the audit playbook (AUDIT.md, every part, in order) to the response; the playbook itself is not inlined. Default false.', default: false }
       },
       required: ['component_code']
     }
@@ -1666,7 +1677,6 @@ async function handleTool(name, args) {
   // audit_component (sync)
   if (name === 'audit_component') {
     const result = auditCode(args.component_code, args.file_path)
-    const rulesContext = readSkill('AUDIT.md')
     let output = `# Audit Report\n\nAudited as: \`${result.file}\`\n\n## Summary\n${result.summary}\nPassed: ${result.passed ? 'Yes' : 'No'}\n\n## Violations (Errors)\n`
     if (result.violations.length) {
       for (const v of result.violations) output += `- **Line ${v.line}**: ${v.message}\n`
@@ -1682,7 +1692,7 @@ async function handleTool(name, args) {
     if (result.violations.length) {
       output += '\n## MANDATORY ACTION\n\n**Every violation above MUST be fixed. There is NO concept of "known debt", "accepted violations", or "95% fixed" in Symbols. ALL violations must reach 100% resolution. Do NOT label any violation as "known debt" or defer it. Rewrite the code using proper DOMQL syntax.**\n\n'
     }
-    output += `\n## Detailed Rules Reference\n\n${rulesContext}`
+    if (args.include_playbook === true || args.include_playbook === 'true') output += playbookBlock()
     return output
   }
 

@@ -56,7 +56,7 @@
     },
     {
       "name": "audit_component",
-      "description": "Audit a Symbols/DOMQL component for compliance with deterministic rule checking."
+      "description": "Audit a Symbols/DOMQL component for compliance with deterministic rule checking. Returns only the findings by default; include_playbook=true also names the get_project_rules calls for the AUDIT.md playbook (it does not inline it)."
     },
     {
       "name": "detect_environment",

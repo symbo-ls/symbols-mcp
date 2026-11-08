@@ -163,7 +163,8 @@ mcp = FastMCP(
         "4. **`audit_component(code, file_path)`** after each file you write — inline validator, returns ~1K of "
         "violations. Pass `file_path` (e.g. `'functions/listQuerySet.js'`) so the folder-dependent rules apply where "
         "the file lives; without it the code is audited as a component. "
-        "Pass `include_playbook=True` only if you don't already have AUDIT.md.\n"
+        "Pass `include_playbook=True` only if you don't already have AUDIT.md: the answer then names the "
+        "`get_project_rules` calls that fetch it (it does not inline it).\n"
         "5. **`audit_project()`** when the user asks for a full project audit — returns the multi-phase playbook. "
         "Pair with `bin/symbols-audit <symbols-dir>` (CLI shipped in this package) for the static-audit phase.\n\n"
         # ── HARD RULES — agents MUST treat these as preconditions, not goals ────
@@ -1558,6 +1559,19 @@ def _references_block(skills: tuple[str, ...]) -> str:
     )
 
 
+def _playbook_block() -> str:
+    """audit_component(include_playbook=True): the AUDIT.md playbook, named
+    instead of inlined: every get_project_rules call for it, in order.
+    AUDIT.md alone is close to RULES_SAFE_BYTES, so a report with a few
+    findings put the inlined answer over it."""
+    return (
+        "\n---\n\n## Audit Playbook (AUDIT.md)\n\n"
+        f"{SKIP_CALL_LINE}\n\n"
+        "The playbook is not inlined. Make these calls, in this order:\n\n"
+        f"{_numbered_calls(_part_calls('AUDIT.md'))}\n"
+    )
+
+
 @mcp.tool(structured_output=False)
 def generate_component(
     description: str,
@@ -1862,13 +1876,16 @@ def audit_component(component_code: str, include_playbook: bool = False, file_pa
       across an entire project. Use during the playbook's static-audit phase.
 
     By default returns ONLY the findings (≈1–2K chars). Pass `include_playbook=True`
-    to also dump the AUDIT.md playbook in the same response when you don't already have it.
+    when you don't already have the AUDIT.md playbook: the answer then also names the
+    `get_project_rules` calls that fetch it (every part, in order). It does not inline it.
 
     Args:
         component_code: The JavaScript/DOMQL source string to validate.
-        include_playbook: Append the full audit playbook to the response. Default False
-                          to keep responses small. Default agents should NOT set this —
-                          call `audit_project()` separately if the playbook is needed.
+        include_playbook: Append the `get_project_rules` calls for the audit playbook
+                          (AUDIT.md, every part, in order) to the response; the playbook
+                          itself is not inlined. Default False. Default agents should NOT
+                          set this — call `audit_project()` separately if the playbook is
+                          needed.
         file_path: Where the file lives, relative to the project's symbols folder:
                    'functions/listQuerySet.js', 'components/SiteCover.js',
                    'pages/main.js', 'designSystem/color.js', 'app.js', 'state.js'.
@@ -1928,8 +1945,7 @@ Passed: {'Yes' if result['passed'] else 'No'}
     output += "- For the framework rules in detail, call `get_project_rules()`.\n"
 
     if include_playbook:
-        output += "\n---\n\n## Audit Playbook (AUDIT.md)\n\n"
-        output += _read_skill("AUDIT.md")
+        output += _playbook_block()
 
     return output
 
