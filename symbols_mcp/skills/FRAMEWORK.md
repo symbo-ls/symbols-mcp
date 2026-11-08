@@ -427,10 +427,29 @@ fetch: {
   adapter: 'rest',                        // 'rest' | 'local' | a registered adapter name
   url: 'https://xxx.supabase.co/rest/v1', // e.g. Supabase's PostgREST endpoint
   headers: { apikey: 'sb_publishable_...' },
+  dialect: 'postgrest',                   // PostgREST's query syntax (below)
   fetchOptions: { credentials: 'include' },
   auth: { baseUrl: '…', sessionUrl: '/me', signInUrl: '/login', signOutUrl: '/logout' }
 }
 ```
+
+**PostgREST — `dialect: 'postgrest'`** (since `@symbo.ls/fetch` `<r35 version>`; opt-in, on the adapter config). Without a dialect the REST adapter writes an object param as JSON text (`age={"gt":18}`), an order as `col:asc`, and writes to `/<from>/<id>`. A PostgREST backend (Supabase, a self-hosted PostgREST) reads none of that. With the dialect a query's `params`, `order` and `select` go in PostgREST's own syntax:
+
+```js
+params: { status: 'published' }        // status=eq.published
+params: { status: 'eq.published' }     // as written: a string that starts with an operator
+params: { age: { gte: 18, lte: 65 } }  // age=gte.18&age=lte.65 (any operator: neq, like, ilike, fts, cs, ov, …)
+params: { id: [1, 2, 3] }              // id=in.(1,2,3)
+params: { deleted_at: null }           // deleted_at=is.null
+params: { id: { not: [1, 2] } }        // id=not.in.(1,2)
+params: { note: { eq: 'in.progress' } } // a value that only looks like an operator
+params: { or: '(a.eq.1,b.eq.2)' }      // PostgREST's own keys (or, and, select, order, limit, offset, on_conflict, columns) as written
+order: { by: 'name', asc: false, nulls: 'last' }  // order=name.desc.nullslast (a list: joined with ',')
+select: ['id', 'title']                // select=id,title
+single: true                           // limit=1, and `data` is that row, or null
+```
+
+The writes name their rows with filters, never a path. `update` (PATCH) and `delete` use the filters in `params`, else `id=eq.<data.id>`. A write that names no rows is refused with an error result and no request (PostgREST would change every row); to change every row, say so: `params: { id: { not: { is: null } } }`. `upsert` is a POST with `Prefer: resolution=merge-duplicates` (added to the call's own `Prefer`, unless it names a resolution); `params: { on_conflict: 'email' }` picks other unique columns, and `method: 'PUT'` is PostgREST's one-row form, by the row's filter. An rpc's arguments are no filters: they go as written. The `fetch.early` pre-boot script asks with the same addresses. Without a dialect every address stays as it was.
 
 ### Custom adapters — `registerAdapter`
 
@@ -640,9 +659,9 @@ A page `smbls build` pre-rendered carries the answers its render got (§8), and 
 
 ### Status surfaces
 
-`el.__ref.__fetchStatus = { isFetching, isLoading, isStale, isSuccess, error, status, fetchStatus }` (`plugins/fetch/index.js`). Also `__fetching` (mirrors `isFetching`), `__fetchError` (mirrors `error`). Callbacks: `onFetchStart`, `onFetchComplete`, `onFetchError`.
+`el.__ref.__fetchStatus = { isFetching, isLoading, isStale, isSuccess, isError, error, httpStatus, code, status, fetchStatus }` (`plugins/fetch/index.js`). `isError` is `!!error`. Also `__fetching` (mirrors `isFetching`), `__fetchError` (mirrors `error`). Callbacks: `onFetchStart`, `onFetchComplete`, `onFetchError`.
 
-Note: there is no `isError` boolean field — derive from `!!__fetchStatus.error` if needed.
+**A failure's HTTP status and code** (since `@symbo.ls/fetch` `<r35 version>`). A failed query or mutation sets `httpStatus` (the answer's HTTP status: `401`, `403`, `503` …; `null` for a network failure) and `code` (the error body's `code`, as PostgREST sends it, else the error's own `code`; a number as its string; `null` when none). Every other status has both as `null`, so a success after a failure clears them; a query that joins a failed shared request gets the same status and code. The status is written before `onFetchError` runs: read `const { httpStatus, code } = el.__ref.__fetchStatus` there to tell a refusal (`401`, `403`) from a failure that can pass (no answer, a `503`), and branch on the stable `code` (`role_not_allowed`), never on the message, which is copy. `error` and the callback arguments do not change.
 
 A first part shown at init (`fetch.early` `adopt: 'init'`, a smaller early answer) keeps the element fetching until the full answer is in: read `isFetching` in the view (hide a "Show more" meanwhile), never in `transform` (it runs for both answers).
 
@@ -1411,7 +1430,7 @@ Common v2 deps that can be dropped during migration:
 | Package | Reason | Replacement |
 |---|---|---|
 | `fastclick` | Modern mobile browsers don't have the 300ms tap delay; click synthesis causes ghost-click bugs | Delete it. If you want the pressed-state / tap-highlight polish it used to provide, use `@symbo.ls/tap` instead (`plugins: [tapPlugin]`) — declarative, no synthesis. See `MODERN_STACK.md` → `@symbo.ls/tap` |
-| `@domql/cookie` | Bundled into smbls utils | `el.call('setCookie' / 'getCookie')` via context |
+| `@domql/cookie` | Bundled into smbls utils | `el.call('setCookie' / 'getCookie' / 'removeCookie')` via context. The same utils carry the storage helpers `getLocalStorage(key)`, `setLocalStorage(key, data)` and, since utils `<r35 version>`, `removeLocalStorage(key)` — a sign-out drops a stored session with `el.call('removeLocalStorage', key)`. Each one is silent with no storage, a blocked storage or a server render. `setLocalStorage(key, null)` (or `undefined`) writes nothing and keeps the stored item |
 | `axios` | Native `fetch` in every modern runtime | `fetch(...)` (or the `@symbo.ls/fetch` declarative API) |
 
 Remove from BOTH `package.json` and `symbols/dependencies.js`.

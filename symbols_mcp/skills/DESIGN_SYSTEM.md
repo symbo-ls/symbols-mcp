@@ -1125,6 +1125,10 @@ svg: {
 
 Default icon set: `symbols`, `logo`, arrow variants, `check`, `checkCircle`, chevron variants, `copy`, `eye`, `eyeOff`, `info`, `lock`, `minus`, `plus`, `search`, `send`, `smile`, `star`, `sun`, `moon`, `upload`, `video`, `x`, `moreHorizontal`, `moreVertical`.
 
+### Sprite symbol ids — `smbls-icon-<key>`
+
+Since smbls `<r35 version>` (with `@symbo.ls/scratch` and `@symbo.ls/default-config` of the same release). The icon / svg sprite writes each symbol under `smbls-icon-<key>` (`SPRITE_ID_PREFIX`, `spriteSymbolId(key)`), and the ids inside a symbol under `smbls-icon-<key>-<id>`. The sprite shares the page's id namespace: with a bare key, a page section `#close` lost its anchor and `getElementById('close')` to the `close` icon. The Icon and Svg atoms reference the new ids. **Breaking for hand-built references:** a `<use href="#<key>">` or a `getElementById('<key>')` built by hand names no sprite symbol now, and the icon paints nothing (a loud dev runtime warns once per key). Render the icon with the `Icon` component, or build the reference with the runtime's namer: `el.context.utils.spriteSymbolId(key)` in project code, `spriteSymbolId(key)` from `smbls` in module code. Bump `smbls` and `@symbo.ls/scratch` together: code that builds a sprite with `@symbo.ls/scratch` (`convertSvgToSymbol`) while the `smbls` bundle paints the icons must take both from one release, else the sprite has one id and the icons another, and every such icon paints nothing. `PREPARED_FORMAT` is 2: a page processes a format-1 prepared config again.
+
 ### Icon usage in components — STRICT (Rule 29 / Rule 62)
 
 **ALWAYS use the `Icon` component referencing `designSystem.icons` by name.** Inline SVG via `html: '<svg ...>'` for icons is FORBIDDEN — bypasses the design system, breaks theme color resolution, breaks SSR, breaks brender hydration, duplicates SVG strings across components.

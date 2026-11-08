@@ -1585,7 +1585,7 @@ Declarative fetch on any element. Caching, dedup, retry, refetch-on-focus, pagin
 
 ```js
 fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
-         headers: { apikey: 'sb_publishable_…' } }
+         headers: { apikey: 'sb_publishable_…' }, dialect: 'postgrest' }  // PostgREST's query syntax (FRAMEWORK.md §5)
 // or another REST API:
 fetch: { adapter: 'rest', url: 'https://api.example.com',
          headers: { Authorization: 'Bearer token' },
@@ -2000,8 +2000,8 @@ export const DataList = {
 
 - The fetch plugin writes no loading or error key into state: there is no `s.__loading` or `s.__error`. A `__`-prefixed state key never re-renders anything.
 - Start with `loading: false`: a fresh cache hit sends no request, so neither `onFetchStart` nor `onFetchComplete` runs.
-- The REST adapter's `error` is a string; other adapters may give an object with `message`.
-- `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
+- The REST adapter's `error` is a string; other adapters may give an object with `message`. To tell a refusal from a failure that can pass, read `httpStatus` and `code` from `el.__ref.__fetchStatus` in `onFetchError` (since `@symbo.ls/fetch` `<r35 version>`; FRAMEWORK.md → Status surfaces).
+- `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `httpStatus`, `code`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
 - The three callbacks also work inside the `fetch` object (`fetch: { …, onFetchStart }`), with the same arguments.
 
 ### Active List Item

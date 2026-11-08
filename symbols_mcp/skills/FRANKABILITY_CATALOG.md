@@ -1531,8 +1531,14 @@ Button/Input/Select/etc.
 
 Scope: this rule only fires inside DOMQL components. Lowercase keys
 in state.js, config.js, design-system files, or inside style/attr/
-state/scope/props/cases/data containers are NOT renamed — those are
-data, not children.
+state/scope/props/cases/data/polyglot containers are NOT renamed —
+those are data, not children.
+
+The polyglot copy is data too: translations.js, and every module a
+`polyglot` value imports (with the modules those import), are never
+read. A copy group named like a tag (`app.nav: { … }`) is a
+dictionary key — renaming it to `Nav` would break every
+`{{ app.nav.x | polyglot }}` that reads it.
 
 # FA803 — redundant-flex-extends
 

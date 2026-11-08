@@ -47,7 +47,7 @@ export default {
 
 ```js
 fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
-         headers: { apikey: 'sb_publishable_…' } }
+         headers: { apikey: 'sb_publishable_…' }, dialect: 'postgrest' }  // PostgREST's query syntax (FRAMEWORK.md §5)
 // or another REST API:
 fetch: { adapter: 'rest', url: 'https://api.example.com',
          headers: { Authorization: 'Bearer token' },
@@ -807,7 +807,9 @@ Pre-hydration errors still surface. Pre-hydration `info`/`debug` events are drop
 
 `runFetch` and `runMutation` in `plugins/fetch/index.js` call `context.analyze.emitNetwork({ phase, mode, from, method, cacheKey, durationMs, ... })` at start/success/error. The call is a no-op when analyze isn't installed, so projects without analyze pay nothing.
 
-When analyze is installed AND `network: true` is set, the events are smbls-aware (they include the cache key, mode, and lang suffix). `window.fetch` and XHR are also wrapped to catch non-smbls traffic.
+When analyze is installed AND `network: true` is set, the events are smbls-aware (they carry `from`, `method`, `mode` and a `cacheKey`). `window.fetch` and XHR are also wrapped to catch non-smbls traffic.
+
+**The event's `cacheKey` carries no values** (since `@symbo.ls/fetch` / smbls `<r35 version>`). It names the query without its values: `from:method:` and a hash of the fetch cache key, salted once per page load (`cacheKey: 'users:select:#5c1a9e07'`). The same query keeps one value for the page's life (a refetch loop shows as one key), another query gets another value, and no param, page, cursor, scope or `cache.key` value reaches a sink. A query with `cache: false` has `cacheKey: null`. Before, the event carried the fetch cache key itself (`JSON.stringify(params)` with the page, the cursor and the tenant scope, or the app's own `cache.key`), so a token, an email or an id a query was asked with reached every analyze sink. The cache, its keys and the requests are unchanged.
 
 ### Session replay (smbls-native)
 
