@@ -10,6 +10,7 @@ import posixpath
 import re
 import subprocess
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from importlib.metadata import version as _pkg_version, PackageNotFoundError
 
@@ -1025,6 +1026,28 @@ def _rules_section_parts(name: str) -> list[str]:
     return _split_markdown_parts(_read_skill(fname))
 
 
+def _skill_part_response(name: str, parts: list[str], part: int, call: Callable[[int], str]) -> str:
+    """One part of a skill split by _split_markdown_parts: a head line, the body
+    and, when more parts follow, a continuation line naming `call(part + 1)` —
+    the next call in the tool the caller used (get_project_rules,
+    get_cli_reference). An out-of-range part raises a ValueError naming the
+    valid range."""
+    if part < 1 or part > len(parts):
+        raise ValueError(
+            f"Section '{name}' has {len(parts)} part(s); part={part} is out of range. "
+            f"Use part=1..{len(parts)}."
+        )
+    body = parts[part - 1]
+    if len(parts) == 1:
+        head = f"<!-- section {name} ({len(body):,} chars) -->\n"
+    else:
+        head = f"<!-- section {name} part {part}/{len(parts)} ({len(body):,} chars) -->\n"
+    tail = ""
+    if part < len(parts):
+        tail = f"\n\n<!-- continues: {call(part + 1)} (of {len(parts)}) -->\n"
+    return head + body + tail
+
+
 def _rules_section_index() -> str:
     rows = []
     for name, fname, desc in RULES_SECTIONS:
@@ -1188,21 +1211,9 @@ def _rules_section_response(raw_sections: str, part: int) -> str:
             f"<!-- section {n} ({len(parts[0]):,} chars) -->\n" + parts[0] for n, parts in resolved
         )
     name, parts = resolved[0]
-    if part < 1 or part > len(parts):
-        raise ValueError(
-            f"Section '{name}' has {len(parts)} part(s); part={part} is out of range. "
-            f"Use part=1..{len(parts)}."
-        )
-    body = parts[part - 1]
-    if len(parts) == 1:
-        head = f"<!-- section {name} ({len(body):,} chars) -->\n"
-    else:
-        head = f"<!-- section {name} part {part}/{len(parts)} ({len(body):,} chars) -->\n"
-    tail = ""
-    if part < len(parts):
-        tail = (f"\n\n<!-- continues: get_project_rules(section='{name}', part={part + 1}) "
-                f"(of {len(parts)}) -->\n")
-    return head + body + tail
+    return _skill_part_response(
+        name, parts, part, lambda n: f"get_project_rules(section='{name}', part={n})"
+    )
 
 
 @mcp.tool()
@@ -2006,18 +2017,33 @@ def explain_frankability_rule(rule_id: str) -> str:
 
 
 @mcp.tool()
-def get_cli_reference() -> str:
-    """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`).
+def get_cli_reference(part: int = 1) -> str:
+    """Returns the complete `smbls` CLI reference (`@symbo.ls/cli`), in parts.
+
+    The whole reference is larger than one tool result can carry: Claude Code
+    replaces any result above MAX_MCP_OUTPUT_TOKENS (default 25 000 tokens,
+    about 100 000 chars) with a file path, and the text never reaches the model.
+    So it comes in parts of at most 80 000 chars, cut only at `## ` headings.
+    Call with no arguments for part 1. Every part except the last ends with the
+    call for the next one: `get_cli_reference(part=2)`, and so on. The same
+    parts also come from `get_project_rules(section="CLI", part=N)`.
 
     Mirrors `smbls/CLI_FOR_MCP.md`. Covers: configuration files (symbols.json, .symbols_local/),
     API URL resolution order + env-var overrides, common flag conventions, full command map
     (project lifecycle, auth, sync, project mgmt, workspace ops, files & assets, integrations,
     GitHub, Frank JSON↔FS, dev/build/deploy, code transformation, SDK proxy, ask),
     publish flow (one-shot + granular), MCP/agent usage rules (--non-interactive + --yes
-    + NODE_ENV + SYMBOLS_AUTH_TOKEN), error-handling contracts (AUTH_REQUIRED,
+    + NODE_ENV + SYMBOLS_TOKEN), error-handling contracts (AUTH_REQUIRED,
     ECONNREFUSED, missing app key), source-file map, and CLI-specific anti-patterns.
+
+    Args:
+        part: The part to return, from 1. Default 1. A part out of range raises
+            an error that names the valid range.
     """
-    return _read_skill("CLI.md")
+    return _skill_part_response(
+        "CLI", _split_markdown_parts(_read_skill("CLI.md")), part,
+        lambda n: f"get_cli_reference(part={n})",
+    )
 
 
 @mcp.tool()

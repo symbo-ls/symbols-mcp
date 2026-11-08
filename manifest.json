@@ -64,7 +64,7 @@
     },
     {
       "name": "get_cli_reference",
-      "description": "Returns the complete Symbols CLI (@symbo.ls/cli) command reference."
+      "description": "Returns the complete Symbols CLI (@symbo.ls/cli) command reference, in parts (part=N, each under the client tool-output cap)."
     },
     {
       "name": "get_sdk_reference",
