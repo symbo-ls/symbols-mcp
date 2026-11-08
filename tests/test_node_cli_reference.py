@@ -1,6 +1,7 @@
 """The Node server (`bin/symbols-mcp.cjs`, the npm package and the .mcpb
-bundle) serves get_cli_reference in parts, like the Python server: CLI.md is
-above the inline cap, so the whole file in one answer never reached the model.
+bundle) serves get_cli_reference and get_sdk_reference in parts, like the
+Python server: CLI.md and SDK.md are above the inline cap, so the whole file in
+one answer never reached the model.
 
 Driven over stdio JSON-RPC, the way an MCP client talks to it. Skipped when
 `node` is not installed.
@@ -38,7 +39,7 @@ def _rpc(*requests):
     return replies
 
 
-@pytest.mark.parametrize("tool,name", [("get_cli_reference", "CLI")])
+@pytest.mark.parametrize("tool,name", [("get_cli_reference", "CLI"), ("get_sdk_reference", "SDK")])
 def test_the_reference_takes_a_part_and_each_part_fits_the_cap(tool, name):
     def call(arguments):
         return ("tools/call", {"name": tool, "arguments": arguments})

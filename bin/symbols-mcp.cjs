@@ -70,12 +70,12 @@ function readSkill(filename) {
 // - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
 //   to <file>".
 // Either way the text never reaches the model. So every answer of the docs
-// tools — each core part, each section part, each CLI reference part — stays
-// at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the client
-// receives it (head and continuation lines included). Bytes, not chars: a byte
-// count is never below the char count. This server answers every tool with one
-// text block and no structuredContent, so the string the client receives is
-// the answer itself.
+// tools — each core part, each section part, each CLI / SDK reference part —
+// stays at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the
+// client receives it (head and continuation lines included). Bytes, not chars:
+// a byte count is never below the char count. This server answers every tool
+// with one text block and no structuredContent, so the string the client
+// receives is the answer itself.
 // ---------------------------------------------------------------------------
 const RULES_SAFE_BYTES = 45000
 // A served part is a head line + its body + (when more parts follow) a
@@ -368,12 +368,20 @@ function skillPartResponse(name, parts, n, call) {
   return partHead(name, body, n, parts.length) + body + tail
 }
 
-// get_cli_reference: CLI.md is above the safe cap, so it is served in the
-// parts get_project_rules(section='CLI') serves. Mirrors server.py
-// get_cli_reference: no part → part 1, part 0 is out of range.
-function cliReference(part) {
+// get_cli_reference / get_sdk_reference: CLI.md and SDK.md are above the cap,
+// so each is served in the parts get_project_rules(section='CLI' / 'SDK')
+// serves. Mirrors server.py: no part → part 1, part 0 is out of range.
+function referencePart(name, file, tool, part) {
   const n = part === undefined || part === null ? 1 : Number(part)
-  return skillPartResponse('CLI', splitMarkdownParts(readSkill('CLI.md')), n, k => `get_cli_reference(part=${k})`)
+  return skillPartResponse(name, splitMarkdownParts(readSkill(file)), n, k => `${tool}(part=${k})`)
+}
+
+function cliReference(part) {
+  return referencePart('CLI', 'CLI.md', 'get_cli_reference', part)
+}
+
+function sdkReference(part) {
+  return referencePart('SDK', 'SDK.md', 'get_sdk_reference', part)
 }
 
 function loadAgentInstructions(args = {}) {
@@ -1035,8 +1043,13 @@ const TOOLS = [
   },
   {
     name: 'get_sdk_reference',
-    description: 'Returns the complete Symbols SDK (@symbo.ls/sdk) API reference — all services, methods, and usage examples.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Returns the complete Symbols SDK (@symbo.ls/sdk) API reference — all services, methods, and usage examples — in parts. The whole reference is larger than one answer a client passes to the model inline (Claude Code saves an answer over 50,000 chars or 25,000 tokens to a file), so each answer is one part of at most 45,000 UTF-8 bytes, head and continuation lines included, cut at ## headings (### and #### inside a larger block), never inside a code block. No arguments → part 1; every part except the last ends with the call for the next one: get_sdk_reference(part=2), and so on.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        part: { type: 'number', description: 'The part to return, from 1. Default 1. Every part except the last names the next call. A part out of range returns an error that names the valid range.', default: 1 }
+      }
+    }
   },
   {
     name: 'generate_component',
@@ -1236,7 +1249,7 @@ async function handleTool(name, args) {
   if (name === 'get_project_rules') return loadAgentInstructions(args || {})
   if (name === 'search_symbols_docs') return searchDocs(args.query, args.max_results || 3)
   if (name === 'get_cli_reference') return cliReference((args || {}).part)
-  if (name === 'get_sdk_reference') return readSkill('SDK.md')
+  if (name === 'get_sdk_reference') return sdkReference((args || {}).part)
 
   // Helper to read and concatenate multiple skill files
   function readSkills(...filenames) {

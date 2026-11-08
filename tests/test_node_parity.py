@@ -56,7 +56,7 @@ def test_every_skill_part_is_the_same_bytes_in_both_servers():
         for i in range(1, n + 1):
             calls.append(("get_project_rules", {"section": path.stem, "part": i}))
             expected.append(server.get_project_rules(section=path.stem, part=i))
-    for tool, name in (("get_cli_reference", "CLI"),):
+    for tool, name in (("get_cli_reference", "CLI"), ("get_sdk_reference", "SDK")):
         n = len(server._split_markdown_parts(server._read_skill(f"{name}.md")))
         for i in range(1, n + 1):
             calls.append((tool, {"part": i}))

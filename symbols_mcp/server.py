@@ -943,10 +943,10 @@ def _convert_findings_to_legacy(payload: dict) -> dict:
 # - an answer above 25,000 tokens gets "exceeds maximum allowed tokens … saved
 #   to <file>".
 # Either way the text never reaches the model. So every answer of the docs
-# tools — each core part, each section part, each CLI reference part — stays
-# at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the client
-# receives it (head and continuation lines included). Bytes, not chars: a
-# byte count is never below the char count.
+# tools — each core part, each section part, each CLI / SDK reference part —
+# stays at or under RULES_SAFE_BYTES UTF-8 bytes, the whole answer as the
+# client receives it (head and continuation lines included). Bytes, not
+# chars: a byte count is never below the char count.
 # Every tool whose answer is Markdown text is registered with
 # `@mcp.tool(structured_output=False)`: with FastMCP's automatic output schema
 # the answer also goes out as structuredContent `{"result": "…"}`, and Claude
@@ -1095,7 +1095,7 @@ def _skill_part_response(name: str, parts: list[str], part: int, call: Callable[
     """One part of a skill split by _split_markdown_parts: a head line, the body
     and, when more parts follow, a continuation line naming `call(part + 1)` —
     the exact next call in the tool the caller used (get_project_rules,
-    get_cli_reference). An out-of-range part raises a
+    get_cli_reference, get_sdk_reference). An out-of-range part raises a
     ValueError naming the valid range."""
     total = len(parts)
     if part < 1 or part > total:
@@ -2179,8 +2179,17 @@ def get_cli_reference(part: int = 1) -> str:
 
 
 @mcp.tool(structured_output=False)
-def get_sdk_reference() -> str:
-    """Returns the complete `@symbo.ls/sdk` API reference (3.14.0).
+def get_sdk_reference(part: int = 1) -> str:
+    """Returns the complete `@symbo.ls/sdk` API reference (3.14.0), in parts.
+
+    The whole reference is larger than one tool result can carry inline: Claude
+    Code saves an answer over 50,000 chars (or 25,000 tokens) to a file, and the
+    text never reaches the model. So it comes in parts of at most 45,000 UTF-8
+    bytes each, head and continuation lines included, cut at `## ` headings (at
+    `### `, then `#### `, inside a larger block), never inside a code block.
+    Call with no arguments for part 1. Every part except the last ends with the
+    call for the next one: `get_sdk_reference(part=2)`, and so on. The same
+    parts also come from `get_project_rules(section="SDK", part=N)`.
 
     Mirrors `sdk/SDK_FOR_MCP.md`. Covers all 24 services with full method lists:
     auth, collab, project, plan, subscription, file, payment, dns, branch, pullRequest,
@@ -2191,8 +2200,15 @@ def get_sdk_reference() -> str:
     (sdk.rootBus with last-payload replay), validation surface, federation primitive
     (multi-Supabase registry), permissions reference (ROLE_PERMISSIONS,
     PROJECT_ROLE_PERMISSIONS, TIER_FEATURES), error handling contract, and MCP integration notes.
+
+    Args:
+        part: The part to return, from 1. Default 1. A part out of range raises
+            an error that names the valid range.
     """
-    return _read_skill("SDK.md")
+    return _skill_part_response(
+        "SDK", _split_markdown_parts(_read_skill("SDK.md")), part,
+        lambda n: f"get_sdk_reference(part={n})",
+    )
 
 
 @mcp.tool(structured_output=False)
