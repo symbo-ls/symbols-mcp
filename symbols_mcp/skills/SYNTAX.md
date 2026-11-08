@@ -81,6 +81,17 @@ export default {
 
 **Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once (during the first render and the adoption of a pre-rendered page, smbls sets `mountWhole`: it waits outside its parent and goes in with one insertion when its last chunk is in, so a row is never on screen half built), but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
+**A gated element opens whole** (since `@symbo.ls/element` 3.14.833 / smbls 3.14.882). After the first render, an `if:` or `deferUntil` element with `yieldChildren` (`true` = a 50 ms budget, a number = the budget in ms) builds its first opening as a yielding mount: every children loop in its subtree runs under its budget, not only its own. The subtree is built outside the document and goes in with one insertion, in its declared place, when its last chunk is in. Then its `onCreate` … `onRenderRouter` fire and `onMounted` is queued (`el.whenMounted()` resolves then). Its descendants' hooks run as each one completes, outside the document: work that needs the node in the document (focus, measuring) goes in `el.whenConnected()`, which runs at the insertion. A gate that closes before the last chunk keeps the element out, with no `onRemove` (it was never shown); its next opening puts it in. An element removed meanwhile drops the rest. Without `yieldChildren` an opening builds in one go, as before.
+
+```js
+Section: {
+  tag: 'section',
+  deferUntil: (el, st) => st.data !== null,
+  yieldChildren: 10
+  // … a long subtree: it goes in whole, after its last chunk
+}
+```
+
 ---
 
 ## REGISTRY Keys
