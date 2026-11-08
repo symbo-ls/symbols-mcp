@@ -316,6 +316,7 @@ export const Gauge = {
 - Names are verbatim and case-sensitive: `--rteTop` and `--rte-top` are two properties. Values are verbatim too: no design-token lookup (`'C'` stays `C`).
 - `vars` inside a pseudo / media / theme / `.isX` block declares custom properties there. `el.update({ vars })` re-applies the static entries.
 - Prefer `vars` / `'--x'` over `style: { '--x': … }` and over `node.style.setProperty` (Rule 30).
+- **Reading one with a bare `--x` value** (since smbls `<r36 version>`): a CSS prop's value `'--x'` reads the variable — `lineHeight: '--lh'` writes `line-height: var(--lh)` on every path (static, reactive, `.isX`, `:hover` and other selector blocks). Before, `@symbo.ls/element` wrote a passthrough property's `--x` raw on its own paths, and the browser dropped it. A property whose value IS a name keeps `--x` as written: `anchorName`, `anchorScope`, `animationTimeline`, `container`, `containerName`, `positionAnchor`, `positionTry`, `positionTryFallbacks`, `scrollTimeline`, `scrollTimelineName`, `timelineScope`, `viewTimeline`, `viewTimelineName`, `viewTransitionClass`, `viewTransitionName` (`scrollTimelineName: '--rail'` → `scroll-timeline-name: --rail`). To read a variable in one of them, write `var(--x)` in full.
 
 **`fill` and `stroke`** are CSS props on every tag except `<svg>`, where the element's own flat `fill` / `stroke` stay the presentation attributes they always were. Inside a CSS block (`:hover`, `.isActive`, `@dark`) they are CSS on every tag, which outranks the attribute, so a block still repaints an `<svg>`. Their values are written as given (no colour-token lookup): `fill: 'currentColor'` with a `color` token.
 
@@ -1280,6 +1281,7 @@ export const Chart = {
 | | `el.getChildren()` | Direct children array |
 | | `el.getPath()` | Ancestor key chain |
 | | `el.getAdoption()` | `'adopted'` / `'replaced'` / `null`: how this element's first view came over a pre-rendered page, from its first hook (`onInit` too, since smbls 3.14.867; FRAMEWORK.md → In app code) |
+| | `el.getExtends()` | Names of the components the element is built from, highest priority first (a new array; inline objects left out). Use it, never `el.__ref.__extends`: the element engine never writes that field |
 | **Updates** | `el.update(value, opts?)` | Deep merge update |
 | | `el.setProps(value, opts?)` | Alias for update |
 | | `el.set(content, opts?)` | Replace element's `content` child |
@@ -2003,6 +2005,7 @@ export const DataList = {
 - The REST adapter's `error` is a string; other adapters may give an object with `message`. To tell a refusal from a failure that can pass, read `httpStatus` and `code` from `el.__ref.__fetchStatus` in `onFetchError` (since `@symbo.ls/fetch` `<r35 version>`; FRAMEWORK.md → Status surfaces).
 - `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `httpStatus`, `code`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
 - The three callbacks also work inside the `fetch` object (`fetch: { …, onFetchStart }`), with the same arguments.
+- **App-wide, every request's outcome** (an error reporter, a trail of slow or failed requests): a plugin's `fetchSettled(el, info)` hook (since `@symbo.ls/fetch` `<r36 version>`), one listen-only call per answer a `fetch` declaration gets, with `{ mode, from, method, ok, status, code, message, durationMs, cached }`. Never wrap `window.fetch` for it. `el.getDB()` calls and `prefetchQuery` do not report (FRAMEWORK.md §5 → Every request's outcome).
 
 ### Active List Item
 

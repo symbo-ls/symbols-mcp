@@ -1226,7 +1226,7 @@ vars: {
 }
 ```
 
-Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. Any `--` prefixed value is auto-wrapped in `var()`.
+Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. A bare `--x` value is wrapped in `var()` — except on a property whose value IS a name (`scrollTimelineName`, `anchorName`, `containerName`, `viewTransitionName`, …), which keeps `--x` as written (since smbls `<r36 version>`; the list: SYNTAX.md → CSS Custom Properties).
 
 Per element, set custom properties with the `vars` prop or a top-level `'--x'` key (static → the element's class, a function → inline and reactive; see SYNTAX.md → CSS Custom Properties). A custom property's name keeps its case in the emitted CSS (`--iconShift` is not `--icon-shift`).
 
@@ -1430,6 +1430,7 @@ Quick reference for the shorthand props the design system exposes.
 | `overflow` | Also sets `scrollBehavior: 'smooth'` |
 | `cursor` | Supports file lookup for custom cursor images |
 | `transitionProperty` | Also sets `willChange` to same value |
+| `scale` | A CSS prop beside `rotate` and `translate` (since smbls `<r36 version>`): the value is written as given — `scale: 1.5` → `scale: 1.5` (no unit), `'1.2 0.8'`, `'none'`; `'--x'` → `var(--x)`. Before, a flat `scale` was dropped (only the dev dropped-CSS warning said so) |
 
 ---
 
@@ -1457,6 +1458,8 @@ Container: {
   '+ div': { paddingTop: 'B' }
 }
 ```
+
+A key that starts with `>`, `+`, `~` or `*` is a selector block, as a key that starts with `:`, `@`, `&` or `[` is: `'> *'` → `.cls > *`, `'+ div'` → `.cls + div`, `'~ .note'`, `'* span'`. It works in a `.isX` block and with function values, and an `extends` base and the instance that both declare `'> *'` merge their blocks. Since smbls `<r36 version>` (`@symbo.ls/element`): on older runtimes such a key produced no rule and no warning — write `'& > *'` / `'& + div'` there, which every runtime compiles.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Frank (`@symbo.ls/frank`) serializes a Symbols project into a JSON payload that the deployed runtime hydrates. Code that "looks fine locally" can silently break under serialization — closures vanish, module-level mutations are dropped, sibling imports get inlined and lose identity. This document is the contract for code that frank can serialize without surprises.
 
-> Run `smbls frank-audit` to see findings, `smbls frank-audit --fix` to apply safe auto-fixes (verify-or-rollback semantics — every applied fix is verified against `frank.toJSON`; regressions roll back). Frank itself ships a bundle-time fixer that recovers many patterns at publish time; frank-audit is for cleaning the source so what you commit matches what frank ships. See `@symbo.ls/frank-audit` for the full rule reference.
+> Run `smbls frank-audit` to see findings, `smbls frank-audit --fix` to apply safe auto-fixes (verify-or-rollback semantics — every applied fix is verified against `frank.toJSON`; regressions roll back). `frank-audit verify` checks what a push ships: since frank-audit `<r36 version>` it runs `frank.toJSON({ scanAndFix: true })`, as `smbls push` does, and reports the emitted project's unresolved names (`residualIssues`) and what frank's fix pass repaired (`fixedIssues`). Frank itself ships a bundle-time fixer that recovers many patterns at publish time; frank-audit is for cleaning the source so what you commit matches what frank ships. See `@symbo.ls/frank-audit` for the full rule reference.
 
 ---
 

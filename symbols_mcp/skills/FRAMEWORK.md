@@ -665,6 +665,28 @@ A page `smbls build` pre-rendered carries the answers its render got (§8), and 
 
 A first part shown at init (`fetch.early` `adopt: 'init'`, a smaller early answer) keeps the element fetching until the full answer is in: read `isFetching` in the view (hide a "Show more" meanwhile), never in `transform` (it runs for both answers).
 
+### Every request's outcome — `fetchSettled`
+
+Since `@symbo.ls/fetch` `<r36 version>`. To see what each request got, app-wide (an error reporter, a trail of requests), give a plugin a `fetchSettled(el, info)` hook; never wrap `window.fetch` for it.
+
+```js
+export const requestTrail = {
+  name: 'requestTrail',
+  fetchSettled (el, info) {
+    // info: { mode, from, method, ok, status, code, message, durationMs, cached }
+    if (!info.ok || info.durationMs >= 3000) keep(info)
+  }
+}
+// in the app's context.plugins: create(App, { plugins: [requestTrail] })
+```
+
+- One call for each answer a `fetch` declaration gets: a request when it settles, or the cache (`cached: true`, no request). A query that shares a request already in flight sends no call of its own: that request reports, once. `el` is the element that asked.
+- `info` is a frozen object, one for each listener, with exactly 9 fields: `mode` (`'mutation'` for `insert` / `update` / `upsert` / `delete`, else `'query'`, an `rpc` too), `from` (the config's, without a URL's `?…` / `#…`; `null` when not a string), `method`, `ok` (`true` when the answer came with no error), `status` (the HTTP status, or `null`: no answer, the cache, an adapter that gives none), `code` (the server's error code as `__fetchStatus.code` reads it, only when it is a short token — letters, digits, `.`, `_`, `-`; 40 at most — else `null`), `message` (the error's message, or `null`), `durationMs` (`performance.now()`, rounded, never below 0; `0` for the cache) and `cached`. Nothing the request was asked with: no params, cache key, body, headers or URL.
+- Listen-only: the return value is ignored. A listener that throws is caught and logged (`[@symbo.ls/fetch] fetchSettled hook threw:`); the request, the element's callbacks and the other listeners go on. With no listener, nothing is measured or built.
+- It runs when the answer lands, before the element takes it. A request whose element is gone by then, or whose tenant scope changed, still reports; the element takes nothing, as before. A run that sends nothing reports nothing: its element left before the request went out, or while a retry waited (the failed try before is not reported either). A write refused before it goes out (`auth: true`, no session) reports `ok: false`, `message: 'Not authenticated'`.
+- **Not covered:** a call on the adapter in code (`el.getDB()`) and a prefetch (`prefetchQuery`) go straight to the adapter and report nothing.
+- With `@symbo.ls/analyze` and network capture on, its `fetch.success` / `fetch.error` events carry `status` and `code` too, with the same limits (MODERN_STACK.md → Network capture).
+
 ### Anti-patterns
 
 - Don't bypass adapter — `await fetch(...)` from inside DOMQL skips cache, retry, dedupe, optimistic, and the `Accept-Language` header injection. Streaming (SSE), binary downloads and multipart uploads are no exception: the REST adapter reads them through `responseType` and sends `FormData` / `Blob` bodies as they are (see Imperative).

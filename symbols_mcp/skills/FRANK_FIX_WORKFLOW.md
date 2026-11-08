@@ -42,7 +42,7 @@ frank-audit detects, fixes, and verifies. It already mechanically resolves high-
 | `audit_and_fix_frankability(dir, mode)` | Always first. `mode` ∈ `report` (read-only) / `safe-fix` (mechanical) / `full` (mechanical + sampling). |
 | `prescribe_frankability_fixes(dir)` | After safe-fix. Returns the residue with `proposedOps`. |
 | `apply_frankability_edit_ops(dir, ops_json)` | Apply your batch. Always verify-or-rollback. |
-| `verify_frankability(dir)` | Standalone bundleability check. Use to confirm a baseline before/after. |
+| `verify_frankability(dir)` | Standalone check of what a push ships (`frank-audit verify`). Since frank-audit `<r36 version>` it runs `frank.toJSON({ scanAndFix: true })`, the call `smbls push` / sync / collab make, and scans the EMITTED project: `isFrankable`, `residualIssues` (names still unresolved after frank's fix pass; globalScope entries left out) and `fixedIssues` (what the fix pass repaired — never a failure). Before, it scanned the source before the fix pass and listed names the fix pass resolves. Use it to confirm a baseline before/after. |
 | `rollback_frankability(dir, op_id)` | Manually undo a specific past op. |
 | `snapshots_frankability(dir)` | List opIds available for rollback. |
 | `frankability_log(dir, limit=50)` | Tail audit log — see what was applied / rolled back recently. |
@@ -296,7 +296,7 @@ Every batch you submit is verified end-to-end:
 1. `applyEditOps` snapshots every file an op references, plus `globalScope.js`.
 2. Measures a baseline (`bundleFailed?`, `scanIssues` count).
 3. Applies your ops to disk (AST mutations + source-line replacements).
-4. Re-runs `frank.toJSON({scanAndFix:true})`.
+4. Re-runs the source scan, `frank.toJSON({scanAndFix:false})` (frank-audit's `sourceRoundTrip`): the project before frank's fix pass. So an edit that adds a free variable counts as a regression even when the fix pass would repair it, and a project whose emission frank's gate refuses still takes edits. (`verify_frankability` reads the emission instead — above.)
 5. If the result regressed (bundle now fails, or scan issues count went up), restores every snapshot.
 
 You do not need to verify yourself. Do not write defensive code. Emit one focused batch, trust the rollback.
