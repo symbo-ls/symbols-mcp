@@ -226,14 +226,28 @@ function rulesSectionResponse(rawSections, part) {
     return resolved.map(([n, p]) => `<!-- section ${n} (${p[0].length} chars) -->\n` + p[0]).join('\n\n---\n\n')
   }
   const [name, parts] = resolved[0]
-  const n = Number(part) || 1
-  if (n < 1 || n > parts.length) throw new Error(`Section '${name}' has ${parts.length} part(s); part=${n} is out of range. Use part=1..${parts.length}.`)
+  return skillPartResponse(name, parts, Number(part) || 1, k => `get_project_rules(section='${name}', part=${k})`)
+}
+
+// One part of a skill split by splitMarkdownParts: a head line, the body and,
+// when more parts follow, a continuation line naming call(n + 1) — the next
+// call in the tool the caller used. Mirrors server.py _skill_part_response.
+function skillPartResponse(name, parts, n, call) {
+  if (!Number.isInteger(n) || n < 1 || n > parts.length) throw new Error(`Section '${name}' has ${parts.length} part(s); part=${n} is out of range. Use part=1..${parts.length}.`)
   const body = parts[n - 1]
   const head = parts.length === 1
     ? `<!-- section ${name} (${body.length} chars) -->\n`
     : `<!-- section ${name} part ${n}/${parts.length} (${body.length} chars) -->\n`
-  const tail = n < parts.length ? `\n\n<!-- continues: get_project_rules(section='${name}', part=${n + 1}) (of ${parts.length}) -->\n` : ''
+  const tail = n < parts.length ? `\n\n<!-- continues: ${call(n + 1)} (of ${parts.length}) -->\n` : ''
   return head + body + tail
+}
+
+// get_cli_reference: CLI.md is above the safe cap, so it is served in the
+// parts get_project_rules(section='CLI') serves. Mirrors server.py
+// get_cli_reference: no part → part 1, part 0 is out of range.
+function cliReference(part) {
+  const n = part === undefined || part === null ? 1 : Number(part)
+  return skillPartResponse('CLI', splitMarkdownParts(readSkill('CLI.md')), n, k => `get_cli_reference(part=${k})`)
 }
 
 function loadAgentInstructions(args = {}) {
@@ -885,8 +899,13 @@ const TOOLS = [
   },
   {
     name: 'get_cli_reference',
-    description: 'Returns the complete Symbols CLI (@symbo.ls/cli) command reference — all smbls commands, options, and workflows.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Returns the complete Symbols CLI (@symbo.ls/cli) command reference — all smbls commands, options, and workflows — in parts. The whole reference is above the tool-output cap of MCP clients (Claude Code: MAX_MCP_OUTPUT_TOKENS, default 25 000 tokens ≈ 100k chars), so each answer is one part of at most 80k chars, cut at ## headings. No arguments → part 1; every part except the last ends with the call for the next one: get_cli_reference(part=2), and so on.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        part: { type: 'number', description: 'The part to return, from 1. Default 1. Every part except the last names the next call. A part out of range returns an error that names the valid range.', default: 1 }
+      }
+    }
   },
   {
     name: 'get_sdk_reference',
@@ -1090,7 +1109,7 @@ async function handleTool(name, args) {
   // Documentation tools (sync)
   if (name === 'get_project_rules') return loadAgentInstructions(args || {})
   if (name === 'search_symbols_docs') return searchDocs(args.query, args.max_results || 3)
-  if (name === 'get_cli_reference') return readSkill('CLI.md')
+  if (name === 'get_cli_reference') return cliReference((args || {}).part)
   if (name === 'get_sdk_reference') return readSkill('SDK.md')
 
   // Helper to read and concatenate multiple skill files
