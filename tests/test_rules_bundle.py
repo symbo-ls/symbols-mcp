@@ -140,28 +140,6 @@ def test_every_other_skill_fetchable_under_cap(name):
         assert out.startswith(f"<!-- section {name}")
 
 
-# The skills outside the 16 bundle sections (CLI, SDK, MODERN_STACK, AUDIT, …)
-# are fetchable by name too, so they get the same cap. The splitter cuts only at
-# `## ` lines and never truncates: a single `## ` block above the cap is served
-# whole, and must fail here, not in a client.
-OTHER_SKILLS = sorted(
-    p.stem for p in server.SKILLS_PATH.glob("*.md") if p.stem not in server._RULES_SECTION_BY_NAME
-)
-
-
-def test_other_skills_are_listed():
-    assert {"CLI", "SDK", "MODERN_STACK", "AUDIT"} <= set(OTHER_SKILLS)
-
-
-@pytest.mark.parametrize("name", OTHER_SKILLS)
-def test_every_other_skill_fetchable_under_cap(name):
-    parts = server._split_markdown_parts(server._read_skill(f"{name}.md"))
-    for i in range(1, len(parts) + 1):
-        out = server.get_project_rules(section=name, part=i)
-        assert len(out) <= server.RULES_SAFE_CHARS + 200, (name, i, len(out))
-        assert f"<!-- section {name}" in out
-
-
 def test_legacy_full_bundle_still_works():
     full = server.get_project_rules(full=True)
     assert len(full) > 400_000
