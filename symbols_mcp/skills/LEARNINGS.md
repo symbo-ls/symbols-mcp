@@ -691,16 +691,16 @@ onCreate: async (el) => {
 `focus()` and measuring too. `isConnected` checks stay fine in timers, RAF
 loops and event handlers that run after mount.
 
-## Lifecycle handler errors are now plugin-routed
+## Lifecycle and event handler errors are plugin-routed
 
-Before: `triggerLifecycle()` in `packages/element/src/create.js` swallowed handler throws with raw `console.error('[DOMQL] Lifecycle "${key}" error:', err)`.
+Before: `triggerLifecycle()` in `packages/element/src/create.js` swallowed handler throws with raw `console.error('[DOMQL] Lifecycle "${key}" error:', err)`, and an event handler's throw was only logged (`[DOMQL] Event error:`).
 
-After: handler throws are routed through `triggerLifecycle('error', element, { hook, error })` so plugins (notably `@symbo.ls/analyze`) can capture them with full element context. The framework still falls back to `console.error` when no plugin handled the hook (`runPluginHook` now returns `true` when at least one plugin defined the named hook).
+After: lifecycle handler throws — and, since element 3.14.834 / utils 3.14.867, event handler throws and rejections (`hook` is the handler's key: `'onClick'`, `'onDocumentKeydown'`, the router's `'onRouteChanged'`) — are routed through the plugin `error` hook as `{ hook, error }`, so plugins (notably `@symbo.ls/analyze`) can capture them with full element context. The framework still falls back to `console.error` when no plugin took the error: `runPluginHook` returns `true` only when a plugin's hook ran and did not return `false` (since utils 3.14.867; before, every plugin that defined the named hook counted). analyze returns `false` when it does not record the error (off, paused, `capture.errors: false`), so a disabled analyze no longer hides errors.
 
 Practical implication: `el.warn()` and `el.error()` calls also emit through `context.analyze` first, then fall through to the original env-gated console.warn / throw. So the analyze plugin sees both lifecycle throws AND explicit element warnings without any project-level plumbing.
 
 Files:
-- `packages/element/src/create.js` — `triggerLifecycle` catch block
+- `packages/element/src/pluginHooks.js` — `reportLifecycleError` / `reportEventError` (the event half from `delegate.js`)
 - `packages/element/src/methods.js` — `elWarn` / `elError` wrappers around `_warn` / `_error`
 - `packages/utils/function.js` — `runPluginHook` returns `boolean`
 

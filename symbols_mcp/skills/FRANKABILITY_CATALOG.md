@@ -1531,8 +1531,14 @@ Button/Input/Select/etc.
 
 Scope: this rule only fires inside DOMQL components. Lowercase keys
 in state.js, config.js, design-system files, or inside style/attr/
-state/scope/props/cases/data containers are NOT renamed — those are
-data, not children.
+state/scope/props/cases/data/polyglot containers are NOT renamed —
+those are data, not children.
+
+The polyglot copy is data too: translations.js, and every module a
+`polyglot` value imports (with the modules those import), are never
+read. A copy group named like a tag (`app.nav: { … }`) is a
+dictionary key — renaming it to `Nav` would break every
+`{{ app.nav.x | polyglot }}` that reads it.
 
 # FA803 — redundant-flex-extends
 
@@ -1638,6 +1644,22 @@ Message: this key renders a `<x>`; add `tag: 'x'` if you mean it, else `tag: 'di
 Not flagged: an own `tag:`, an `extends:` (the base decides), lowercase keys,
 tags without a visible UA style (`Strong`, `Em`, `Header`, `P`, …). Keep a
 meant one with `// frank-allow FA809` on or above the key.
+
+Tags that change the box or the role are flagged too, with the reason:
+  Search: { flow: 'x' }       // <search>: a search landmark
+  Track: { height: 'Y' }      // <track>: inline, width and height do not apply
+  Slot: { padding: 'A' }      // <slot>: display: contents, no box of its own
+  Progress: { Bar: {} }       // <progress>: its child elements never render
+The set: area, datalist, param, rp (hidden); audio, canvas, embed, iframe,
+img, input, meter, progress, video (replaced); select, textarea (form
+controls); slot; data, map, picture, source, track (inline); search;
+output (a live region). For these only, the key must be what decides the
+tag: a key that names a registered component that sets its tag (`Video`,
+`Img`, `Select`, `Iframe`, …) is that component, and a parent's
+`childExtends:` or tagged `childProps:` may decide it. A component whose
+chain sets no tag is flagged at the key that names it. A name the audit
+cannot resolve (an unread linked library, a component re-exported into
+components/ from another folder) is not flagged.
 
 Census 2026-10-02: 286 such keys took their tag from the name, 113 more
 already undid it with an explicit `tag:`. The first 19 tags are planned to

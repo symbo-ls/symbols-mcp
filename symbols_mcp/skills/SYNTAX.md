@@ -81,6 +81,17 @@ export default {
 
 **Yielding mounts.** During an app's first render (`firstRender` in `config.js`, on by default) — or with `domqlOptions.mountYield` / `yieldChildren` — `createChildren()` can stop at a time budget and continue in a later task. Such an element is attached at once (during the first render and the adoption of a pre-rendered page, smbls sets `mountWhole`: it waits outside its parent and goes in with one insertion when its last chunk is in, so a row is never on screen half built), but `Create` → `Complete` → `Render` → `RenderRouter` (and the `onMounted` queueing) run after its last deferred child, and a parent in the same mount waits for its incomplete children: `onRender` always sees every child. The rest is built depth-first, so every hook fires in the same order as a synchronous build — only spread over several tasks. The smbls embed never yields: every children loop builds in one go.
 
+**A gated element opens whole** (since `@symbo.ls/element` 3.14.833 / smbls 3.14.882). After the first render, an `if:` or `deferUntil` element with `yieldChildren` (`true` = a 50 ms budget, a number = the budget in ms) builds its first opening as a yielding mount: every children loop in its subtree runs under its budget, not only its own. The subtree is built outside the document and goes in with one insertion, in its declared place, when its last chunk is in. Then its `onCreate` … `onRenderRouter` fire and `onMounted` is queued (`el.whenMounted()` resolves then). Its descendants' hooks run as each one completes, outside the document: work that needs the node in the document (focus, measuring) goes in `el.whenConnected()`, which runs at the insertion. A gate that closes before the last chunk keeps the element out, with no `onRemove` (it was never shown); its next opening puts it in. An element removed meanwhile drops the rest. Without `yieldChildren` an opening builds in one go, as before.
+
+```js
+Section: {
+  tag: 'section',
+  deferUntil: (el, st) => st.data !== null,
+  yieldChildren: 10
+  // … a long subtree: it goes in whole, after its last chunk
+}
+```
+
 ---
 
 ## REGISTRY Keys
@@ -305,6 +316,7 @@ export const Gauge = {
 - Names are verbatim and case-sensitive: `--rteTop` and `--rte-top` are two properties. Values are verbatim too: no design-token lookup (`'C'` stays `C`).
 - `vars` inside a pseudo / media / theme / `.isX` block declares custom properties there. `el.update({ vars })` re-applies the static entries.
 - Prefer `vars` / `'--x'` over `style: { '--x': … }` and over `node.style.setProperty` (Rule 30).
+- **Reading one with a bare `--x` value** (since smbls `<r36 version>`): a CSS prop's value `'--x'` reads the variable — `lineHeight: '--lh'` writes `line-height: var(--lh)` on every path (static, reactive, `.isX`, `:hover` and other selector blocks). Before, `@symbo.ls/element` wrote a passthrough property's `--x` raw on its own paths, and the browser dropped it. A property whose value IS a name keeps `--x` as written: `anchorName`, `anchorScope`, `animationTimeline`, `container`, `containerName`, `positionAnchor`, `positionTry`, `positionTryFallbacks`, `scrollTimeline`, `scrollTimelineName`, `timelineScope`, `viewTimeline`, `viewTimelineName`, `viewTransitionClass`, `viewTransitionName` (`scrollTimelineName: '--rail'` → `scroll-timeline-name: --rail`). To read a variable in one of them, write `var(--x)` in full.
 
 **`fill` and `stroke`** are CSS props on every tag except `<svg>`, where the element's own flat `fill` / `stroke` stay the presentation attributes they always were. Inside a CSS block (`:hover`, `.isActive`, `@dark`) they are CSS on every tag, which outranks the attribute, so a block still repaints an `<svg>`. Their values are written as given (no colour-token lookup): `fill: 'currentColor'` with a `color` token.
 
@@ -1269,6 +1281,7 @@ export const Chart = {
 | | `el.getChildren()` | Direct children array |
 | | `el.getPath()` | Ancestor key chain |
 | | `el.getAdoption()` | `'adopted'` / `'replaced'` / `null`: how this element's first view came over a pre-rendered page, from its first hook (`onInit` too, since smbls 3.14.867; FRAMEWORK.md → In app code) |
+| | `el.getExtends()` | Names of the components the element is built from, highest priority first (a new array; inline objects left out). Use it, never `el.__ref.__extends`: the element engine never writes that field |
 | **Updates** | `el.update(value, opts?)` | Deep merge update |
 | | `el.setProps(value, opts?)` | Alias for update |
 | | `el.set(content, opts?)` | Replace element's `content` child |
@@ -1574,7 +1587,7 @@ Declarative fetch on any element. Caching, dedup, retry, refetch-on-focus, pagin
 
 ```js
 fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
-         headers: { apikey: 'sb_publishable_…' } }
+         headers: { apikey: 'sb_publishable_…' }, dialect: 'postgrest' }  // PostgREST's query syntax (FRAMEWORK.md §5)
 // or another REST API:
 fetch: { adapter: 'rest', url: 'https://api.example.com',
          headers: { Authorization: 'Bearer token' },
@@ -1989,9 +2002,10 @@ export const DataList = {
 
 - The fetch plugin writes no loading or error key into state: there is no `s.__loading` or `s.__error`. A `__`-prefixed state key never re-renders anything.
 - Start with `loading: false`: a fresh cache hit sends no request, so neither `onFetchStart` nor `onFetchComplete` runs.
-- The REST adapter's `error` is a string; other adapters may give an object with `message`.
-- `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
+- The REST adapter's `error` is a string; other adapters may give an object with `message`. To tell a refusal from a failure that can pass, read `httpStatus` and `code` from `el.__ref.__fetchStatus` in `onFetchError` (since `@symbo.ls/fetch` `<r35 version>`; FRAMEWORK.md → Status surfaces).
+- `el.__ref.__fetchStatus` (`isFetching`, `isLoading`, `isStale`, `isSuccess`, `isError`, `error`, `httpStatus`, `code`, `status`, `fetchStatus`) is final before the rows reach state, so a render the rows trigger reads the final status. It is not reactive: writing it re-renders nothing, so do not drive `if:` / `text:` from it alone.
 - The three callbacks also work inside the `fetch` object (`fetch: { …, onFetchStart }`), with the same arguments.
+- **App-wide, every request's outcome** (an error reporter, a trail of slow or failed requests): a plugin's `fetchSettled(el, info)` hook (since `@symbo.ls/fetch` `<r36 version>`), one listen-only call per answer a `fetch` declaration gets, with `{ mode, from, method, ok, status, code, message, durationMs, cached }`. Never wrap `window.fetch` for it. `el.getDB()` calls and `prefetchQuery` do not report (FRAMEWORK.md §5 → Every request's outcome).
 
 ### Active List Item
 

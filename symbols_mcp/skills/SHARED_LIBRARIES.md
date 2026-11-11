@@ -145,21 +145,21 @@ The object form (shapes 3 and 4) can carry two link options beside the source fi
 
 ### sharedLibraries.js (auto-generated on fetch/sync)
 
-The CLI generates this file automatically after `smbls fetch`/`smbls sync`:
+The CLI generates this file automatically after `smbls fetch`/`smbls sync`. Since cli `<r35 version>` each entry names its library by its platform key (see "sharedLibraries.js — canonical shape" below):
 
 ```js
 // sharedLibrariesMode: 'npm' (the default) — fetch links node_modules/<package> to the fetched folder
 import acmeBrand from '@symbo.ls/acme-brand/context.js'
 import systemBrand from '@symbo.ls/brand/context.js'
 
-export default [acmeBrand, systemBrand]
+export default [{ key: 'acme/brand', library: acmeBrand, ignoreList: [] }, { key: 'system/brand', library: systemBrand, ignoreList: [] }]
 ```
 
 ```js
 // sharedLibrariesMode: 'local' — relative paths into the fetched folders
 import systemDefault from '../.symbols_local/libs/system--default/context.js'
 
-export default [systemDefault]
+export default [{ key: 'system/default', library: systemDefault, ignoreList: [] }]
 ```
 
 This file is overwritten on every fetch/sync. To customize behavior, override components/state/designSystem in your local project files instead.
@@ -304,6 +304,8 @@ Framework defaults  (@symbo.ls/default-config design system; UIKit atoms in prep
 ```
 
 **`system/default` is the base, not a library you chose.** Every platform project starts linked to it. It fills only what no linked library defines: a brand library's `color.title`, `theme.document`, icons, components — every name both define — outrank system/default's, whatever the order of the links. Recognised by its key in any spelling (`default`, `system/default`, `default.symbo.ls`; the published payload carries the bare `default`). Another owner's library keyed `default` is an ordinary library.
+
+**Locally the base needs a key too.** No library folder on disk names itself. The merge reads the library payload's own `key`, else the `key` of its wrapped `sharedLibraries.js` entry (`{ key: 'system/default', library: systemDefault, ignoreList: [] }`, written by the CLI since cli `<r35 version>`). Under `smbls start` the runner stamps `key: "default"` on a library it can prove is `system/default` — its `symbols.json`, its npm package `@symbo.ls/default`, or the `system--default` folder `smbls fetch` scaffolds (runner 3.14.612) — so the base merges last there, as in production. Since runner `<r35 version>` a declared entry key decides which library is the base: `acme12/default` installed as `@symbo.ls/default` is not stamped; an entry keyed `default` or `system/default` is the base in any folder. The folder proof counts only for an entry with no key. An existing payload `key` is never overwritten.
 
 **The default font family claim follows the same ranking.** `fontFamily.<key>.isDefault` is a claim that competes across keys, so it is ranked on its own: the app's own claim wins; else a linked library's claim wins over system/default's `Default`; between two linked libraries, the order scratch reads them decides. The losing family stays usable by name — only its `isDefault` flag is dropped.
 
@@ -455,13 +457,17 @@ Reports:
 ### sharedLibraries.js — canonical shape
 
 ```js
-import brand from '../brand/context.js'
-import shared from '../shared/context.js'
+import systemDefault from '../.symbols_local/libs/system--default/context.js'
+import acmeBrand from '../brand/context.js'
 
-export default [brand, shared]
+export default [{ key: 'system/default', library: systemDefault, ignoreList: [] }, { key: 'acme/brand', library: acmeBrand, ignoreList: [] }]
 ```
 
-Anything else (extra exports, side-effect statements, atypical comment placement) is "non-canonical" and the CLI parser refuses to regenerate without `--force`. A non-canonical file is a strong signal that someone hand-edited it intentionally — overwriting silently would lose work.
+Since cli `<r35 version>`, `smbls fetch`, `smbls libs add` and `smbls libs link` write each entry with the library's platform key. No library folder on disk names itself, and the runtime merge ranks the base library (`system/default`) LAST — it fills only what the linked libraries leave open — only when it can name it. With bare entries (`export default [systemDefault, acmeBrand]`) a local `smbls start` / `smbls build` / `smbls brender` merged `system/default` first, so its tokens (the body font family, colours) won over the brand's, while the platform, which serves every library with its key, showed the brand's. An entry whose owner the platform did not serve stays a bare binding: the CLI never guesses an owner. The dev runner keeps a declared key and keys its cache by it; `smbls validate-domql` reads keyed entries and their ignore lists.
+
+Bare entries stay valid, and a hand-written wrapper is canonical too, as long as its `library` is an imported binding and its `ignoreList` a literal string array (the runtime reads a wrapper only when it has an `ignoreList`): `export default [brand, { library: shared, ignoreList: ['pages'] }]`. The `libs` commands keep the text of every entry they do not add or remove.
+
+Anything else (extra exports, side-effect statements, atypical comment placement, a multi-line array, a wrapper with other fields) is "non-canonical" and the CLI parser refuses to regenerate without `--force`. A non-canonical file is a strong signal that someone hand-edited it intentionally — overwriting silently would lose work.
 
 The `marketplace` and `canvas` packages in the editor workspace currently have non-canonical, hand-managed `sharedLibraries.js` files because the cloud `symbols.json.sharedLibraries` declarations don't match the actual local relative imports. Use `smbls libs link` to migrate to the safe pattern when convenient.
 
@@ -531,12 +537,12 @@ prepareContext() {
 2. **`link:` ≠ `destDir:`** — `link` means "use this folder as source, never scaffold over it." `destDir` means "scaffold cloud payload INTO this folder" (and will clobber it on every fetch). Always use `link` for local sibling sources.
 3. **App always wins** — local project definitions take precedence over shared libraries.
 4. **Override by defining locally** — to change a shared library component, define it in your local `components/` with the same name.
-5. **Order matters** — first library in the array has priority over later ones for filling undefined slots. `system/default` — the base library — always ranks last, below every library the project linked; its default font family claim yields to a linked library's.
+5. **Order matters** — first library in the array has priority over later ones for filling undefined slots. `system/default` — the base library — always ranks last, below every library the project linked; its default font family claim yields to a linked library's. The merge must be able to name it: locally that is the `key` of a keyed `sharedLibraries.js` entry or the runner's stamp (see [Order of Precedence](#order-of-precedence)).
 6. **Key format is `owner/key`** — bare keys default to `system/` owner in `symbols.json` and `smbls libs`. Two owners can share a key (`system/brand`, `acme/brand`); folders, npm packages, bindings and lock keys always carry the owner.
 7. **`smbls create` defaults to `system/default`** — use `--blank-shared-libraries` for no libraries.
 8. **Built-in element methods are protected; the logging hooks are override points** — a library `methods` entry named like a protected built-in (`getRoot`, `getRootState`, `update`, …) is refused and the built-in wins (dev warning names it); a library's `log` / `warn` / `error` / `verbose` merge and win as before. The app's OWN `methods` win over both (see [Methods named like built-in element methods](#methods-named-like-built-in-element-methods)).
 9. **`smbls libs status` is the drift detector** — run it whenever you suspect the JS file and JSON declarations are out of sync (especially after manual edits or merging branches). It matches imports to libraries by owner and key, not exact path, so it survives the `dir: "."` path-resolution edge case and keeps same-key libraries of two owners apart.
-10. **`sharedLibraries.js` has a canonical shape** — the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
+10. **`sharedLibraries.js` has a canonical shape** — keyed entries `{ key: '<owner>/<key>', library: <binding>, ignoreList: [] }` (what the CLI writes since cli `<r35 version>`), bare bindings, or a hand-written wrapper with a literal `ignoreList`; the CLI refuses to regenerate a non-canonical (hand-edited) file without `--force`.
 11. **A library's strings reach the app** — `polyglot.translations` merge per language and key by key, the app's key wins; never copy a library's strings into the app's own translations (see [Polyglot translations](#polyglot-translations)).
 
 ---

@@ -17,7 +17,7 @@ All components are plain objects. Props are **flat on the element** — no `prop
 | `Radio` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Radio: { name: 'opt', value: 'a' }` |
 | `Checkbox` | `<input>` | `name`, `value`, `checked`, `disabled`, `onChange` | `Checkbox: { name: 'agree', checked: true }` |
 | `Svg` | `<svg>` | `html` (inline SVG markup), `width`, `height`, `viewBox`, `fill`, `stroke`. For non-icon SVGs only (decorative/structural). Use `Icon` for icons. | `Svg: { html: '<path d="..." />', viewBox: '0 0 24 24', width: '22', height: '22' }` |
-| `Icon` | `<svg>` | `name` (sprite symbol id), `size`/`boxSize`, `color`, `viewBox` (default: the registered icon's `0 0 W H`; `'0 0 24 24'` restores the old square fit). The fit is contain (`xMidYMid meet`): the icon keeps its proportions in any box; size the box, not the viewBox | `Icon: { name: 'chevronRight', boxSize: 'A' }` |
+| `Icon` | `<svg>` | `name` (the icon's key in `designSystem.icons`; its sprite symbol id is `smbls-icon-<name>` since smbls `<r35 version>`), `size`/`boxSize`, `color`, `viewBox` (default: the registered icon's `0 0 W H`; `'0 0 24 24'` restores the old square fit). The fit is contain (`xMidYMid meet`): the icon keeps its proportions in any box; size the box, not the viewBox | `Icon: { name: 'chevronRight', boxSize: 'A' }` |
 | `IconText` | `<div>` | `icon`, `text`, `gap`, `align`, `color` | `IconText: { icon: 'search', text: '{{ search | polyglot }}', gap: 'Z' }` |
 | `Button` | `<button>` | `text`, `icon`, `type`, `disabled`, `theme`, `padding`, `round`, `onClick`, `onSubmit` | `Button: { text: '{{ save | polyglot }}', theme: 'primary', type: 'submit' }` |
 | `Img` | `<img>` | `src`, `alt`, `loading`, `width`, `height`, `boxSize`, `objectFit` | `Img: { src: '/logo.png', alt: '{{ logo_alt | polyglot }}', boxSize: 'B' }` |
@@ -102,6 +102,7 @@ Toolbar: {
 - Opens on hover after the delay (moving to the next target while one shows switches at once) and at once on keyboard focus (`:focus-visible`); hover wins over focus; touch never opens it. Escape or a press on the target hides it until the pointer or focus moves to another target. The pointer may move onto the bubble (WCAG 1.4.13).
 - A `role="tooltip"` node with real text and an id; the target's `aria-describedby` carries that id while it shows (ids already there stay). It describes: an icon-only control still needs `aria-label`. Do not add `title` as well.
 - `position: fixed`, centred, flipped when the side is short, kept in the viewport, followed on scroll and resize.
+- A layer that does not render shows and describes nothing (since default-config `<r35 version>`): its node or an ancestor has `display: none`, e.g. a layer that a media rule shows at one width only. At such a width a keyboard focus no longer sets the target's `aria-describedby` to the hidden bubble (a screen reader read the name twice). A shown bubble also closes, and takes its id off the target, when a resize or a scroll finds the layer no longer rendered.
 - One layer per parent; with nested layers the innermost serves a target. Its listeners are `onDocument*` / `onWindowResize`, removed with the element.
 
 ### Picture

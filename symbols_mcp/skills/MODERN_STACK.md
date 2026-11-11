@@ -47,7 +47,7 @@ export default {
 
 ```js
 fetch: { adapter: 'rest', url: 'https://xxx.supabase.co/rest/v1',      // Supabase (PostgREST) through the REST adapter
-         headers: { apikey: 'sb_publishable_…' } }
+         headers: { apikey: 'sb_publishable_…' }, dialect: 'postgrest' }  // PostgREST's query syntax (FRAMEWORK.md §5)
 // or another REST API:
 fetch: { adapter: 'rest', url: 'https://api.example.com',
          headers: { Authorization: 'Bearer token' },
@@ -772,7 +772,7 @@ Auto-registered when `analyze: true|{...}` is passed to `create()`. **Errors and
 import { create } from 'smbls'
 
 create(App, {
-  analyze: true   // → errors + warnings, redact → enrich → summarize → [console, memory]
+  analyze: true   // → errors + warnings, enrich → redact → summarize → [console, memory]
 })
 ```
 
@@ -780,14 +780,14 @@ create(App, {
 
 | Category | Default | Notes |
 |---|---|---|
-| `errors` | **on** | `window.onerror`, `unhandledrejection`, lifecycle handler throws, `el.error()` |
+| `errors` | **on** | `window.onerror`, `unhandledrejection`, lifecycle and event handler throws (`onClick` …: since element 3.14.834), `el.error()`, a part of the page left out (`renderError`: since analyze 3.14.780) |
 | `warnings` | **on** | `el.warn()` and framework warnings |
 | `pointer` | off | clicks, throttled pointermove, contextmenu |
 | `keyboard` | off | key codes + modifiers, never values |
 | `forms` | off | input/change/submit; values masked by default |
 | `scroll` | off | throttled |
 | `viewport` | off | resize, orientationchange, visibilitychange + initial snapshot |
-| `network` | off | fetch + XHR + chained smbls fetch events (cache key, mode, durationMs) |
+| `network` | off | fetch + XHR (`url` without its query and hash) + chained smbls fetch events (`from`, `method`, `mode`, `cacheKey`, `durationMs`) |
 | `performance` | off | LCP, CLS, INP, longtasks, paint |
 | `navigation` | off | route changes via `renderRouter` |
 | `console` | off | `console.{log,warn,error,debug}` proxy |
@@ -803,11 +803,24 @@ The plugin sits in `context.plugins` from creation but is **dormant** until `app
 
 Pre-hydration errors still surface. Pre-hydration `info`/`debug` events are dropped.
 
+### Loading the kit after the first view — `load`
+
+`load: 'boot'` (the default) loads the analyze kit before the first render: `create()` awaits it. `analyze: { load: 'afterFirstView' }` (opt-in, since smbls `<r35 version>`) loads it a task after the first view is in, when the `afterFirstView` create option runs, so the first render does not wait for it. Until then a capture core (the `@symbo.ls/analyze/capture` subpath, which smbls imports) holds the errors from the start of `create()` — window `error` and `unhandledrejection`, the `error` and `renderError` plugin hooks, `el.error()` — up to 64, and sends nothing. The kit then takes the hooks and the listeners over and gets the held errors through its pipeline, the same events it would have built; when the buffer was full, first one `error` event with `hook: 'analyze.dropped'` (`dropped`, `held`, `ms`).
+
+- Until the kit is in, `context.analyze` is the core (`load`, `config`, `emit`, `shouldCapture`, `destroy`); the runtime API (`query`, `flush`, `setCapture`, …) comes with the kit. Warnings and the other categories start with the kit.
+- A boot that fails (`create()` or `createSync()` rejects) loads the kit at once, so what the core held is sent. A boot whose document went away stops the core. A kit that fails to load prints what the core held.
+- `enabled: false`, `capture.errors: false` or an honoured `?analyze=off` (Debug mode, below): the core holds nothing; the kit still loads after the first view. A server render gets no core and no kit.
+- `smbls build` preloads the kit only for `load: 'boot'`. With `build.treeShakeFeatures` the core is the feature `analyzeCapture`, kept only when the loaded configuration says `load: 'afterFirstView'` (CLI.md → `symbols.json` `build` — size options); a build without it that meets `'afterFirstView'` anyway logs one `console.error` naming `analyzeCapture` and boots as `load: 'boot'`.
+
 ### Network capture chains with `@symbo.ls/fetch`
 
 `runFetch` and `runMutation` in `plugins/fetch/index.js` call `context.analyze.emitNetwork({ phase, mode, from, method, cacheKey, durationMs, ... })` at start/success/error. The call is a no-op when analyze isn't installed, so projects without analyze pay nothing.
 
-When analyze is installed AND `network: true` is set, the events are smbls-aware (they include the cache key, mode, and lang suffix). `window.fetch` and XHR are also wrapped to catch non-smbls traffic.
+When analyze is installed AND `network: true` is set, the events are smbls-aware (they carry `from`, `method`, `mode` and a `cacheKey`). `window.fetch` and XHR are also wrapped to catch non-smbls traffic; their events carry the request's `url`, without its query and hash since analyze 3.14.780 (`stripQuery: false` keeps them — Privacy defaults, below).
+
+**The event's `cacheKey` carries no values** (since `@symbo.ls/fetch` / smbls `<r35 version>`). It names the query without its values: `from:method:` and a hash of the fetch cache key, salted once per page load (`cacheKey: 'users:select:#5c1a9e07'`). The same query keeps one value for the page's life (a refetch loop shows as one key), another query gets another value, and no param, page, cursor, scope or `cache.key` value reaches a sink. A query with `cache: false` has `cacheKey: null`. Before, the event carried the fetch cache key itself (`JSON.stringify(params)` with the page, the cursor and the tenant scope, or the app's own `cache.key`), so a token, an email or an id a query was asked with reached every analyze sink. The cache, its keys and the requests are unchanged.
+
+**`status` and `code` on `fetch.success` / `fetch.error`** (since `@symbo.ls/fetch` / smbls `<r36 version>`). `status` is the answer's HTTP status (`null` when no answer came or the adapter gives none); `code` is the server's error code when it is a short token (letters, digits, `.`, `_`, `-`; 40 at most), else `null`, so a server cannot put free text in it. Nothing else is added: a failure's message goes only as `error`, through the redact pass, and network capture stays off by default. In the app, without analyze, the fetch plugin's `fetchSettled` hook gives the same per request (FRAMEWORK.md §5 → Every request's outcome) — use it instead of wrapping `window.fetch`.
 
 ### Session replay (smbls-native)
 
@@ -837,38 +850,56 @@ hook fires → build event → transformers[] → sinks[]
 ```
 
 Built-in transformers (string names):
-- `redact` — always-first PII scrubber. Disable with `redact: false`.
-- `enrich` — adds session, route, viewport, app id (default).
+- `enrich` — adds `session`, `app: { id, build, route }`, `meta: { ua, viewport }` and (since analyze 3.14.780) `page`, the path the event came from (default).
+- `redact` — the privacy pass (Privacy defaults, below). It runs right after `enrich` (first when `enrich` is not listed), before every other transformer, wherever the list names it — since analyze 3.14.780, so its patterns reach the fields `enrich` adds; before, it ran first. Disable with `redact: false`.
 - `summarize` — replaces raw element refs and Error instances with safe slices (default).
 - `dedupe`, `sample` — opt-in.
+
+**Which build an event came from — `app.build`** (since analyze 3.14.780 / cli 3.14.842). `enrich` sets `app.build` to the `buildHash` config, else to `globalThis.__SMBLS_BUILD__` when the page's build defines it (a string), else `null`. A production `smbls build` writes its build id in place of each `globalThis.__SMBLS_BUILD__` read and logs it (`Build id: …`): `SMBLS_BUILD_ID` from the environment (CI can pass the commit: `SMBLS_BUILD_ID=$(git rev-parse --short=12 HEAD)`), else a 12-character hash of the symbols `dir`, the `entry` document, `symbols.json`, `package.json`, the nearest lockfile and the CLI version. An id that does not match `/^[A-Za-z0-9._-]{1,22}$/` stops the build before Parcel starts. Code the app imports from outside the symbols `dir` is not in the hash: such an app sets `SMBLS_BUILD_ID`. A new id renames the bundle that reads it, so a commit id makes visitors download it again on every commit; the default hash changes only with the sources. `smbls start` writes no id.
 
 Built-in sinks:
 - `console` — pretty + color. Saves originals so console proxy doesn't recurse.
 - `memory` — ring buffer queryable via `context.analyze.query({ level, type, sinceMs })`.
-- `beacon` — batched POST + `sendBeacon` fallback on `pagehide`.
+- `beacon` — POST to a same-origin `url` with `navigator.sendBeacon` (below).
+
+**The beacon sink** (since analyze 3.14.780 / smbls 3.14.883):
+
+```js
+{
+  type: 'beacon',
+  url: '/api/err',   // same origin
+  flush: 'hidden',   // default; or 'timer'
+  maxSends: 20,      // sends per document (default 20)
+  maxEvents: 20      // distinct events per document (default 20)
+}
+```
+
+- `flush: 'hidden'` sends each time the page turns hidden (`visibilitychange`) and on `pagehide`, what is new since the last send, never on a timer; a hide with nothing new sends nothing. `context.analyze.flush()` sends at once and counts toward `maxSends`.
+- Per document at most `maxSends` sends and `maxEvents` distinct events; what comes after either cap is only counted.
+- The body is `{"events":[...],"more":N}`. `more`, on every send (0 too), counts the events kept from being sent since the last send: past a cap, repeats of an event already sent, too big, or not serializable. When only that count is new, a hide sends it alone: `{"events":[],"more":N}`. A repeat of a queued event (same `type`, `hook` and `message`) is sent once, with `repeat`; an event with no message (a click, a fetch, a route) is always its own.
+- The body stays under 60,000 bytes. A beacon the browser refuses (`sendBeacon` returns `false` or throws) is posted once more with a `keepalive` fetch. An event that cannot be serialized (a circular value, a BigInt) is left out and counted; the rest of its batch is sent (before, it stopped every later send).
+- An app already on `{ type: 'beacon', url }`: the sink no longer sends 5 s after an event, at 50 events or on `beforeunload`, so `batchMs` and `maxBatch` do nothing by default. `flush: 'timer'` restores it as it was (`batchMs` 5000, `maxBatch` 50, `pagehide` and `beforeunload`, every event sent, no caps unless `maxSends` or `maxEvents` is set, `more` only when above 0).
 
 ### Debug mode
 
 ```js
 analyze: { debug: true }                 // config
 // or URL param:
-//   ?analyze=debug   → enables lifecycle + state + updates + console capture
+//   ?analyze=debug   → enables lifecycle + state + updates + console + network capture
 //   ?analyze=off     → disables analyze entirely
 // or runtime:
 context.analyze.setLevel('debug')
 context.analyze.setCapture('updates', true)
 ```
 
+**A production build ignores the URL switches** (since analyze 3.14.780 / smbls 3.14.883), so no visitor can turn on full capture or turn reports off. A production build is one that defines `globalThis.__SMBLS_DEV_DIAGNOSTICS_OFF__`: `smbls build`, and Vite, webpack 5 and Parcel production builds through smbls's `production` export condition (RUNNING_APPS.md → Available Builds). The app can allow them: `urlOverride: true` honours them for every visitor, as in development; `debugKey: 'k7q2'` honours them when the address also carries the key (`?analyze=debug&analyzeKey=k7q2` — the key ships in the page's script, so it is not a password). `urlOverride: false` turns them off in development too.
+
 ### Element-core integration (load-bearing)
 
-Two small framework changes:
-
-1. `packages/element/src/create.js` — lifecycle handler throws now go through `triggerLifecycle('error', element, { hook, error })` instead of bare `console.error`. The framework still falls back to `console.error` when no plugin handled the hook.
-2. `packages/element/src/methods.js` — `el.warn()` and `el.error()` emit through `context.analyze` first, then fall through to the original env-gated console.warn / throw.
-
-`packages/utils/function.js` — `runPluginHook` now returns `true` when at least one plugin handled the hook.
-
-A second hook, `renderError(element, { where, error, key?, route? })` (since element 3.14.832 / router 3.14.618), hears each part of the page that failed to build and was left out: a child, a `children:` row or factory, a route's content. It only listens: the console line stays whatever the plugin does. `@symbo.ls/brender` returns them as `renderErrors` (FRAMEWORK.md §8).
+- **Handler throws reach the plugin `error` hook.** A lifecycle hook that throws or rejects, and (since element 3.14.834 / utils 3.14.867) an event handler that does, calls `error(el, { hook, error })` on the context's plugins, `hook` being the key that declared it (`'onRender'`, `'onClick'`, `'onDocumentKeydown'`, `'onInView'`, `'onSwipeLeft'`, the router's `'onRouteChanged'` / `'onRouteExit'`). Before, an event handler's throw was only logged, so analyze and other reporters never recorded one.
+- **The console line prints only when no plugin took the error** (`[DOMQL] Lifecycle "…" error:`, `[DOMQL] Event error:`, `[DOMQL] Async event error:`). A plugin's `error` hook takes it unless it returns `false`: `runPluginHook` returns `true` only when a plugin's hook ran and did not return `false` (since utils 3.14.867; before, every plugin that defined the hook counted). analyze returns `false` when it does not record the error (`enabled: false`, `?analyze=off`, `capture.errors: false`, `pause()`, after `destroy()`), so an installed but disabled analyze no longer hides errors. `context.strictMode` still rethrows a synchronous throw.
+- `el.warn()` and `el.error()` emit through `context.analyze` first, then fall through to the original env-gated console.warn / throw.
+- A second hook, `renderError(element, { where, error, key?, route? })` (since element 3.14.832 / router 3.14.618), hears each part of the page that failed to build and was left out: a child, a `children:` row or factory, a route's content. It only listens: the console line stays whatever the plugin does. analyze records each (since analyze 3.14.780) as an `error` event with `hook: 'renderError'`, `where` (`'createChildren'`, `'children'`, `'child'` with its `key`, `'route'` with its `route`), the element and the error. `@symbo.ls/brender` returns them as `renderErrors` (FRAMEWORK.md §8).
 
 ### Element targeting via `data-key`
 
@@ -876,10 +907,17 @@ Click/key/form events reference the DOMQL key path (e.g. `App > Sidebar > MenuIt
 
 ### Privacy defaults
 
-- `redact` always runs first; cannot be reordered.
-- `<input type="password">`, `<input type="hidden">`, and fields matching `/email|token|secret|ssn|card|cvv|pin|otp/i` are never recorded.
+The first six items are since analyze 3.14.780 / smbls 3.14.883. `redact: false` turns off items 2–5 (keys, URLs, lengths, arguments); `page` is `enrich`'s.
+
+- `redact` runs right after `enrich`, before every other transformer; it cannot be reordered (before, it ran first).
+- Keys: a key that names a secret has its value masked. The long names match anywhere in the key: `password`, `passcode`, `passphrase`, `token`, `secret`, `credential`, `cookie`, `bearer`, `email`, `apikey` / `api_key`, `authorization`, `authentication`, `authcode`, `oauth`, `totp`, `otpcode`, `pincode`, `card`, `cvv`. The short ones only as a whole word of it (`userPin`, `PIN_CODE`, `auth_header`, `X-Authz`): `pin`, `auth`, `authn`, `authz`, `ssn`, `otp`, `pwd` — so `author`, `spinner`, `shipping` and `className` are no longer masked. Patterns in `redact: [...]` add to them: a string matches anywhere in the key, a RegExp as written.
+- URLs: a URL with a scheme in the message, the error's message and stack, `source` or a string argument loses its query and hash (a stack frame keeps its `:line:col`); so does a network event's `url`, relative or absolute. `stripQuery: false` keeps them.
+- Lengths: a message is at most 300 characters, a stack at most 3,000.
+- `el.warn` / `el.error` arguments: strings, numbers, booleans and `null` keep their value; any other value becomes its type (`[object Object]`), so an object's content (form text, ids) never leaves the page. The `console` category keeps its own arguments.
+- Page: each event's `page` is the path it came from, with no query and no hash. `page: 'url'` keeps the query; `page: false` leaves the field out.
+- `<input type="password">`, `<input type="hidden">`, and fields whose `name` or `id` matches `/password|token|secret|ssn|card|cvv|pin|apikey|api_key|auth|email|otp/i` are never recorded.
 - Form values masked by default. Opt in per-field with `data-analyze="track"`. Never track with `data-analyze="skip"`.
-- Mask strategies: `'mask'` (`***`), `'hash'` (`#<hex>`), `'redact'` (drop the field entirely).
+- Mask strategies: `'mask'` (`***`), `'hash'` (`#` and a base-36 hash of the value), `'redact'` (drop the field entirely).
 
 ---
 

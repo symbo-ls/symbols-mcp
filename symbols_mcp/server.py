@@ -2267,14 +2267,32 @@ def apply_frankability_edit_ops(symbols_dir: str, ops_json: str) -> str:
 
 @mcp.tool()
 def verify_frankability(symbols_dir: str) -> str:
-    """Verify a Symbols project bundles cleanly via frank.toJSON.
+    """Check what a push ships: frank.toJSON as `smbls push` runs it.
 
-    Independent of audit/fix — runs the same round-trip that apply-edits uses
-    after every mutation, but as a standalone check. Useful for the agent to
-    confirm a project is in a known-good state before starting a fix loop, or
-    after a series of manual edits.
+    Runs `frank-audit verify`: frank.toJSON({ scanAndFix: true }), the call
+    `smbls push` / sync / collab make, then scans the EMITTED project for
+    names still unresolved. Independent of audit/fix — use it to confirm a
+    project is in a known-good state before a fix loop, or after a series of
+    manual edits.
 
-    Returns: JSON with { ok, bundleable, scanIssues, ... }.
+    Not the check apply-edits runs after each batch: verify-or-rollback
+    measures the SOURCE scan (frank.toJSON({ scanAndFix: false }), the project
+    before frank's fix pass), so a name the fix pass would repair still counts
+    as a regression there. frank-audit before <r36 version> ran that source
+    scan here too and returned no fixedIssues.
+
+    Returns: JSON { schema, isFrankable, residualIssues, fixedIssues,
+    projectSize } — no `ok` key on success:
+      - residualIssues: what the emitted project leaves unresolved, one
+        { path, fnString, freeVars, params } per function; globalScope
+        entries left out. isFrankable is true when it is empty.
+      - fixedIssues: what frank's fix pass repaired on the way out (same
+        shape), never a failure.
+      - projectSize: the emitted project's JSON length.
+      - frank.toJSON threw (its emission gate refused the output):
+        isFrankable false, bundleError, projectSize 0, one residualIssues
+        entry { kind: 'toJSON-failed', error }, no fixedIssues.
+      - The CLI could not run: { schema, ok: false, error: { code, message, ... } }.
     """
     return json.dumps(_run_frank_audit("verify", symbols_dir), indent=2)
 

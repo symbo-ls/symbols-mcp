@@ -256,14 +256,16 @@ Need routing, pages, plugins or fetch? Use the full bundle (ESM above, or the `S
 
 ### Available Builds
 
-The `smbls` package ships four formats:
+The main entries of the `smbls` package `exports` (smbls 3.14.882):
 
-| Format | Path | Usage |
+| Import | File | Usage |
 |---|---|---|
-| ESM | `dist/esm/index.js` | `import` with bundler (unbundled files) |
-| CJS | `dist/cjs/index.js` | `require('smbls')` (Node) |
-| Browser | `dist/browser/index.js` | Bundled ESM for direct browser/CDN use |
-| IIFE | `dist/iife/index.js` | `<script>` tag → `window.Smbls` global |
+| `smbls` | `dist/smbls.esm.js` (`require`: `dist/smbls.cjs`) | The full runtime with the platform registry. `import` with a bundler or from a CDN; `require('smbls')` in Node |
+| `smbls/core` | `dist/smbls.core.esm.js` + chunks | The same API without the platform registry; each kit is its own file (FRAMEWORK.md → `smbls/core` kits) |
+| `smbls/ssr` | the same files as `smbls` | Server rendering |
+| `smbls/iife` | `dist/smbls.iife.js` | `<script>` tag → `window.Smbls` global (also the package's `unpkg` / `jsdelivr` file) |
+
+**The `production` condition** (since smbls 3.14.882). `smbls`, `smbls/core` and `smbls/ssr` also name a `production` export condition: `dist/production/smbls.esm.js` and `dist/production/smbls.core.esm.js`, the same builds with every dev diagnostic compiled out (`globalThis.__SMBLS_DEV_DIAGNOSTICS_OFF__` defined `true`). A bundler that sets the condition for a production build picks it with no configuration: Vite, webpack 5 (`mode: 'production'`) and Parcel (`parcel build`, so `smbls build`). With esbuild add `conditions: ['production']`; with rollup, `@rollup/plugin-node-resolve`'s `exportConditions: ['production']`. Dev servers, Node (SSR, tests) and `require()` keep the default files, which still warn on `localhost`. Errors that report a runtime failure (a failed effect, a route that failed to load, a render error) are in both. Every build marker stays, so a `smbls build` bundle is the same as before. A Vite or webpack production build now resolves `dist/production/`, so its stack traces name that path.
 
 ### Available Exports
 

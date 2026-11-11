@@ -1125,6 +1125,10 @@ svg: {
 
 Default icon set: `symbols`, `logo`, arrow variants, `check`, `checkCircle`, chevron variants, `copy`, `eye`, `eyeOff`, `info`, `lock`, `minus`, `plus`, `search`, `send`, `smile`, `star`, `sun`, `moon`, `upload`, `video`, `x`, `moreHorizontal`, `moreVertical`.
 
+### Sprite symbol ids — `smbls-icon-<key>`
+
+Since smbls `<r35 version>` (with `@symbo.ls/scratch` and `@symbo.ls/default-config` of the same release). The icon / svg sprite writes each symbol under `smbls-icon-<key>` (`SPRITE_ID_PREFIX`, `spriteSymbolId(key)`), and the ids inside a symbol under `smbls-icon-<key>-<id>`. The sprite shares the page's id namespace: with a bare key, a page section `#close` lost its anchor and `getElementById('close')` to the `close` icon. The Icon and Svg atoms reference the new ids. **Breaking for hand-built references:** a `<use href="#<key>">` or a `getElementById('<key>')` built by hand names no sprite symbol now, and the icon paints nothing (a loud dev runtime warns once per key). Render the icon with the `Icon` component, or build the reference with the runtime's namer: `el.context.utils.spriteSymbolId(key)` in project code, `spriteSymbolId(key)` from `smbls` in module code. Bump `smbls` and `@symbo.ls/scratch` together: code that builds a sprite with `@symbo.ls/scratch` (`convertSvgToSymbol`) while the `smbls` bundle paints the icons must take both from one release, else the sprite has one id and the icons another, and every such icon paints nothing. `PREPARED_FORMAT` is 2: a page processes a format-1 prepared config again.
+
 ### Icon usage in components — STRICT (Rule 29 / Rule 62)
 
 **ALWAYS use the `Icon` component referencing `designSystem.icons` by name.** Inline SVG via `html: '<svg ...>'` for icons is FORBIDDEN — bypasses the design system, breaks theme color resolution, breaks SSR, breaks brender hydration, duplicates SVG strings across components.
@@ -1222,7 +1226,7 @@ vars: {
 }
 ```
 
-Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. Any `--` prefixed value is auto-wrapped in `var()`.
+Reference in props: `padding: '--gap'` → resolves to `var(--gap)`. A bare `--x` value is wrapped in `var()` — except on a property whose value IS a name (`scrollTimelineName`, `anchorName`, `containerName`, `viewTransitionName`, …), which keeps `--x` as written (since smbls `<r36 version>`; the list: SYNTAX.md → CSS Custom Properties).
 
 Per element, set custom properties with the `vars` prop or a top-level `'--x'` key (static → the element's class, a function → inline and reactive; see SYNTAX.md → CSS Custom Properties). A custom property's name keeps its case in the emitted CSS (`--iconShift` is not `--icon-shift`).
 
@@ -1426,6 +1430,7 @@ Quick reference for the shorthand props the design system exposes.
 | `overflow` | Also sets `scrollBehavior: 'smooth'` |
 | `cursor` | Supports file lookup for custom cursor images |
 | `transitionProperty` | Also sets `willChange` to same value |
+| `scale` | A CSS prop beside `rotate` and `translate` (since smbls `<r36 version>`): the value is written as given — `scale: 1.5` → `scale: 1.5` (no unit), `'1.2 0.8'`, `'none'`; `'--x'` → `var(--x)`. Before, a flat `scale` was dropped (only the dev dropped-CSS warning said so) |
 
 ---
 
@@ -1453,6 +1458,8 @@ Container: {
   '+ div': { paddingTop: 'B' }
 }
 ```
+
+A key that starts with `>`, `+`, `~` or `*` is a selector block, as a key that starts with `:`, `@`, `&` or `[` is: `'> *'` → `.cls > *`, `'+ div'` → `.cls + div`, `'~ .note'`, `'* span'`. It works in a `.isX` block and with function values, and an `extends` base and the instance that both declare `'> *'` merge their blocks. Since smbls `<r36 version>` (`@symbo.ls/element`): on older runtimes such a key produced no rule and no warning — write `'& > *'` / `'& + div'` there, which every runtime compiles.
 
 ---
 

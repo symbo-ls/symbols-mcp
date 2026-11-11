@@ -753,6 +753,14 @@ ${sourceCode}
 `
 }
 
+// get_cli_reference: CLI.md is above the safe cap, so it is served in the
+// parts get_project_rules(section='CLI') serves. Mirrors server.py
+// get_cli_reference: no part → part 1, part 0 is out of range.
+function cliReference(part) {
+  const n = part === undefined || part === null ? 1 : Number(part)
+  return skillPartResponse('CLI', splitMarkdownParts(readSkill('CLI.md')), n, k => `get_cli_reference(part=${k})`)
+}
+
 function loadAgentInstructions(args = {}) {
   if (args.full === true || args.full === 'true') return rulesFullBundle()
   if (args.section && String(args.section).trim()) return rulesSectionResponse(args.section, args.part)

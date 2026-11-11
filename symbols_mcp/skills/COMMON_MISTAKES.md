@@ -1092,12 +1092,12 @@ See `SHARED_LIBRARIES.md` for the full mode model + drift detector.
 
 ---
 
-## 35. `el.warn()` / `el.error()` and lifecycle throws now flow through the analyze plugin
+## 35. `el.warn()` / `el.error()`, lifecycle and event handler throws flow through the analyze plugin
 
 If `analyze: true` is set on `create()`:
 
 - `el.warn(...)` and `el.error(...)` emit through `context.analyze` BEFORE falling through to env-gated `console.warn` / throw.
-- Lifecycle handler throws (`onClick`, `onUpdate`, etc.) emit through `triggerLifecycle('error', element, { hook, error })` instead of bare `console.error`. The framework still falls back to `console.error` when no plugin handled the hook.
+- A lifecycle hook (`onRender`, `onUpdate`, …) that throws or rejects reaches the plugin `error` hook, `error(el, { hook, error })`, instead of a bare `console.error`. An event handler (`onClick`, `onDocumentKeydown`, the router's `onRouteChanged`, …) does too since element 3.14.834 / utils 3.14.867; before, its throw was only logged and analyze never saw it. The framework still prints the console line when no plugin took the error — and analyze does not take it when it is off or paused (its hook returns `false`; MODERN_STACK.md → analyze → Element-core integration).
 
 This means the `try/catch + console.error` cargo cult that some legacy code used to "make sure errors show up" is actively counterproductive — it bypasses the analyze pipeline. Just let exceptions bubble; analyze captures them.
 
@@ -1175,7 +1175,7 @@ children: (el, s) => s.services.map(it => ({ ...it, key: 'svc-' + it.key }))
 
 An explicit `tag:` always wins over the key. Full rule: SYNTAX.md → Children → "A key that equals an HTML tag name BECOMES that tag".
 
-The same happens to a DECLARED key: `Mark: {}` is a yellow `<mark>`, `Sub`/`Sup` shift and shrink their text, `Dialog` brings a border and a white sheet, `Menu` list padding. frank-audit **FA809** warns on every child key that names a browser-styled tag (mark, sub, sup, small, s, u, ins, del, b, i, q, cite, dfn, var, abbr, kbd, samp, dialog, menu, details, summary, legend, fieldset) with no `tag:` and no `extends:`: "this key renders a `<x>`; add `tag: 'x'` if you mean it, else `tag: 'div'`". The first 19 are planned to leave key detection in smbls, so pin the tag you mean now.
+The same happens to a DECLARED key: `Mark: {}` is a yellow `<mark>`, `Sub`/`Sup` shift and shrink their text, `Dialog` brings a border and a white sheet, `Menu` list padding. frank-audit **FA809** warns on every child key that names a browser-styled tag (mark, sub, sup, small, s, u, ins, del, b, i, q, cite, dfn, var, abbr, kbd, samp, dialog, menu, details, summary, legend, fieldset) with no `tag:` and no `extends:`: "this key renders a `<x>`; add `tag: 'x'` if you mean it, else `tag: 'div'`". The first 19 are planned to leave key detection in smbls, so pin the tag you mean now. Since frank-audit `<r36 version>` FA809 also flags a bare key whose tag changes the box or the role, with the reason: `Search` (a search landmark), `Track` (inline, width and height do not apply), `Slot` (`display: contents`, no box of its own), `Progress` (its child elements never render), `Output` (a live region); FRANKABILITY_CATALOG.md → FA809 has the whole set. A key that names a registered component that sets its tag (`Video`, `Img`, `Select`, `Iframe`, …) is that component and is not flagged.
 
 Related: row keys are strings. A NUMBER key (`key: it.id` with a numeric id) is normalized by the framework (smbls `e3a9bcc3e`); up to smbls 3.14.805 a number-keyed row with nested children and no `childExtends` threw `g.indexOf is not a function` and was dropped — on those runtimes write `key: String(it.id)`.
 
