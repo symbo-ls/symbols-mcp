@@ -8,6 +8,8 @@ Targets the modern **smbls** stack — flat element API, signal-based reactivity
 
 No API keys required for documentation tools. Project management tools require a Symbols account (login or API key).
 
+**Hosted, with sign-in:** add `https://mcp.symbols.app/account` as a remote MCP server (claude.ai: Settings → Connectors → Add custom connector; Claude Code: `claude mcp add --transport http symbols https://mcp.symbols.app/account`, then `/mcp` → Authenticate). You sign in to Symbols in the browser once; there is no token to copy. See [SETUP.md](SETUP.md#streamable-http-hosted-worker).
+
 ---
 
 ## Tools
@@ -248,6 +250,6 @@ Three patterns:
 - **Per-tool quick-starts with workspace connection** (s1m0ne Bridge + MCP + rules): [docs.symbols.app/simone](https://docs.symbols.app/simone)
 - **Local development:** clone the repo, run from source, `.mcp.json` template
 - **Using `/symbols-audit` & other tools in non-Claude-Code editors:** natural language, custom commands per editor, shell fallback, sourcing the bundled venv directly
-- **Transport modes:** stdio (default) and SSE (for claude.ai web / remote clients)
+- **Transport modes:** stdio (default), SSE (self-hosted), and the hosted Streamable HTTP server at `https://mcp.symbols.app` (`/account` signs in with OAuth)
 - **Audit CLI:** standalone `bin/symbols-audit.cjs` for CI / pre-commit
 - **Updating** and **Troubleshooting** (PATH issues, stale versions, missing tools)

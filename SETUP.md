@@ -47,7 +47,7 @@ Pick whichever runtime you have already. The server is the same Python package e
 | pip / Python ≥ 3.10 | https://www.python.org/downloads/ | `pip install symbols-mcp` |
 | Node.js ≥ 18 | https://nodejs.org/ | `npx @symbo.ls/mcp` |
 
-No API keys are required for the documentation/audit/generation tools. Project-management tools (`login`, `save_to_project`, `publish`, `push`) need a free Symbols.app account.
+No API keys are required for the documentation/audit/generation tools. Project-management tools (`login`, `save_to_project`, `publish`, `push`) need a free Symbols.app account. With the hosted server you sign in once in the browser: add `https://mcp.symbols.app/account` (see [Claude.ai (web)](#claudeai-web) and [Streamable HTTP](#streamable-http-hosted-worker)).
 
 ---
 
@@ -87,7 +87,15 @@ Every config below uses the **`uvx --refresh`** form so you always pull the late
 
 ### Claude Code (CLI)
 
-Three scopes, in order of precedence:
+**Hosted, with sign-in (no install).** Add the hosted server and sign in once in the browser:
+
+```bash
+claude mcp add --transport http symbols https://mcp.symbols.app/account
+```
+
+Then run `/mcp` in Claude Code, pick `symbols` and choose **Authenticate**. The browser opens the Symbols sign-in; press **Continue** on the page that names Claude Code. The account tools (`list_projects`, `save_to_project`, `publish`, `push`, …) then act as you, with no token in any call. Add `--scope project` to share the entry through `.mcp.json`; each person signs in on their own.
+
+**Local server (stdio).** Three scopes, in order of precedence:
 
 1. **Project-scoped** (recommended for teams) — `<repo-root>/.mcp.json`:
    ```json
@@ -160,14 +168,22 @@ Quit and re-open Claude Desktop. The server appears under the 🛠️ menu.
 
 ### Claude.ai (web)
 
-Claude.ai supports MCP servers via the **Integrations** panel (Pro / Team / Enterprise). Two paths:
+Claude.ai connects to the hosted Symbols server as a **custom connector**. You sign in with your Symbols account in the browser; there is no token to copy.
 
-1. **Hosted (no setup):** if your org has connected the Symbols integration via the Symbols team, you'll see `Symbols` in the integrations list — toggle on.
-2. **Custom server:** Settings → Profile → Integrations → Add custom integration. Provide:
-   - **Type:** `MCP`
-   - **Transport:** `SSE` (web requires SSE — see [Transport modes](#transport-modes))
-   - **URL:** `https://<your-host>:<port>/sse`
-   - Run the server somewhere reachable: `MCP_TRANSPORT=sse MCP_HOST=0.0.0.0 MCP_PORT=8080 uvx symbols-mcp`
+1. Open **Settings → Connectors → Add custom connector**.
+2. Name: `Symbols`. URL: `https://mcp.symbols.app/account`.
+3. Press **Add**, then **Connect**. A Symbols sign-in page opens.
+4. Sign in (Google, GitHub, email or a magic link). The next page names the app that asks (`Claude · claude.ai`). Press **Continue** only if you started this connection.
+5. The browser returns to claude.ai. Try: *"List my Symbols projects."*
+
+The connector can then list, create, read, save, publish and push your projects, and it has every docs, generation and audit tool. On a Team or Enterprise plan, an owner may have to add the connector for the organization first.
+
+To disconnect, remove the connector in claude.ai (it revokes its token), or sign out of Symbols everywhere.
+
+Other paths:
+
+- **No sign-in:** add `https://mcp.symbols.app/mcp`. The docs, generation and audit tools work; the account tools then need a `token` (from `smbls login`) or an `api_key` in each call.
+- **Self-hosted:** run the server somewhere reachable with `MCP_TRANSPORT=sse MCP_HOST=0.0.0.0 MCP_PORT=8080 uvx symbols-mcp` and add `https://<your-host>:<port>/sse` (see [Transport modes](#transport-modes)).
 
 ### Cursor
 
@@ -687,7 +703,7 @@ This bypasses any editor-side MCP wiring — useful for diagnosing "tools not lo
 | Generate a component | `generate_component(description, name)` | (n/a) |
 | Convert React/HTML | `convert_react(code)` / `convert_html(code)` | (n/a) |
 | Push to platform | `save_to_project` + `publish` + `push` | `smbls publish` |
-| Login | `login(email, password)` | `smbls login` |
+| Login | `login(email, password)`, or connect the hosted `/account` URL (browser sign-in, no token) | `smbls login` |
 
 The MCP tools are universal across editors. The shell column is your fallback when no MCP is available.
 
@@ -723,20 +739,29 @@ The official Symbols-hosted edge worker — no install, no process to keep alive
 
 | Env | URL |
 |---|---|
-| Production | `https://symbols-mcp.symbols.workers.dev` |
-| Dev / next | `https://symbols-mcp-dev.nika-980.workers.dev` |
+| Production | `https://mcp.symbols.app` |
+| Dev | `https://symbols-mcp-dev.nika-980.workers.dev` |
 
-Configure any MCP-aware editor with the `url` form (no `command` / `args`):
+Two MCP endpoints on each host:
+
+| Endpoint | Sign-in | What it gives |
+|---|---|---|
+| `/account` | OAuth in the browser (the client opens it on first use) | Every tool. The account tools act as the signed-in person; they take no `token` / `api_key`. |
+| `/mcp` (or `/`) | none | Every tool. The account tools need a `token` (`smbls login`, `~/.smblsrc`, `SYMBOLS_TOKEN`) or an `api_key` (`sk_live_…`) in each call. |
+
+Configure any MCP-aware editor with the `url` form (no `command` / `args`). A client that supports MCP authorization (claude.ai, Claude Code, Cursor, VS Code, ChatGPT, …) opens the Symbols sign-in by itself on the first call to `/account`:
 
 ```json
 {
   "mcpServers": {
-    "symbols-mcp": {
-      "url": "https://symbols-mcp.symbols.workers.dev"
+    "symbols": {
+      "url": "https://mcp.symbols.app/account"
     }
   }
 }
 ```
+
+How the sign-in works: the `/account` endpoint answers `401` with a `WWW-Authenticate` header that points to its OAuth metadata (`/.well-known/oauth-protected-resource/account`). The client registers itself, opens the Symbols sign-in in the browser (PKCE), and you press **Continue** on the page that names the app. The client then holds a one-hour access token and a rotating refresh token. Removing the connector in the app revokes it; "sign out everywhere" in Symbols ends every connection.
 
 Useful REST endpoints (all return JSON):
 
@@ -748,19 +773,22 @@ Useful REST endpoints (all return JSON):
 | `POST /tools/<name>` | Invoke one tool, body is the tool args |
 | `GET /resources` | List skill / reference resources |
 | `GET /resources/read?uri=<uri>` | Read a single resource |
+| `GET /account` | The signed-in account (needs `Authorization: Bearer …`) |
+| `GET /.well-known/oauth-protected-resource/account` | OAuth protected resource metadata (RFC 9728) |
+| `GET /.well-known/oauth-authorization-server` | OAuth authorization server metadata (RFC 8414) |
 
 #### Project context — `?owner=&key=`
 
-The hosted worker accepts project identity as URL parameters and uses them to fetch the live project context from the Symbols KV cache. Pass them on every MCP request:
+The hosted worker accepts project identity as URL parameters and uses them to fetch the live project context from the Symbols KV cache. Pass them on every MCP request (on `/account` too):
 
 ```
-https://symbols-mcp.symbols.workers.dev/?owner=acme&key=storefront
+https://mcp.symbols.app/mcp?owner=acme&key=storefront
 ```
 
 Equivalent legacy form (slash-separated, accepted for backward-compat):
 
 ```
-https://symbols-mcp.symbols.workers.dev/?project_key=acme/storefront
+https://mcp.symbols.app/mcp?project_key=acme/storefront
 ```
 
 When project context is found, every tool that takes an active-project argument (`generate_component`, `generate_page`, `convert_*`, `get_project_context`, `save_to_project`, `publish`, `push`) automatically scopes to that project — components, pages, design-system tokens, state, and functions are surfaced into the prompt so generations match the project's actual surface area, not generic defaults.
