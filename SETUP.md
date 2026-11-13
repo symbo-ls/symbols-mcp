@@ -173,7 +173,7 @@ Claude.ai connects to the hosted Symbols server as a **custom connector**. You s
 1. Open **Settings → Connectors → Add custom connector**.
 2. Name: `Symbols`. URL: `https://mcp.symbols.app/account`.
 3. Press **Add**, then **Connect**. A Symbols sign-in page opens.
-4. Sign in (Google, GitHub, email or a magic link). The next page names the app that asks (`Claude · claude.ai`). Press **Continue** only if you started this connection.
+4. Sign in (Google, GitHub, email or a magic link). The next page names the address the sign-in returns to first, then the name the app gives itself (`claude.ai · Claude`). Press **Continue** only if you are adding Symbols to that app right now, never from a link someone sent you.
 5. The browser returns to claude.ai. Try: *"List my Symbols projects."*
 
 The connector can then list, create, read, save, publish and push your projects, and it has every docs, generation and audit tool. On a Team or Enterprise plan, an owner may have to add the connector for the organization first.
@@ -761,7 +761,7 @@ Configure any MCP-aware editor with the `url` form (no `command` / `args`). A cl
 }
 ```
 
-How the sign-in works: the `/account` endpoint answers `401` with a `WWW-Authenticate` header that points to its OAuth metadata (`/.well-known/oauth-protected-resource/account`). The client registers itself, opens the Symbols sign-in in the browser (PKCE), and you press **Continue** on the page that names the app. The client then holds a one-hour access token and a rotating refresh token. Removing the connector in the app revokes it; "sign out everywhere" in Symbols ends every connection.
+How the sign-in works: the `/account` endpoint answers `401` with a `WWW-Authenticate` header that points to its OAuth metadata (`/.well-known/oauth-protected-resource/account`). The client registers itself, opens the Symbols sign-in in the browser (PKCE), and you press **Continue** on the page that names the app. The client then holds a one-hour access token and a rotating refresh token. The token works only for the Symbols MCP tools (projects: list, read, create, save, publish, push); it cannot change your profile, approve other sign-ins or make API keys. Removing the connector in the app revokes it at once; "sign out everywhere" in Symbols ends every connection. A connection ends after 90 days at the latest, and the app then asks you to sign in again.
 
 Useful REST endpoints (all return JSON):
 
