@@ -30,11 +30,20 @@ dependencies = [
     # wheel (arm64-only from 49.0.0 on), so a cold `uvx symbols-mcp` on an
     # Intel Mac falls back to a source build, which needs a Rust toolchain
     # newer than ships on older macOS setups (rustc >=1.83, vs 1.81 here) and
-    # fails. 48.0.1 is the last cryptography with an x86_64 wheel and pyjwt's
-    # own floor (cryptography>=3.4.0) has no upper bound, so this constraint
-    # only narrows the darwin/x86_64 resolve — every other platform keeps
-    # resolving latest cryptography unchanged.
+    # fails. 48.0.1 is the last cryptography with an x86_64 wheel, so Intel
+    # Macs stay below 49.
+    #
+    # The second line is the exact complement of the first and asks for >=49
+    # on every other platform (pyjwt's own floor, cryptography>=3.4.0, has no
+    # upper bound). The pair makes uv fork uv.lock on darwin/x86_64. With the
+    # Intel cap alone, the lock had no such fork: the cap held the whole
+    # non-Windows fork, so `uv sync --frozen` gave Linux and Apple Silicon
+    # 48.0.1 as well, below the 49.0.0/50.0.0 security fixes. Now Intel Macs
+    # resolve 48.0.1 and every other platform resolves the latest
+    # cryptography, both from PyPI (`uvx symbols-mcp`) and from uv.lock.
+    # Nika d1200qc, 2026-11-27.
     "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "cryptography>=49; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 
 [project.scripts]
