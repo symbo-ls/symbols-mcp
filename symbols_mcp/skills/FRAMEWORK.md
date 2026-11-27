@@ -600,7 +600,7 @@ fetch: {
 ```
 
 - A request is the adapter call it stands for (`method` `'select'` / `'rpc'`, `from`, `params`, `select`, `limit`, `offset`, `order`, `single`). A function form runs before the app: no imports, no project functions — only its arguments (`ctx = { path, query, lang, storage(key), meta(name), prerendered }`) and browser globals.
-- The script asks in the language the app starts in (§6 → The start language): the address's (`/en/…`), else the stored choice, else `state.lang`, else `polyglot.defaultLang`. It embeds the same rule polyglot uses, so its `Accept-Language` is the app's.
+- The script asks in the language the app starts in (§6 → The start language): the address's (`/en/…`), else the stored choice (when it is one of the languages), else `state.lang`, else `polyglot.defaultLang`. It embeds the same rule polyglot uses, so its `Accept-Language` is the app's.
 - Adopted only when it is the same request: same address, same `Accept-Language` (set `lang: false` for a call that sends none), no other headers — a signed-in call never takes the anonymous answer. Each answer is taken once; a failed one, an expired one, or one still waiting after an invalidation is not.
 - `early.query` and `early.rpc` default to `fetch.reads` (SYNTAX → Anonymous reads), which makes the call itself send the same anonymous GET; declare them once in `reads`.
 - `smbls build` (and `smbls deploy`) writes the script as `early.<hash>.js`, referenced right after the page's `<meta charset>` (the charset declaration stays first; since cli 3.14.826, also on a page without a `<head>` tag), else first in `<head>` (a file, so a CSP without `'unsafe-inline'` allows it) — the optimized page included (unquoted attributes, no `<head>` tag). With `fetch.early` set and nothing added (no app script on the page, no request the script can make), the build prints `Early data requests not added: <reason>`. `smbls start` does not emit it. Without `fetch.early` nothing changes.
@@ -754,8 +754,10 @@ Mixed mode: ship `translations` in the bundle (UI strings) and add `fetch` (cont
 The app starts in ONE language, chosen before the first render (smbls `prepareState`, polyglot's `initPolyglot` and the `fetch.early` script share the rule):
 
 1. the address's language — `/en/about` with `languages: ['ka', 'en']` starts in `en` (the first path segment, when it is one of `languages`, else of the `translations` keys; case does not matter);
-2. the stored choice (`storageLangKey`);
+2. the stored choice (`storageLangKey`), when it is one of the languages (`languages`, else the `translations` keys; case does not matter; with no list, any value);
 3. the state's `lang`, else `defaultLang`, else `'en'`.
+
+**A stored value outside the languages is no choice** (smbls after 3.14.887, utils after 3.14.868; the pre-boot script: fetch after 3.14.681). Every app on an origin shares localStorage, so the key can hold a language another app stored. The start skips such a value in every `addressLang` mode and leaves it in storage; the pre-boot script skips it too. smbls `prepareState` reads the app's own key: only an app that names no `storageLangKey` also reads a bare `lang` key. The check is `isPolyglotLanguage(polyglot, lang)` from `@symbo.ls/utils`. The pre-boot `startLang` answer and step 3 are not checked. List every language the app offers in `languages`: `setLang` refuses any other (see below).
 
 `polyglot.addressLang` sets step 1: `true` (default) — the address wins over a stored choice; `'fallback'` — a stored choice wins, the address only replaces the default; `'strict'` — the address alone decides (an unprefixed address is the default language's page, whatever is stored); `false` — the address is never read. `{ mode: 'strict', except: ['/admin'] }` (polyglot 3.14.610) uses `mode` everywhere except under the `except` paths, which take `true`: public pages strict, the admin in its staff's last language. A path matches the address's first segments (`/admin` matches `/admin/x`; `:param` matches one segment). The first render, its declarative fetches (`Accept-Language`), the labels and a router's language guard all see the start language, so a first visit to `/en/…` asks for and shows only English. The address's language is never stored (it is not a choice); `setLang` stores one. Ahead of all steps: the language the pre-boot `fetch.early.startLang(ctx)` hook chose for this page load wins in every mode (a hook returning `null`, an admin's, chooses none). `polyglot.defaultLang` may be a function `(polyglot) => code` (a default that is data), called each time the default is asked; the pre-boot script carries its source and calls it there with `{ languages }`. A server page asks it too: `smbls start` (the runner), brender and mermaid write its answer in `<html lang>`, also when the payload holds the function as its source text (frank JSON), which they compile as the browser does. A runtime that compiles no code from text (a Worker; mermaid's `evalAvailable: false`) keeps the fallback `'en'` there and never throws; the browser applies the answer at boot. Example: SYNTAX.md → Polyglot → The start language.
 
@@ -771,7 +773,9 @@ getActiveLang     → reads state.root.lang or context.polyglot.defaultLang
 getLang           → alias for getActiveLang
 setLang           → switch (async): persist first, wait for labels + their font faces (polyglot.fontWait,
                     default 3000 ms; false/0 = no wait), then text, state.root.lang and <html lang> in ONE frame;
-                    the last call wins; setLang(lang, { persist: false }) stores nothing
+                    the last call wins; setLang(lang, { persist: false }) stores nothing; a language outside
+                    a non-empty `languages` list is refused: nothing stored or switched, a console warning
+                    (none with polyglot.verbose: false)
 getPendingLang    → the language a switch is waiting for, or null (reactive — a busy state; no state key)
 getLanguages      → array of available language codes
 loadTranslations  → load a lang's labels — one load per lang PER APP: a second call while one is in flight gets
