@@ -873,6 +873,8 @@ How many sub-steps exist between letters depends on the range — smaller ranges
 
 Typography tokens use the same letter system for `fontSize`.
 
+**The letters stop at the ends of the scale's `range`.** The default spacing range is `[-5, 15]`: `V` … `P` (`U` is -6, `Q` is 16). The default typography range is `[-3, 12]`: `X` … `M`. A design system can set its own `range` in `spacing.js` / `typography.js`. A letter outside it is no token (`gap: 'U'`, `maxWidth: 'Q'`): the declaration is dropped and the console names the token once, in every runtime. frank-audit FA305 reports it before a push. Use a letter inside the range, a `sizes` token, or a wider `range`.
+
 ### Shorthand spacing
 
 ```js

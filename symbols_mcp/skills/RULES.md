@@ -2248,15 +2248,15 @@ Three patterns cause almost all of it:
 
 ```js
 // ❌ enters the row on the first keystroke and shoves its neighbours
-ClearBtn: { if: (el, s) => !!s.root.query, text: 'Clear' }
+ClearBtn: { if: (el, s) => !!s.root.searchText, text: 'Clear' }
 
 // ✅ box reserved; only visibility changes
 ClearBtn: {
   text: 'Clear',
-  visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
-  pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
-  tabindex: (el, s) => (s.root.query ? '0' : '-1'),
-  aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+  visibility: (el, s) => (s.root.searchText ? 'visible' : 'hidden'),
+  pointerEvents: (el, s) => (s.root.searchText ? 'auto' : 'none'),
+  tabindex: (el, s) => (s.root.searchText ? '0' : '-1'),
+  aria: { hidden: (el, s) => (s.root.searchText ? null : 'true') }
 }
 ```
 
@@ -2280,7 +2280,7 @@ Rows:   { children: (el, s) => s.rows },
 NoRows: { if: (el, s) => !s.rows.length }
 ```
 
-"At most one shows" is not a swap: a status line that goes blank is chrome, and it is reported. A member whose base sets a `state:` of its own refuses the swap (its `s` is not its siblings'). Keep a meant one with `// frank-allow FA813: <why>` on the line above it, or `// frank-allow-block FA813: <why>` above an element for all its direct children (the block form needs a reason). An allow that covers no finding is reported: remove it. Patterns 2 and 3 are not audited.
+"At most one shows" is not a swap: a status line that goes blank is chrome, and it is reported. Two form steps gated `s.step === 'email'` and `s.step === 'code'` are "at most one" too: `step` can hold a third value and then both are gone. If one of them always shows, write the last gate as the negation of the others (`s.step !== 'email'`): the run is then a swap and is skipped. The warning names the run and that gate. A member whose base sets a `state:` of its own refuses the swap (its `s` is not its siblings'). Keep a meant one with `// frank-allow FA813: <why>` on the line above it, or `// frank-allow-block FA813: <why>` above an element for all its direct children (the block form needs a reason). An allow that covers no finding is reported: remove it. Patterns 2 and 3 are not audited.
 
 ---
 
@@ -2464,11 +2464,18 @@ Publish-time pre-render). A route fails when its render:
   framework logs such an error and renders the rest, so the page looks whole
   in its HTML. Before, the route was stored and served without that part.
 
-The most common cause is a design-system token the PUSHED design system does
-not define (`Unresolvable design-system token "<name>"`). Look first at a
-hand-written `context.js` that copies a token table instead of importing
-`designSystem/` (PROJECT_STRUCTURE.md → Design System; frank names each
-`designSystem/` file the entry does not import).
+Up to smbls 3.14.888 the most common cause was a design-system token the
+PUSHED design system does not define: the token threw, and the part that used
+it was left out. From the next release a token no longer fails a part, in any
+runtime: the one declaration that uses it is dropped and the console names
+the token once (`[smbls] Unresolvable design-system token "<name>" for
+sequence "<type>" …`, an error on a loud-dev runtime, a warning elsewhere,
+a production build included). The publish does not stop on it, so read that
+line in the publish output. frank-audit FA305 reports a spacing or type
+letter outside the scale's range before a push. For a named token, look
+first at a hand-written `context.js` that copies a token table instead of
+importing `designSystem/` (PROJECT_STRUCTURE.md → Design System; frank names
+each `designSystem/` file the entry does not import).
 
 Two ways on, and only two:
 

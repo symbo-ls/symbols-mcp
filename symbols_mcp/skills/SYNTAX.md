@@ -637,7 +637,7 @@ onClick: (e, el, s) => {
   s.toggle('open')              // flip boolean
   s.add('items', { id: 1 })     // APPENDS to an array key, MERGES a plain object into an object key, SETS a new/scalar key
   s.remove('selected')          // delete key
-  s.setByPath('user.name', 'X') // dotted path
+  s.setByPath('user.name', 'X') // a DOTTED path here (a `state:` string uses '/')
 }
 ```
 
@@ -658,6 +658,8 @@ s.root.update({ x: 1 })
 s.parent.update({ y: 2 })
 ```
 
+**`s.root` is the app root everywhere, in a string-path scope too** (the first smbls release after 3.14.888). An element bound to a part of a state (`state: 'sec'`, `'~/a/b'`, an array item, `childrenAs` rows under it) reads `s.root` as the app's root state, not as that part: `s.root.legend` works under `state: 'sec'`, and so do `~/` paths and the root-state fallback of rows under it. `s.rootUpdate(v)` does the same as `s.root.update(v)`. When the part is a nested object, `s.parent` is the state that holds it and `s.parentUpdate(v)` writes there. Up to 3.14.888, `s.root` under a string path was the part itself and `s.parent` was `undefined`.
+
 **A key an element's state does not hold falls back to the ROOT state.** An element's own state (`state: { … }`, each `childrenAs: 'state'` child) reads a key it does not hold — absent, or holding `undefined` — from the root state (the app's `state.js`), never from its parent:
 
 ```js
@@ -668,7 +670,7 @@ isActive: (el, s) => s.active                          // true on EVERY row
 ```
 
 - The fallback read is reactive (a later root write re-runs it), but it is not the child's data: `s.parse()`, `s.keys()`, `Object.keys(s)` and `'key' in s` leave it out.
-- A write through the child (`s.update({ active: false })`) creates the child's own key, which shadows the root's from then on. A nested object inside a state (`s.auth`) has no fallback.
+- A write through the child (`s.update({ active: false })`) creates the child's own key, which shadows the root's from then on. A nested object inside a state (`s.auth`, and so an element bound to it by `state: 'auth'`) has no fallback: it reads only its own keys, and `s.root.key` reads the root.
 - So give list items every key they read (an explicit `active: false`), or pick names the root does not use; read app state on purpose through `s.root.key`.
 
 ### Targeted Updates (Performance)
@@ -710,8 +712,8 @@ s.root.update({ activeModal: true })   // only what reads s.root.activeModal re-
 | `s.$settled()` | Promise that resolves with the state once the DOM of the pending writes is applied (see below) |
 | `s.quietUpdate(value)` | Same as `s.update(value, { quiet: true })`: writes the values and bound values re-render, but the owner's `onUpdate` does not run (`onBeforeStateUpdate` still runs) |
 | `s.quietReplace(value, opts?)` | Same as `s.replace(value, { quiet: true, ...opts })` |
-| `s.rootUpdate(obj, opts?)` | Update root state from anywhere |
-| `s.parentUpdate(obj, opts?)` | Update parent state |
+| `s.rootUpdate(obj, opts?)` | Update the app root state from anywhere, a string-path scope too: the same as `s.root.update(obj, opts)` |
+| `s.parentUpdate(obj, opts?)` | Update the parent state: under `state: 'sec'` (a nested object), the state that holds `sec` |
 | `s.root` | Root state reference |
 | `s.parent` | Parent state reference |
 
@@ -792,10 +794,13 @@ To keep a state write from running `onUpdate`:
 
 ```js
 state: '.'                 // current element's state (parent if no local)
-state: '../path/to/field'  // dotted path from parent
-state: '~/lang'            // dotted path from root
+state: '../path/to/field'  // a path in the parent's state ("/" between keys)
+state: '~/lang'            // a path from the root
 state: 'fieldName'         // direct lookup in parent state, polyglot fallback
+state: 'recap/rule'        // parent.state.recap.rule
 ```
+
+**A `state:` path splits on `/`, never on `.`.** `state: 'recap.rule'` looks up ONE key named `'recap.rule'`, finds nothing and gives the element `{}`: the part draws nothing. Write `state: 'recap/rule'`. The element warns once in dev, and frank-audit FA110 reports it. (`s.getByPath` / `s.setByPath` are different: they take a dotted path, `'user.name'`.)
 
 ```js
 // Parent has state: { userProfile: { name: 'John' } }
@@ -1368,6 +1373,27 @@ export default {
 ```
 
 Dynamic params (`:id`) populate `state.params`. Query strings populate `state.query`.
+
+### Router state — the keys the router owns
+
+The router writes these keys on the state of the element it routes. For the app (`el.router(path, el.getRoot())`) that is the root state: read them as `s.root.<key>`.
+
+| Key | Value | Example for `/players/42?tab=stats&tag=a&tag=b#bio` |
+|---|---|---|
+| `route` | The matched route KEY from `pages/index.js`: a pattern, not the address. `'/*'` for the catch-all; the chosen key when a guard or a call picks the route (`{ route }`). | `'/players/:id'` |
+| `routePath` | The FIRST path segment at the router's level, with its `/`. It is NOT the full path: `/examples/recap` gives `'/examples'`; `/` gives `'/'`. | `'/players'` |
+| `params` | The `:name` segments of the matched key, as strings. `{}` when the key has none. | `{ id: '42' }` |
+| `query` | The search string as an object of strings; a repeated key is an array. `{}` when there is none. | `{ tab: 'stats', tag: ['a', 'b'] }` |
+| `hash` | The fragment WITH its `#`; `''` when there is none. | `'#bio'` |
+| `debugging` | `false`. Reserved: a `true` value makes the next `router()` call do nothing and sets it back to `false`. | `false` |
+
+When they are written:
+
+- `params` and `query` on EVERY navigation, a query-only one too. `{}` clears the previous page's values.
+- `route`, `routePath` and `hash` with them, except on a same-path navigation that carries a hash: that one writes only `params` and `query`.
+- `useParamsMatching: false` (the default is `true`) makes `route` the first segment too, the same value as `routePath`.
+
+Never keep your own data under these names in the root state: the router overwrites them. A search field in `s.root.query` is an object (`{}`) after the first navigation, so `!!s.root.query` is always true. Name it `searchText` (or keep it in the form's own state). For the full address, build it from `route` and `params` (and `query`).
 
 A route value is a page definition or a component's name (`'/ask': 'AiPage'`). An entry that adds only a head to a component, `'/blueprint': { extends: 'AiPage', metadata: { title: '…', robots: 'noindex' } }`, gives that route its own served and live head over the component's `metadata` (since smbls 3.14.860; FRAMEWORK.md → helmet → A route entry's head).
 

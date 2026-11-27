@@ -450,6 +450,24 @@ to factory return objects so the inner factories can resolve at
 runtime — both rules together cover the full closure-loss surface.
 
 
+# FA110 — dotted-state-path
+
+A string `state:` binds the element to a part of its parent's state.
+The path splits on `/`; `../` goes up one state, `~/` starts at the root.
+A dot is part of the key name, so the path finds nothing and the
+element gets `{}`.
+
+Bad:    Bar: { state: 'recap.rule' }       // the key 'recap.rule'
+Good:   Bar: { state: 'recap/rule' }       // recap → rule
+        Bar: { state: '~/recap/rule' }     // from the root
+
+A real key with a dot in its name, or a flat dotted polyglot key the
+path falls back to (both rare), is the one false hit: keep it with
+`// frank-allow FA110: <why>` on the line above.
+
+Note: `s.getByPath` / `s.setByPath` take a DOTTED path (`user.name`);
+only the `state:` string uses `/`.
+
 ---
 
 ## FA2xx — DOMQL syntax & scope movers
@@ -725,6 +743,23 @@ See designSystem/spacing.js (or sizing.js, typography.js) for the available
 tokens. The audit cannot pick the right one — open the design system and
 choose the token whose declared value matches the literal.
 
+
+# FA305 — out-of-scale-token
+
+A sequence has the letters of its `range`: spacing [-5, 15] is V … P,
+typography [-3, 12] is X … M (the framework defaults; a design system
+may set its own `range`). A letter outside it is not a token.
+
+Bad:    gap: 'U'          maxWidth: 'Q'          fontSize: 'N'
+Good:   gap: 'V'          maxWidth: 'P'          fontSize: 'M'
+        (or a sizes token: maxWidth: 'container', or a wider range)
+
+The runtime drops that one declaration and names the token once in
+the console, in every runtime. Only a letter whose base is outside the
+range is reported; a registered `sizes` name always passes. The range
+is read from the project, then its linked libraries, then the
+framework default; a design system the audit cannot read (a spread, a
+computed value) turns the rule off for that family.
 
 ---
 
@@ -1748,15 +1783,15 @@ symbols-mcp's audit_component runs the same check; the two agree.
 # FA813 — if-in-flow
 
 Bad:    SearchBar: { flow: 'x', Field: { extends: 'Input' },
-          ClearBtn: { extends: 'Button', if: (el, s) => !!s.root.query, text: 'Clear' } }
+          ClearBtn: { extends: 'Button', if: (el, s) => !!s.root.searchText, text: 'Clear' } }
         // enters the row on the first keystroke and shoves its neighbours
 Good:   ClearBtn: {
           extends: 'Button',
           text: 'Clear',
-          visibility: (el, s) => (s.root.query ? 'visible' : 'hidden'),
-          pointerEvents: (el, s) => (s.root.query ? 'auto' : 'none'),
-          tabindex: (el, s) => (s.root.query ? '0' : '-1'),
-          aria: { hidden: (el, s) => (s.root.query ? null : 'true') }
+          visibility: (el, s) => (s.root.searchText ? 'visible' : 'hidden'),
+          pointerEvents: (el, s) => (s.root.searchText ? 'auto' : 'none'),
+          tabindex: (el, s) => (s.root.searchText ? '0' : '-1'),
+          aria: { hidden: (el, s) => (s.root.searchText ? null : 'true') }
         }
 
 An `if:` adds and removes its node, so everything beside it in the
@@ -1791,7 +1826,10 @@ else is an opaque test. A test that reads the element itself (`el.X`,
 except `el.parent…`) refuses the run, and so does a member whose base
 (a project, library or framework component) sets a `state:` of its
 own — then its `s` is not its siblings'. "At most one of the two
-shows" is not skipped: a status line that goes blank is chrome.
+shows" is not skipped: a status line that goes blank is chrome. The
+finding then names the run and the gate to write as the negation of
+the others when one of them always shows (two form steps:
+`s.step === 'email'` / `s.step !== 'email'`, not `=== 'code'`).
 
 ## Allow a meant one
 
