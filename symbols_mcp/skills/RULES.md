@@ -2467,7 +2467,7 @@ Publish-time pre-render). A route fails when its render:
   letter of its scale): the declaration that uses it is dropped.
 
 The most common cause is a design-system token the PUSHED design system does
-not define. Up to smbls 3.14.888 the token threw and the part that used it was
+not define. Up to smbls 3.14.889 the token threw and the part that used it was
 left out. From the next release a token fails no part, in any runtime: the one
 declaration that uses it is dropped and the console names the token once
 (`[smbls] Unresolvable design-system token "<name>" for sequence "<type>" …`,
