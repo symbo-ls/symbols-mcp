@@ -467,6 +467,8 @@ A registration shadows a built-in of the same name (`rest`, `local`). An element
 
 **An adapter that cannot open fails only its queries** (since `@symbo.ls/fetch` 3.14.676 / smbls 3.14.864). When `setup()` throws, every run that needs the adapter fails as a failed request does: the element gets its error status, and `onFetchError` runs on the element and on the query (the `fetch:` item). The next run tries the adapter again. A `smbls build` pre-render no longer ends on such a throw. So an adapter may throw in `setup()` when its client is missing (no SDK client in a server render): that query errors, and the page still builds. Show the element's empty or error state for it; the client fetches again after the takeover.
 
+**The adapter carries the config's `url`, `key` and `auth`.** Whichever path opens the adapter first (a declarative `fetch`, the answers a pre-rendered page carries, or `el.getDB()`), the framework sets these three fields of the config on it, and `context.fetch` is that adapter from then on: `(await el.getDB()).url` is the config's `url`. A field of your adapter with one of these names is replaced, so keep the adapter's own state under other names. `getDB()` treats an adapter that cannot open as a query does: when `setup()` throws, that call rejects; when `setup()` answers `null`, the call answers `null`; and the next call tries the adapter again.
+
 ### Declarative fetch on an element / app
 
 ```js
