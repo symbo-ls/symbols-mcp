@@ -342,6 +342,36 @@ def test_rule_66_keeps_at_most_one_and_a_stateful_member():
     assert "Loader › Spinner" in found[2]["message"]
 
 
+# ctbs 11-27: a sign-in form's two steps (`s.step === 'email'`,
+# `s.step === 'code'`) read as a false alarm. `step` can hold a third value,
+# so "at most one shows" is right and stays a warning (frank-audit FA813
+# reports it the same way); the warning now names the run and the gate to
+# write as the negation of the others, and that form is skipped.
+SIGNIN_STEPS = """export const SignIn = {
+  state: { step: 'email' },
+  EmailStep: { if: (el, s) => s.step === 'email', text: 'email' },
+  CodeStep: { if: (el, s) => s.step === 'code', text: 'code' },
+  Status: { tag: 'p', text: 'status' }
+}
+"""
+
+
+def test_rule_66_at_most_one_names_the_run_and_the_gate_to_negate():
+    found = _python(SIGNIN_STEPS)
+    assert [f["line"] for f in found] == [3, 4]
+    for f in found:
+        assert "EmailStep, CodeStep never show together but can all be hidden at once" in f["message"]
+        assert "write the gate of CodeStep as the negation of the others" in f["message"]
+        assert f["message"].endswith("(frank-audit FA813, opt-in)")
+    complement = SIGNIN_STEPS.replace("s.step === 'code'", "s.step !== 'email'")
+    assert _python(complement) == []
+
+
+def test_rule_66_no_run_hint_for_a_lone_gate():
+    for f in _python(IF_IN_FLOW):
+        assert "never show together" not in f["message"]
+
+
 def test_rule_66_reads_the_allow_comments_and_reports_the_unused():
     found = _python(IF_ALLOWED)
     lines = [(f["line"], f["message"]) for f in found]

@@ -455,7 +455,7 @@ const FRAMEWORK_COMPONENTS = new Set([
   'CircleButton', 'Clickable', 'ConfirmTemplate', 'CustomTemplate', 'Data', 'Dialog',
   'DialogFooter', 'DialogHeader', 'Dropdown', 'DropdownDisclosure', 'DropdownList',
   'DropdownParent', 'DropdownParentFocus', 'DropdownRoot', 'DropdownSiblingFocus',
-  'DropdownTrigger', 'FileIcon', 'Flex', 'Focusable', 'FocusableComponent', 'Footnote', 'Form',
+  'DropdownTrigger', 'FileIcon', 'FilePick', 'Flex', 'Focusable', 'FocusableComponent', 'Footnote', 'Form',
   'Grid', 'Gutter', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'Headline', 'Hgroup', 'HgroupButton',
   'HgroupRows', 'Hoverable', 'Hr', 'I', 'Icon', 'IconButton', 'IconText', 'Iframe', 'Img',
   'Inline', 'InlineFlex', 'InlineGrid', 'Input', 'Italic', 'KangorooButton', 'Li', 'Link',
@@ -883,10 +883,18 @@ function gateOf (src, toks, entry) {
 
 // Exactly one of the run's gates is true in every case.
 function exactlyOne (src, toks, gateEntries) {
+  const c = onCounts(src, toks, gateEntries)
+  return !!c && c.min === 1 && c.max === 1
+}
+
+// The fewest and the most of the run's gates true at once over every case
+// ({ min, max }), or null (a gate not read, one reads the element itself,
+// too many cases) — frank-audit swaps.js onCounts.
+function onCounts (src, toks, gateEntries) {
   const conj = []
   for (const e of gateEntries) {
     const g = gateOf(src, toks, e)
-    if (!g || g.atoms.some((a) => readsOwnElement(a.x))) return false
+    if (!g || g.atoms.some((a) => readsOwnElement(a.x))) return null
     conj.push(g.atoms)
   }
   const vars = new Map()
@@ -906,9 +914,11 @@ function exactlyOne (src, toks, gateEntries) {
   let total = 1
   for (const d of domains) {
     total *= d.length
-    if (total > MAX_CASES) return false
+    if (total > MAX_CASES) return null
   }
   const env = new Map()
+  let min = Infinity
+  let max = 0
   for (let c = 0; c < total; c++) {
     let rest = c
     for (let k = 0; k < names.length; k++) {
@@ -918,9 +928,11 @@ function exactlyOne (src, toks, gateEntries) {
     }
     let on = 0
     for (const as of conj) if (as.every((a) => holds(a, env.get(a.x)))) on++
-    if (on !== 1) return false
+    if (on < min) min = on
+    if (on > max) max = on
+    if (max > 1) return { min, max }
   }
-  return true
+  return { min, max }
 }
 
 // The arrays a gate says are empty.
@@ -999,6 +1011,41 @@ function rendersList (src, toks, entry, ref) {
 }
 
 const isFalsyLiteral = (toks, e) => e.to - e.from === 1 && (isWord(toks[e.from], 'null') || isWord(toks[e.from], 'false'))
+
+// The longest run (2–6 adjacent gated in-flow siblings holding the child)
+// whose members never show together but can all be hidden at once — the
+// "at most one shows" case Rule 66 keeps reporting (frank-audit swaps.js
+// exclusiveRun). Its keys, or null.
+function exclusiveRun (src, toks, entries, child, gate) {
+  if (entryMap(child.child).has('state')) return null
+  const kids = entries.filter((e) => isPascal(e.key) && !isFalsyLiteral(toks, e))
+  const flow = kids.filter((e) => e === child || !(e.child && outOfFlow(toks, entryMap(e.child), builtFrom(toks, e.child, String(e.key)))))
+  const i = flow.indexOf(child)
+  if (i < 0) return null
+  const gateEntry = (e) => {
+    if (e === child) return gate
+    if (!e.child) return null
+    const m = entryMap(e.child)
+    if (m.has('state')) return null
+    return m.get('if') || null
+  }
+  for (let len = 6; len >= 2; len--) {
+    for (let l = Math.max(0, i - len + 1); l <= i; l++) {
+      const win = flow.slice(l, l + len)
+      if (win.length !== len) continue
+      const gates = win.map(gateEntry)
+      if (gates.some((g) => !g)) continue
+      const c = onCounts(src, toks, gates)
+      if (c && c.max === 1 && c.min === 0) return win.map((e) => String(e.key))
+    }
+  }
+  return null
+}
+
+// The hint for an exclusiveRun (frank-audit swaps.js exclusiveRunHint, same words).
+const exclusiveRunHint = (run) =>
+  `. ${run.join(', ')} never show together but can all be hidden at once, so this is not read as a swap in place: ` +
+  `if one of them always shows, write the gate of ${run[run.length - 1]} as the negation of the others' gates (\`!(…)\`) and the swap is skipped`
 
 // The in-place swaps a flagged child could take (frank-audit swapCandidates).
 function swapCandidates (src, toks, entries, child, gate) {
@@ -1272,11 +1319,15 @@ function checkNode (src, toks, node, ctx, out) {
       let swaps = []
       try { swaps = swapCandidates(src, toks, node.entries, e, gate) } catch (err) { swaps = [] }
       if (ctx.registry && ctx.registry.swapped(swaps, handed)) continue
+      // "At most one shows" stays a warning (decision 2026-10-26); the
+      // message names the run and the gate that makes it a swap.
+      let run = null
+      try { run = exclusiveRun(src, toks, node.entries, e, gate) } catch (err) { run = null }
       out.push({
         line: lineOf(src, gate.keyTok.start),
         rule: 'Rule 66',
         parentLine: ctx.line || 0,
-        message: `[Rule 66] ${ctx.label} › ${e.key}: \`if:\` adds and removes this element, so the elements beside it move when it toggles — if it is chrome (a button, a count, a status line), keep it mounted and toggle \`visibility\`, \`pointerEvents\`, \`tabindex\` and \`aria.hidden\` instead (frank-audit FA813, opt-in)`
+        message: `[Rule 66] ${ctx.label} › ${e.key}: \`if:\` adds and removes this element, so the elements beside it move when it toggles — if it is chrome (a button, a count, a status line), keep it mounted and toggle \`visibility\`, \`pointerEvents\`, \`tabindex\` and \`aria.hidden\` instead${run ? exclusiveRunHint(run) : ''} (frank-audit FA813, opt-in)`
       })
     }
   }
