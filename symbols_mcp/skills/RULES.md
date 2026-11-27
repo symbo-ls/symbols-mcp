@@ -2462,17 +2462,20 @@ Publish-time pre-render). A route fails when its render:
 - leaves out a part of the page on an error the framework caught — a child, a
   `children:` row or factory, or the route's content that failed to build. The
   framework logs such an error and renders the rest, so the page looks whole
-  in its HTML. Before, the route was stored and served without that part.
+  in its HTML. Before, the route was stored and served without that part;
+- uses a design-system token that does not resolve (no `sizes` name, no
+  letter of its scale): the declaration that uses it is dropped.
 
-Up to smbls 3.14.888 the most common cause was a design-system token the
-PUSHED design system does not define: the token threw, and the part that used
-it was left out. From the next release a token no longer fails a part, in any
-runtime: the one declaration that uses it is dropped and the console names
-the token once (`[smbls] Unresolvable design-system token "<name>" for
-sequence "<type>" …`, an error on a loud-dev runtime, a warning elsewhere,
-a production build included). The publish does not stop on it, so read that
-line in the publish output. frank-audit FA305 reports a spacing or type
-letter outside the scale's range before a push. For a named token, look
+The most common cause is a design-system token the PUSHED design system does
+not define. Up to smbls 3.14.888 the token threw and the part that used it was
+left out. From the next release a token fails no part, in any runtime: the one
+declaration that uses it is dropped and the console names the token once
+(`[smbls] Unresolvable design-system token "<name>" for sequence "<type>" …`,
+an error on a loud-dev runtime, a warning elsewhere, a production build
+included). The publish still stops on the route, with the line
+`a design-system token does not resolve (its CSS declaration is dropped): …`.
+frank-audit FA305 reports a spacing or type letter outside the scale's range
+before a push. For a named token, look
 first at a hand-written `context.js` that copies a token table instead of
 importing `designSystem/` (PROJECT_STRUCTURE.md → Design System; frank names
 each `designSystem/` file the entry does not import).

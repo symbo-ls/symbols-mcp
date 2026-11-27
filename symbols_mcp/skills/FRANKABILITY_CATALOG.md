@@ -755,7 +755,8 @@ Good:   gap: 'V'          maxWidth: 'P'          fontSize: 'M'
         (or a sizes token: maxWidth: 'container', or a wider range)
 
 The runtime drops that one declaration and names the token once in
-the console, in every runtime. Only a letter whose base is outside the
+the console, in every runtime, and `smbls publish --ssr` stops on the
+route that uses it. Only a letter whose base is outside the
 range is reported; a registered `sizes` name always passes. The range
 is read from the project, then its linked libraries, then the
 framework default; a design system the audit cannot read (a spread, a
