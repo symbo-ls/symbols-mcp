@@ -469,6 +469,8 @@ A registration shadows a built-in of the same name (`rest`, `local`). An element
 
 **The adapter carries the config's `url`, `key` and `auth`.** Whichever path opens the adapter first (a declarative `fetch`, the answers a pre-rendered page carries, or `el.getDB()`), the framework sets these three fields of the config on it, and `context.fetch` is that adapter from then on: `(await el.getDB()).url` is the config's `url`. A field of your adapter with one of these names is replaced, so keep the adapter's own state under other names. `getDB()` treats an adapter that cannot open as a query does: when `setup()` throws, that call rejects; when `setup()` answers `null`, the call answers `null`; and the next call tries the adapter again.
 
+**`getDB()` starts and opens the adapter as a query does.** With `auth: false` in the config it starts no auth: no `getSession`, no `onAuthStateChange` listener, no `auth` written to the root state. In a server render it passes `{ serverRender: true }` to `setup(options, env)`, so an adapter that cannot run on a server answers `null` there (the built-in `symbols` adapter does): `getDB()` answers `null` while a page pre-renders, the build loads no SDK and calls no API, and the browser opens the adapter after the takeover. Code that calls `getDB()` during a render checks for `null` (`const db = await el.getDB(); if (!db) return`).
+
 ### Declarative fetch on an element / app
 
 ```js
