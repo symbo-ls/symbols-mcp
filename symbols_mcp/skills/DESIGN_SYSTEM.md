@@ -1291,6 +1291,52 @@ font: {
 
 Generates comma-separated `src` with auto-detected formats per URL.
 
+### A same-width fallback face — `local` + `sizeAdjust` (since smbls 3.14.891)
+
+While a web face loads (`fontDisplay: 'swap'`), its text paints in the next family of the stack. When that face has other widths, lines break in other places, and everything under them moves when the web face swaps in. A second family whose face is a system font scaled to the web face's width removes most of that move. Name it in the stack right after the web face:
+
+```js
+// designSystem/font.js
+const range = 'U+10A0-10FF, U+1C90-1CBF, U+2D00-2D2F' // the script that the web face draws
+export default {
+  Brand: [
+    { url: new URL('../fonts/Brand-Regular.woff2', import.meta.url).href, fontWeight: 400, fontDisplay: 'swap', unicodeRange: range }
+  ],
+  BrandFallback: [
+    { local: ['Helvetica Neue', 'HelveticaNeue'], fontWeight: 400, sizeAdjust: '107%', unicodeRange: range }
+  ]
+}
+
+// designSystem/font_family.js
+export default {
+  Default: { isDefault: true, value: ['"Brand"', '"BrandFallback"', '"Helvetica Neue"'], type: 'sans-serif' }
+}
+```
+
+| Key | Writes | Value |
+|---|---|---|
+| `local` | `local('…')` sources, ahead of the `url()` ones (the browser takes the first source it can use) | a name or a list of names; a string with commas is ONE name |
+| `sizeAdjust` | `size-adjust` | a percentage (`'107%'`) or a number (`107` = 107 %, never `1.07`) |
+| `ascentOverride`, `descentOverride`, `lineGapOverride` | `ascent-override`, `descent-override`, `line-gap-override` | a percentage, a number, or `'normal'` |
+
+- **`url` is optional when `local` is given.** A face with no url asks for no file: the CLI writes no preload link for it, and `faceWait` never holds a text for it.
+- **Give the fallback face the `unicodeRange` of its web face.** With a wider range or none, the readers that follow the browser's face matching give it every later character of the stack, and the web family behind it gets no preload and no wait.
+- **local() matches a font's full name or its PostScript name**, so each weight is its own name (`'Helvetica Neue Bold'`, `'HelveticaNeue-Bold'`). One face for every weight gives a bold text a synthesized bold that keeps the regular widths; one face per weight follows each weight's own widths.
+- **Measure the scale.** Compare the widths of the same strings in both faces, per weight, then check the page at the widths where its text wraps. One scale seldom fits every weight and every text: the move gets smaller, not always zero.
+- **A device without the local font** skips the face and keeps its own fallback, as before.
+- **One fallback family per platform font.** A device takes the first family of the stack whose local font it has, so give each platform its own family, each with its own names and its own measured scale, right after the web face:
+
+  ```js
+  BrandFallbackNoto: [
+    // a variable system font: one face for its whole weight range
+    { local: ['Noto Sans Georgian Regular', 'NotoSansGeorgian-Regular'], fontWeight: '100 900', sizeAdjust: '98%', unicodeRange: range }
+  ]
+  // font_family.js: ['"Brand"', '"BrandFallback"', '"BrandFallbackNoto"', '"Helvetica Neue"']
+  ```
+
+  Read the names from the font file's name table (its full name and its PostScript name): a family name alone matches only on some browsers.
+- **An older framework** writes such a face with `src: ;`, a rule the browser drops: no request, no error, the family is skipped.
+
 ### Text that waits for its own face — `faceWait` (since smbls 3.14.865)
 
 A text drawn first in a fallback face and then again in its own face jumps: its width, line breaks and height change, and code that measured it measured the fallback. `faceWait` holds such text back until its own face is in.
